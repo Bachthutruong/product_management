@@ -1,36 +1,128 @@
 
+import { getProducts, deleteProduct } from '@/app/(app)/products/actions';
+import { AddProductForm } from '@/components/products/AddProductForm';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { PlusCircle } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { AlertTriangle, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { revalidatePath } from 'next/cache';
 
-export default function ProductsPage() {
+// Component to handle delete confirmation and action
+function DeleteProductButton({ productId, productName }: { productId: string, productName: string }) {
+  const handleDelete = async () => {
+    await deleteProduct(productId);
+    // Revalidation is handled by the server action, but if client-side state needs update, do it here or pass callback
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80">
+          <Trash2 className="h-4 w-4" />
+          <span className="sr-only">Delete {productName}</span>
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure you want to delete "{productName}"?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the product from your inventory.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <form action={handleDelete}>
+            <AlertDialogAction type="submit" className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </form>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+
+export default async function ProductsPage() {
+  const products = await getProducts();
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground">Products</h1>
-        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-          <PlusCircle className="mr-2 h-5 w-5" /> Add Product
-        </Button>
+        {/* The AddProductForm is now separate */}
       </div>
-      
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>Product List</CardTitle>
-          <CardDescription>Manage your product catalog.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Product table or grid will be displayed here...</p>
-          {/* Placeholder for product list/table */}
-          <div className="mt-4 p-4 border rounded-md bg-muted/50">
-            This is where the product data (e.g., table with products, images, stock levels, prices) will appear.
-            <ul>
-              <li>- Product Name, SKU, Category, Price, Stock, Expiration Date, etc.</li>
-              <li>- Actions: Edit, Delete (Admin only), View Details</li>
-              <li>- Filters and Search functionality</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-1">
+          <AddProductForm />
+        </div>
+        
+        <div className="lg:col-span-2">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Product List</CardTitle>
+              <CardDescription>Your current product catalog.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {products.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <AlertTriangle className="w-16 h-16 text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-semibold text-foreground">No Products Found</h3>
+                  <p className="text-muted-foreground">Add your first product using the form on the left.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-right">Stock</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((product) => (
+                      <TableRow key={product._id}>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell>{product.sku || 'N/A'}</TableCell>
+                        <TableCell>{product.category || 'N/A'}</TableCell>
+                        <TableCell className="text-right">${product.price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{product.stock}</TableCell>
+                        <TableCell className="text-center">
+                           <DeleteProductButton productId={product._id} productName={product.name} />
+                           {/* Edit button can be added here later */}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
+
