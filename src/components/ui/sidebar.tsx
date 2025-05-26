@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -156,14 +157,14 @@ const SidebarProvider = React.forwardRef<
 )
 SidebarProvider.displayName = "SidebarProvider"
 
-const Sidebar = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<"div"> & {
-    side?: "left" | "right"
-    variant?: "sidebar" | "floating" | "inset"
-    collapsible?: "offcanvas" | "icon" | "none"
-  }
->(
+interface SidebarProps extends React.ComponentProps<"div"> {
+  side?: "left" | "right";
+  variant?: "sidebar" | "floating" | "inset";
+  collapsible?: "offcanvas" | "icon" | "none";
+  defaultOpen?: boolean; // Explicitly define defaultOpen
+}
+
+const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
   (
     {
       side = "left",
@@ -171,7 +172,8 @@ const Sidebar = React.forwardRef<
       collapsible = "offcanvas",
       className,
       children,
-      ...props
+      defaultOpen, // Destructure defaultOpen
+      ...rest // Use ...rest for remaining props
     },
     ref
   ) => {
@@ -185,7 +187,7 @@ const Sidebar = React.forwardRef<
             className
           )}
           ref={ref}
-          {...props}
+          {...rest} // Spread rest (which doesn't include defaultOpen)
         >
           {children}
         </div>
@@ -194,7 +196,12 @@ const Sidebar = React.forwardRef<
 
     if (isMobile) {
       return (
-        <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+        <Sheet 
+          open={openMobile} 
+          onOpenChange={setOpenMobile} 
+          defaultOpen={defaultOpen} // Pass destructured defaultOpen to Sheet
+          {...rest} // Pass other div props to Sheet if applicable
+        >
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
@@ -220,6 +227,7 @@ const Sidebar = React.forwardRef<
         data-collapsible={state === "collapsed" ? collapsible : ""}
         data-variant={variant}
         data-side={side}
+        // Do not spread ...rest on this outer div unless intended for specific attributes
       >
         {/* This is what handles the sidebar gap on desktop */}
         <div
@@ -244,7 +252,7 @@ const Sidebar = React.forwardRef<
               : "group-data-[collapsible=icon]:w-[--sidebar-width-icon] group-data-[side=left]:border-r group-data-[side=right]:border-l",
             className
           )}
-          {...props}
+          {...rest} // Spread rest (which doesn't include defaultOpen)
         >
           <div
             data-sidebar="sidebar"
