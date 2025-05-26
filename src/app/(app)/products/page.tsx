@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageWarning } from "lucide-react";
+import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -161,7 +161,7 @@ export default function ProductsPage() {
             <CardContent>
               {products.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <PackageWarning className="w-16 h-16 text-muted-foreground mb-4" />
+                  <PackageX className="w-16 h-16 text-muted-foreground mb-4" />
                   <h3 className="text-xl font-semibold text-foreground">No Products Found</h3>
                   <p className="text-muted-foreground">Add your first product using the form.</p>
                 </div>
