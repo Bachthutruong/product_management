@@ -1,12 +1,13 @@
 
-'use client'; // Required for using hooks like useAuth, useState, useEffect
+'use client'; 
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getProducts, deleteProduct } from '@/app/(app)/products/actions';
 import type { Product } from '@/models/Product';
 import type { UserRole } from '@/models/User';
 import { useAuth } from '@/hooks/useAuth';
 import { AddProductForm } from '@/components/products/AddProductForm';
+import { EditProductForm } from '@/components/products/EditProductForm'; // Import EditProductForm
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -21,20 +22,19 @@ import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, Pac
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  DialogDescription as DialogNativeDescription, // Aliased
+  DialogHeader as DialogNativeHeader, // Aliased
+  DialogTitle as DialogNativeTitle, // Aliased
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription as AlertDialogNativeDescription, // Renamed
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as AlertDialogNativeTitle, 
+  AlertDialogTitle, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import Image from 'next/image';
@@ -58,7 +58,7 @@ function DeleteProductButton({
   const [isAlertOpen, setIsAlertOpen] = useState(false);
 
   if (userRole !== 'admin') {
-    return null; // Don't render button if user is not admin
+    return null; 
   }
 
   const handleDelete = async () => {
@@ -71,7 +71,7 @@ function DeleteProductButton({
     const result = await deleteProduct(productId, userRole);
     if (result.success) {
       toast({ title: "Product Deleted", description: `${productName} has been successfully deleted.` });
-      onProductDeleted(); // Callback to re-fetch products
+      onProductDeleted(); 
     } else {
       toast({ variant: "destructive", title: "Error Deleting Product", description: result.error });
     }
@@ -89,10 +89,10 @@ function DeleteProductButton({
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogNativeTitle>Are you sure you want to delete "{productName}"?</AlertDialogNativeTitle>
-          <AlertDialogNativeDescription>
+          <AlertDialogTitle>Are you sure you want to delete "{productName}"?</AlertDialogTitle>
+          <AlertDialogDescription>
             This action cannot be undone. This will permanently delete the product and its images.
-          </AlertDialogNativeDescription>
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
@@ -113,8 +113,10 @@ export default function ProductsPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
+  const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setIsLoading(true);
     try {
       const fetchedProducts = await getProducts();
@@ -125,24 +127,35 @@ export default function ProductsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    if (!authLoading) { // Only fetch if auth is resolved
+    if (!authLoading) { 
         fetchProducts();
     }
-  }, [authLoading]); // Re-fetch if authLoading changes (e.g., on initial load)
+  }, [authLoading, fetchProducts]);
 
   const handleProductAdded = () => {
-    fetchProducts(); // Re-fetch products when a new one is added
-    setIsAddProductDialogOpen(false); // Close the dialog
-  };
-  
-  const handleProductDeleted = () => {
-    fetchProducts(); // Re-fetch products when one is deleted
+    fetchProducts(); 
+    setIsAddProductDialogOpen(false); 
   };
 
-  if (authLoading || (isLoading && products.length === 0)) { // Show loader if auth is loading OR (products are loading AND no products are yet displayed)
+  const handleProductUpdated = () => {
+    fetchProducts();
+    setIsEditProductDialogOpen(false);
+    setEditingProduct(null);
+  }
+  
+  const handleProductDeleted = () => {
+    fetchProducts(); 
+  };
+
+  const openEditDialog = (product: Product) => {
+    setEditingProduct(product);
+    setIsEditProductDialogOpen(true);
+  };
+
+  if (authLoading || (isLoading && products.length === 0)) { 
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -154,7 +167,7 @@ export default function ProductsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground">Products</h1>
-        {user?._id && (
+        {user?.role === 'admin' && ( // Only show Add Product button to admins, can be adjusted
           <Dialog open={isAddProductDialogOpen} onOpenChange={setIsAddProductDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -162,16 +175,16 @@ export default function ProductsPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center text-2xl">
+              <DialogNativeHeader>
+                <DialogNativeTitle className="flex items-center text-2xl">
                   <PlusCircle className="mr-3 h-7 w-7 text-primary" />
                   Add New Product
-                </DialogTitle>
-                <DialogDescription>
+                </DialogNativeTitle>
+                <DialogNativeDescription>
                   Fill in product details, including images, unit, expiry, and stock alerts. Click "Add Product" when you're done.
-                </DialogDescription>
-              </DialogHeader>
-              <AddProductForm userId={user._id} onProductAdded={handleProductAdded} />
+                </DialogNativeDescription>
+              </DialogNativeHeader>
+              {user?._id && <AddProductForm userId={user._id} onProductAdded={handleProductAdded} />}
             </DialogContent>
           </Dialog>
         )}
@@ -183,7 +196,7 @@ export default function ProductsPage() {
           <CardDescription>Your current product catalog. Warnings for low stock & upcoming expiry.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && products.length === 0 ? ( // Show loader inside card only if truly loading initial set
+          {isLoading && products.length === 0 ? ( 
              <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
@@ -203,6 +216,7 @@ export default function ProductsPage() {
                     <TableHead>SKU</TableHead>
                     <TableHead>Unit</TableHead>
                     <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Cost</TableHead>
                     <TableHead className="text-right">Stock</TableHead>
                     <TableHead>Expiry</TableHead>
                     <TableHead>Alerts</TableHead>
@@ -216,7 +230,6 @@ export default function ProductsPage() {
                     if (product.expiryDate) {
                       const today = new Date();
                       const oneYearFromNow = addYears(today, 1);
-                      // Ensure expiryDate is treated as a Date object
                       const expiry = new Date(product.expiryDate);
                       
                       if (isBefore(expiry, today)) {
@@ -248,6 +261,7 @@ export default function ProductsPage() {
                         <TableCell>{product.sku || 'N/A'}</TableCell>
                         <TableCell>{product.unitOfMeasure || 'N/A'}</TableCell>
                         <TableCell className="text-right">${product.price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${(product.cost ?? 0).toFixed(2)}</TableCell>
                         <TableCell className="text-right">{product.stock}</TableCell>
                         <TableCell>
                           {product.expiryDate ? format(new Date(product.expiryDate), 'dd/MM/yy') : 'N/A'}
@@ -268,11 +282,18 @@ export default function ProductsPage() {
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex justify-center items-center space-x-1">
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={() => alert(`Edit product: ${product.name} - Not implemented`)}>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-muted-foreground hover:text-primary" 
+                                onClick={() => openEditDialog(product)}
+                                disabled={user?.role !== 'admin'}
+                                title={user?.role !== 'admin' ? "Only admins can edit" : `Edit ${product.name}`}
+                                >
                                 <Edit3 className="h-4 w-4" />
                                 <span className="sr-only">Edit {product.name}</span>
                             </Button>
-                            {user?.role && ( // Ensure user role is available
+                            {user?.role && ( 
                               <DeleteProductButton 
                                 productId={product._id} 
                                 productName={product.name} 
@@ -291,8 +312,34 @@ export default function ProductsPage() {
           )}
         </CardContent>
       </Card>
+
+      {editingProduct && user?.role === 'admin' && (
+        <Dialog open={isEditProductDialogOpen} onOpenChange={(isOpen) => {
+          setIsEditProductDialogOpen(isOpen);
+          if (!isOpen) setEditingProduct(null);
+        }}>
+          <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogNativeHeader>
+              <DialogNativeTitle className="flex items-center text-2xl">
+                <Edit3 className="mr-3 h-7 w-7 text-primary" />
+                Edit Product: {editingProduct.name}
+              </DialogNativeTitle>
+              <DialogNativeDescription>
+                Modify product details. Click "Save Changes" when you're done.
+              </DialogNativeDescription>
+            </DialogNativeHeader>
+            <EditProductForm
+                product={editingProduct}
+                userId={user._id}
+                onProductUpdated={handleProductUpdated}
+                onCancel={() => {
+                    setIsEditProductDialogOpen(false);
+                    setEditingProduct(null);
+                }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
-
-    
