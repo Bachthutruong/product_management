@@ -7,16 +7,26 @@ export const ProductImageSchema = z.object({
 });
 export type ProductImage = z.infer<typeof ProductImageSchema>;
 
+export const PriceHistoryEntrySchema = z.object({
+  price: z.number(),
+  changedAt: z.date(),
+  changedBy: z.string(), // User ID
+});
+export type PriceHistoryEntry = z.infer<typeof PriceHistoryEntrySchema>;
+
 export const ProductSchema = z.object({
   _id: z.any().optional(), // MongoDB ObjectId will be here
   name: z.string().min(1, { message: "Product name is required" }),
   sku: z.string().min(1, { message: "SKU is required" }).optional(),
   category: z.string().optional(),
+  unitOfMeasure: z.string().optional(),
   price: z.coerce.number().min(0, { message: "Price must be a positive number" }),
   stock: z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" }),
   description: z.string().optional(),
   images: z.array(ProductImageSchema).optional().default([]),
-  // Add other fields from user request like unitOfMeasure, expiryDate later
+  expiryDate: z.date().optional().nullable(),
+  lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
+  priceHistory: z.array(PriceHistoryEntrySchema).optional().default([]),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
 });
@@ -24,10 +34,20 @@ export const ProductSchema = z.object({
 export type Product = z.infer<typeof ProductSchema> & { _id: string };
 
 // Schema for validating form input (non-file fields)
-export const ProductFormInputSchema = ProductSchema.omit({ _id: true, createdAt: true, updatedAt: true, images: true });
+export const ProductFormInputSchema = ProductSchema.omit({ 
+  _id: true, 
+  createdAt: true, 
+  updatedAt: true, 
+  images: true,
+  priceHistory: true, // priceHistory is managed by actions
+});
 export type ProductFormInput = z.infer<typeof ProductFormInputSchema>;
 
 // Type for useForm in the component, includes FileList for images
-export type AddProductFormValues = ProductFormInput & {
+export type AddProductFormValues = Omit<ProductFormInput, 'expiryDate' | 'lowStockThreshold' | 'price'> & {
   images?: FileList | null;
+  expiryDate?: Date | null; // DatePicker might return Date or null
+  lowStockThreshold?: number | string; // Input might be string initially
+  price?: number | string; // Input might be string initially
 };
+

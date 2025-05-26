@@ -3,7 +3,8 @@
 
 import { revalidatePath } from 'next/cache';
 import clientPromise from '@/lib/mongodb';
-import { ProductSchema, type Product, type ProductFormInput, ProductFormInputSchema } from '@/models/Product';
+import { ProductSchema, type Product, type ProductFormInput, ProductFormInputSchema, PriceHistoryEntrySchema } from '@/models/Product';
+import type { UserRole } from '@/models/User';
 import { uploadImageToCloudinary, deleteImageFromCloudinary } from '@/lib/cloudinary';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
@@ -20,20 +21,32 @@ async function getDb() {
 export async function getProducts(): Promise<Product[]> {
   try {
     const db = await getDb();
-    const products = await db.collection<Product>(PRODUCTS_COLLECTION).find({}).sort({ createdAt: -1 }).toArray();
+    const productsFromDb = await db.collection(PRODUCTS_COLLECTION).find({}).sort({ createdAt: -1 }).toArray();
     
-    return products.map(product => ({
-      ...product,
-      _id: product._id.toString(),
-      images: product.images || [], // Ensure images is always an array
-      createdAt: product.createdAt ? new Date(product.createdAt) : undefined,
-      updatedAt: product.updatedAt ? new Date(product.updatedAt) : undefined,
-    }));
+    // Ensure all products conform to the schema, especially for optional fields
+    return productsFromDb.map(productDoc => {
+      const parsedProduct = ProductSchema.parse({
+        ...productDoc,
+        _id: productDoc._id.toString(),
+        images: productDoc.images || [],
+        priceHistory: productDoc.priceHistory || [],
+        expiryDate: productDoc.expiryDate ? new Date(productDoc.expiryDate) : null,
+        createdAt: productDoc.createdAt ? new Date(productDoc.createdAt) : undefined,
+        updatedAt: productDoc.updatedAt ? new Date(productDoc.updatedAt) : undefined,
+        lowStockThreshold: productDoc.lowStockThreshold ?? 0,
+      });
+      return parsedProduct as Product;
+    });
   } catch (error) {
     console.error('Failed to fetch products:', error);
     return [];
   }
 }
+
+const AddProductFormDataSchema = ProductFormInputSchema.extend({
+  changedByUserId: z.string().min(1),
+});
+
 
 export async function addProduct(
   formData: FormData
@@ -41,8 +54,11 @@ export async function addProduct(
   
   const rawFormData: Record<string, any> = {};
   formData.forEach((value, key) => {
-    if (key === 'price' || key === 'stock') {
-      rawFormData[key] = parseFloat(value as string);
+    if (key === 'price' || key === 'stock' || key === 'lowStockThreshold') {
+      const numValue = parseFloat(value as string);
+      rawFormData[key] = isNaN(numValue) ? undefined : numValue; // Handle potential NaN
+    } else if (key === 'expiryDate') {
+      rawFormData[key] = value ? new Date(value as string) : null;
     } else {
       rawFormData[key] = value;
     }
@@ -51,20 +67,20 @@ export async function addProduct(
   // Exclude files from Zod validation for now
   const { images: imageFiles, ...productDataFields } = rawFormData;
 
-  const validation = ProductFormInputSchema.safeParse(productDataFields);
+  const validation = AddProductFormDataSchema.safeParse(productDataFields);
 
   if (!validation.success) {
     return { success: false, error: "Validation failed", errors: validation.error.errors };
   }
 
-  const validatedData = validation.data;
+  const { changedByUserId, ...validatedData } = validation.data;
   const uploadedImages: { url: string; publicId: string }[] = [];
 
   try {
     const files = formData.getAll('images') as File[];
     if (files && files.length > 0) {
       for (const file of files) {
-        if (file.size > 0) { // Ensure file is not empty
+        if (file.size > 0) {
           const arrayBuffer = await file.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
           const result = await uploadImageToCloudinary(buffer, CLOUDINARY_PRODUCT_IMAGE_FOLDER);
@@ -74,20 +90,29 @@ export async function addProduct(
     }
 
     const db = await getDb();
+    
+    const initialPriceHistoryEntry = PriceHistoryEntrySchema.parse({
+      price: validatedData.price,
+      changedAt: new Date(),
+      changedBy: changedByUserId,
+    });
+
     const newProductData = {
       ...validatedData,
       images: uploadedImages,
+      priceHistory: [initialPriceHistoryEntry],
+      // Ensure numeric fields are correctly typed
+      price: Number(validatedData.price),
+      stock: Number(validatedData.stock),
+      lowStockThreshold: validatedData.lowStockThreshold !== undefined ? Number(validatedData.lowStockThreshold) : 0,
+      expiryDate: validatedData.expiryDate ? new Date(validatedData.expiryDate) : null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    // Make sure price and stock are numbers
-    newProductData.price = Number(newProductData.price);
-    newProductData.stock = Number(newProductData.stock);
     
     const result = await db.collection(PRODUCTS_COLLECTION).insertOne(newProductData);
 
     if (!result.insertedId) {
-      // If insertion fails, try to delete already uploaded images from Cloudinary
       for (const img of uploadedImages) {
         await deleteImageFromCloudinary(img.publicId);
       }
@@ -95,7 +120,7 @@ export async function addProduct(
     }
     
     const insertedProduct: Product = {
-        ...(newProductData as Omit<typeof newProductData, 'createdAt' | 'updatedAt'> & { createdAt: Date, updatedAt: Date}), // Type assertion
+        ...(newProductData as Omit<Product, '_id'>),
         _id: result.insertedId.toString(),
     };
 
@@ -103,7 +128,6 @@ export async function addProduct(
     return { success: true, product: insertedProduct };
   } catch (error: any) {
     console.error('Failed to add product:', error);
-    // If any error occurs after images are uploaded, try to delete them
     for (const img of uploadedImages) {
         try {
             await deleteImageFromCloudinary(img.publicId);
@@ -111,11 +135,17 @@ export async function addProduct(
             console.error('Failed to delete uploaded image after error:', deleteError);
         }
     }
+    if (error instanceof z.ZodError) {
+        return { success: false, error: "Data validation error after processing.", errors: error.errors };
+    }
     return { success: false, error: error.message || 'An unexpected error occurred while adding the product.' };
   }
 }
 
-export async function deleteProduct(id: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteProduct(id: string, userRole: UserRole): Promise<{ success: boolean; error?: string }> {
+  if (userRole !== 'admin') {
+    return { success: false, error: 'Permission denied. Only admins can delete products.' };
+  }
   if (!ObjectId.isValid(id)) {
     return { success: false, error: 'Invalid product ID format.' };
   }
@@ -127,7 +157,6 @@ export async function deleteProduct(id: string): Promise<{ success: boolean; err
       return { success: false, error: 'Product not found.' };
     }
 
-    // Delete images from Cloudinary first
     if (productToDelete.images && productToDelete.images.length > 0) {
       for (const image of productToDelete.images) {
         if (image.publicId) {
@@ -135,7 +164,6 @@ export async function deleteProduct(id: string): Promise<{ success: boolean; err
             await deleteImageFromCloudinary(image.publicId);
           } catch (cloudinaryError) {
             console.error(`Failed to delete image ${image.publicId} from Cloudinary:`, cloudinaryError);
-            // Optionally, decide if you want to proceed with DB deletion or return an error
           }
         }
       }
@@ -151,4 +179,21 @@ export async function deleteProduct(id: string): Promise<{ success: boolean; err
     console.error('Failed to delete product:', error);
     return { success: false, error: 'An unexpected error occurred.' };
   }
+}
+
+// Placeholder for updateProduct - to be implemented in a future step
+export async function updateProduct(
+  productId: string,
+  formData: FormData,
+  userId: string // For price history
+): Promise<{ success: boolean; product?: Product; error?: string; errors?: z.ZodIssue[] }> {
+  // TODO: Implement update logic
+  // - Fetch existing product
+  // - Validate FormData against a ProductUpdateSchema (similar to AddProductFormDataSchema)
+  // - Handle image uploads/deletions (more complex than add)
+  // - If price changes, add to priceHistory: { price: newPrice, changedAt: new Date(), changedBy: userId }
+  // - Update product in DB
+  // - Revalidate path
+  console.log('updateProduct called with:', productId, formData, userId);
+  return { success: false, error: "Update functionality not yet implemented." };
 }
