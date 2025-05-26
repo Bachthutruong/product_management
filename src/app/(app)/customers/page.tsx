@@ -2,6 +2,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link"; // Import Link
+import { useRouter } from "next/navigation"; // Import useRouter
 import { useAuth } from "@/hooks/useAuth";
 import { getCustomers, deleteCustomer } from "@/app/(app)/customers/actions";
 import type { Customer } from "@/models/Customer";
@@ -97,6 +99,7 @@ function DeleteCustomerButton({ customerId, customerName, onCustomerDeleted }: {
 export default function CustomersPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const router = useRouter(); // Initialize router
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
@@ -230,7 +233,7 @@ export default function CustomersPage() {
                                 variant="ghost" 
                                 size="icon" 
                                 className="text-muted-foreground hover:text-primary" 
-                                onClick={() => alert(`View orders for ${cust.name} - Not implemented`)}
+                                onClick={() => router.push(`/customers/${cust._id}/orders`)} // Navigate to customer orders page
                                 title={`View orders for ${cust.name}`}
                                 >
                                 <ListOrdered className="h-4 w-4" />

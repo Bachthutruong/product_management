@@ -208,6 +208,7 @@ export async function createOrder(
         revalidatePath('/orders');
         revalidatePath('/products'); 
         revalidatePath('/inventory'); 
+        revalidatePath(`/customers/${customerId}/orders`); // Revalidate specific customer orders page
         return { success: true, order: finalOrderResult };
     } else {
         // This case should ideally not be reached if transaction completes without error
@@ -223,16 +224,24 @@ export async function createOrder(
 }
 
 
-export async function getOrders(searchTerm?: string): Promise<Order[]> {
+export async function getOrders(filters?: { searchTerm?: string, customerId?: string }): Promise<Order[]> {
   try {
     const db = await getDb();
     const query: any = {};
-    if (searchTerm) {
+    if (filters?.searchTerm) {
       query.$or = [
-        { orderNumber: { $regex: searchTerm, $options: 'i' } },
-        { customerName: { $regex: searchTerm, $options: 'i' } },
+        { orderNumber: { $regex: filters.searchTerm, $options: 'i' } },
+        { customerName: { $regex: filters.searchTerm, $options: 'i' } },
       ];
     }
+    if (filters?.customerId) {
+      if (!ObjectId.isValid(filters.customerId)) {
+        console.error('Invalid customerId provided to getOrders:', filters.customerId);
+        return []; // Or throw an error
+      }
+      query.customerId = filters.customerId; // No need to wrap in new ObjectId() if schema stores as string
+    }
+
     const ordersFromDb = await db.collection(ORDERS_COLLECTION)
       .find(query)
       .sort({ orderDate: -1 }) 
@@ -277,6 +286,7 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
 
   const db = await getDb();
   const session = (await clientPromise).startSession();
+  let customerIdForRevalidation: string | undefined;
 
   try {
     await session.withTransaction(async () => {
@@ -284,6 +294,7 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
       if (!orderToDelete) {
         throw new Error('Order not found or already deleted.');
       }
+      customerIdForRevalidation = orderToDelete.customerId;
 
       // TODO: Implement stock reversal. This is critical for inventory accuracy.
       // For each item in orderToDelete.items:
@@ -302,6 +313,9 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
     });
 
     revalidatePath('/orders');
+    if (customerIdForRevalidation) {
+        revalidatePath(`/customers/${customerIdForRevalidation}/orders`);
+    }
     // Potentially revalidate products and inventory if stock reversal was implemented
     // revalidatePath('/products');
     // revalidatePath('/inventory');
@@ -314,3 +328,4 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
     await session.endSession();
   }
 }
+

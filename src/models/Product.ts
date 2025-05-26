@@ -34,21 +34,27 @@ export const ProductSchema = z.object({
 
 export type Product = z.infer<typeof ProductSchema> & { _id: string };
 
-// Schema for validating form input (non-file fields)
+// Schema for validating form input (non-file fields) for both add and edit.
+// The actual FileList for 'images' is handled by FormData processing.
 export const ProductFormInputSchema = ProductSchema.omit({ 
   _id: true, 
   createdAt: true, 
   updatedAt: true, 
-  images: true,
-  priceHistory: true, // priceHistory is managed by actions
+  images: true, // images field in schema is for stored image data, not FileList
+  priceHistory: true, 
 });
 export type ProductFormInput = z.infer<typeof ProductFormInputSchema>;
 
 // Type for useForm in the component, includes FileList for images
-export type AddProductFormValues = Omit<ProductFormInput, 'expiryDate' | 'lowStockThreshold' | 'price' | 'cost'> & {
-  images?: FileList | null;
-  expiryDate?: Date | null; // DatePicker might return Date or null
-  lowStockThreshold?: number | string; // Input might be string initially
-  price?: number | string; // Input might be string initially
-  cost?: number | string; // Input might be string initially
+// This type is primarily for the AddProductForm. EditProductForm might manage FileList slightly differently.
+export type AddProductFormValues = Omit<ProductFormInput, 'expiryDate' | 'lowStockThreshold' | 'price' | 'cost' | 'stock'> & {
+  images?: FileList | null; // For new image uploads
+  expiryDate?: Date | null; 
+  lowStockThreshold?: number | string; 
+  price?: number | string; 
+  cost?: number | string; 
+  stock?: number | string;
 };
+
+// Note: For EditProductForm, form values will align with EditProductFormValuesSchema in EditProductForm.tsx
+// to handle potential string inputs for numeric fields.
