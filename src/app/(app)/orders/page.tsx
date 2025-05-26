@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { getOrders } from '@/app/(app)/orders/actions'; // Assuming deleteOrder, updateOrder will be here
+import { getOrders, deleteOrder } from '@/app/(app)/orders/actions'; 
 import type { Order } from '@/models/Order';
 import { CreateOrderForm } from '@/components/orders/CreateOrderForm';
 
@@ -19,17 +19,91 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  DialogTitle as DialogNativeTitle, // Renamed to avoid conflict
+  DialogDescription as DialogNativeDescription, // Renamed to avoid conflict
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Loader2, Search, PlusCircle, ShoppingCart, PackageSearch, Edit3, Trash2, Printer } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+
+function DeleteOrderButton({ orderId, orderNumber, onOrderDeleted }: { orderId: string, orderNumber: string, onOrderDeleted: () => void }) {
+  const { toast } = useToast();
+  const { user } = useAuth(); // Assuming useAuth provides the current user's role
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+
+  const handleDelete = async () => {
+    if (!user || user.role !== 'admin') {
+      toast({ variant: "destructive", title: "Permission Denied", description: "Only admins can delete orders." });
+      setIsAlertOpen(false);
+      return;
+    }
+    setIsDeleting(true);
+    const result = await deleteOrder(orderId, user.role);
+    if (result.success) {
+      toast({
+        title: "Order Deleted",
+        description: `Order ${orderNumber} has been successfully deleted.`,
+      });
+      onOrderDeleted();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error Deleting Order",
+        description: result.error || "An unexpected error occurred.",
+      });
+    }
+    setIsDeleting(false);
+    setIsAlertOpen(false);
+  };
+
+  if (!user || user.role !== 'admin') {
+    return null; // Don't render if user is not admin
+  }
+
+  return (
+    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting}>
+          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          <span className="sr-only">Delete order {orderNumber}</span>
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure you want to delete order "{orderNumber}"?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the order.
+            Stock levels for items in this order will NOT be automatically restocked by this action.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setIsAlertOpen(false)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <Button onClick={handleDelete} variant="destructive" disabled={isDeleting}>
+            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            Delete Order
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 
 export default function OrdersPage() {
@@ -40,7 +114,6 @@ export default function OrdersPage() {
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOrderDialogOpen, setIsCreateOrderDialogOpen] = useState(false);
-  // TODO: State for edit/view dialog
 
   const fetchOrders = useCallback(async (term?: string) => {
     setIsLoadingOrders(true);
@@ -66,8 +139,8 @@ export default function OrdersPage() {
   }, [user, authLoading, fetchOrders, searchTerm]);
 
   const handleOrderCreated = () => {
-    fetchOrders(searchTerm); // Refresh list
-    setIsCreateOrderDialogOpen(false); // Close dialog
+    fetchOrders(searchTerm); 
+    setIsCreateOrderDialogOpen(false); 
   };
 
   if (authLoading) {
@@ -112,7 +185,7 @@ export default function OrdersPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Order List</CardTitle>
-          <CardDescription>Manage and track all customer orders. Edit, Delete, Print coming soon.</CardDescription>
+          <CardDescription>Manage and track all customer orders.</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingOrders && orders.length === 0 ? (
@@ -170,14 +243,11 @@ export default function OrdersPage() {
                       <TableCell className="text-center">
                         <div className="flex justify-center items-center space-x-1">
                             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" 
-                                onClick={() => alert(`View/Edit order: ${order.orderNumber} - Not implemented`)}>
+                                onClick={() => alert(`Edit order: ${order.orderNumber} - Not implemented`)}>
                                 <Edit3 className="h-4 w-4" />
                             </Button>
                             {user?.role === 'admin' && (
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" 
-                                    onClick={() => alert(`Delete order: ${order.orderNumber} - Not implemented`)}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
+                                <DeleteOrderButton orderId={order._id} orderNumber={order.orderNumber} onOrderDeleted={fetchOrders} />
                             )}
                              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" 
                                 onClick={() => alert(`Print order: ${order.orderNumber} - Not implemented`)}>

@@ -10,6 +10,7 @@ export const OrderLineItemSchema = z.object({
   productSku: z.string().optional(), // Denormalized
   quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
   unitPrice: z.coerce.number().min(0), // Price at the time of sale
+  cost: z.coerce.number().min(0).optional().default(0), // Cost of the item at time of sale, for profit calculation
   notes: z.string().optional().nullable(),
 });
 export type OrderLineItem = z.infer<typeof OrderLineItemSchema>;
@@ -55,6 +56,7 @@ export const CreateOrderFormSchema = z.object({
     unitPrice: z.coerce.number(), // Will be fetched, non-editable by user directly in line item
     productName: z.string(), // For display and reference
     productSku: z.string().optional(),
+    cost: z.coerce.number().optional().default(0), // Populated when product selected
     notes: z.string().optional().nullable(),
   })).min(1, "Order must have at least one item."),
   discountType: DiscountTypeSchema.optional().nullable(),

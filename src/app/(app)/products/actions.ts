@@ -57,6 +57,7 @@ export async function getProducts(filters?: { category?: string; searchTerm?: st
         createdAt: productDoc.createdAt ? new Date(productDoc.createdAt) : undefined,
         updatedAt: productDoc.updatedAt ? new Date(productDoc.updatedAt) : undefined,
         lowStockThreshold: productDoc.lowStockThreshold ?? 0, // Ensure default if missing
+        cost: productDoc.cost ?? 0, // Ensure default for cost if missing
       });
       return parsedProduct as Product; // Ensure the type is Product after parsing
     });
@@ -85,6 +86,7 @@ export async function getProductById(id: string): Promise<Product | null> {
       createdAt: productDoc.createdAt ? new Date(productDoc.createdAt) : undefined,
       updatedAt: productDoc.updatedAt ? new Date(productDoc.updatedAt) : undefined,
       lowStockThreshold: productDoc.lowStockThreshold ?? 0,
+      cost: productDoc.cost ?? 0,
     }) as Product;
   } catch (error) {
     console.error(`Failed to fetch product ${id}:`, error);
@@ -94,6 +96,7 @@ export async function getProductById(id: string): Promise<Product | null> {
 
 const AddProductFormDataSchema = ProductFormInputSchema.extend({
   changedByUserId: z.string().min(1),
+  cost: z.coerce.number().min(0).optional().default(0),
 });
 
 export async function addProduct(
@@ -102,9 +105,9 @@ export async function addProduct(
   
   const rawFormData: Record<string, any> = {};
   formData.forEach((value, key) => {
-    if (key === 'price' || key === 'stock' || key === 'lowStockThreshold') {
+    if (key === 'price' || key === 'stock' || key === 'lowStockThreshold' || key === 'cost') {
       const numValue = parseFloat(value as string);
-      rawFormData[key] = isNaN(numValue) ? (key === 'lowStockThreshold' ? 0 : undefined) : numValue;
+      rawFormData[key] = isNaN(numValue) ? (key === 'lowStockThreshold' || key === 'cost' ? 0 : undefined) : numValue;
     } else if (key === 'expiryDate') {
       rawFormData[key] = value && (value as string).trim() !== '' ? new Date(value as string) : null;
     } else if (key === 'images') {
@@ -157,6 +160,7 @@ export async function addProduct(
       images: uploadedImages,
       priceHistory: [initialPriceHistoryEntry],
       price: Number(validatedData.price),
+      cost: validatedData.cost !== undefined ? Number(validatedData.cost) : 0,
       stock: Number(validatedData.stock),
       lowStockThreshold: validatedData.lowStockThreshold !== undefined ? Number(validatedData.lowStockThreshold) : 0,
       expiryDate: validatedData.expiryDate ? new Date(validatedData.expiryDate) : null,
@@ -287,7 +291,7 @@ export async function updateProduct(
   formData.forEach((value, key) => {
     if (key.startsWith('imagesToDelete[')) { // e.g. imagesToDelete[0], imagesToDelete[1]
       imagesToDeletePublicIds.push(value as string);
-    } else if (key === 'price' || key === 'stock' || key === 'lowStockThreshold') {
+    } else if (key === 'price' || key === 'stock' || key === 'lowStockThreshold' || key === 'cost') {
       const numValue = parseFloat(value as string);
       rawFormData[key] = isNaN(numValue) ? undefined : numValue;
     } else if (key === 'expiryDate') {

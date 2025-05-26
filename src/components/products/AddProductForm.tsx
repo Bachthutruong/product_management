@@ -27,6 +27,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
   const form = useForm<AddProductFormValues>({
     resolver: zodResolver(ProductFormInputSchema.extend({
       price: z.union([z.string(), z.number()]).pipe(z.coerce.number().min(0, { message: "Price must be a positive number" })),
+      cost: z.union([z.string(), z.number()]).optional().pipe(z.coerce.number().min(0, { message: "Cost must be non-negative" }).default(0)),
       stock: z.union([z.string(), z.number()]).pipe(z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" })),
       lowStockThreshold: z.union([z.string(), z.number()]).optional().pipe(z.coerce.number().int().min(0).optional().default(0)),
       expiryDate: z.date().optional().nullable(),
@@ -37,6 +38,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
       category: '',
       unitOfMeasure: '',
       price: 0,
+      cost: 0,
       stock: 0,
       description: '',
       images: null,
@@ -95,10 +97,12 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
     formData.append('changedByUserId', userId); 
 
     if (data.price === 0 || (typeof data.price === 'string' && parseFloat(data.price) === 0) ) formData.set('price', '0');
+    if (data.cost === 0 || (typeof data.cost === 'string' && parseFloat(data.cost) === 0) ) formData.set('cost', '0');
     if (data.stock === 0 || (typeof data.stock === 'string' && parseInt(data.stock) === 0) ) formData.set('stock', '0');
     if (data.lowStockThreshold === 0 || (typeof data.lowStockThreshold === 'string' && parseInt(data.lowStockThreshold) === 0)) {
         formData.set('lowStockThreshold', '0');
     }
+
 
     try {
       const result = await addProduct(formData);
@@ -109,7 +113,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
         });
         form.reset({ 
           name: '', sku: '', category: '', unitOfMeasure: '',
-          price: 0, stock: 0, description: '', images: null,
+          price: 0, cost:0, stock: 0, description: '', images: null,
           expiryDate: null, lowStockThreshold: 0,
         });
         setImagePreviews([]);
@@ -185,7 +189,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                 )}
               />
             </div>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="price"
@@ -194,6 +198,21 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                     <FormLabel>Price</FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" placeholder="e.g., 19.99" {...field} 
+                       onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                       value={field.value ?? ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="cost"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cost</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="e.g., 10.50" {...field} 
                        onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
                        value={field.value ?? ""} />
                     </FormControl>
@@ -358,5 +377,3 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
     </Form>
   );
 }
-
-    

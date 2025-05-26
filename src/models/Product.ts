@@ -21,6 +21,7 @@ export const ProductSchema = z.object({
   category: z.string().optional(),
   unitOfMeasure: z.string().optional(),
   price: z.coerce.number().min(0, { message: "Price must be a positive number" }),
+  cost: z.coerce.number().min(0, { message: "Cost must be a non-negative number" }).optional().default(0), // Cost of the product
   stock: z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" }),
   description: z.string().optional(),
   images: z.array(ProductImageSchema).optional().default([]),
@@ -44,10 +45,10 @@ export const ProductFormInputSchema = ProductSchema.omit({
 export type ProductFormInput = z.infer<typeof ProductFormInputSchema>;
 
 // Type for useForm in the component, includes FileList for images
-export type AddProductFormValues = Omit<ProductFormInput, 'expiryDate' | 'lowStockThreshold' | 'price'> & {
+export type AddProductFormValues = Omit<ProductFormInput, 'expiryDate' | 'lowStockThreshold' | 'price' | 'cost'> & {
   images?: FileList | null;
   expiryDate?: Date | null; // DatePicker might return Date or null
   lowStockThreshold?: number | string; // Input might be string initially
   price?: number | string; // Input might be string initially
+  cost?: number | string; // Input might be string initially
 };
-

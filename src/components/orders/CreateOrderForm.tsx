@@ -40,7 +40,6 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [customerSearch, setCustomerSearch] = useState('');
-  const [productSearch, setProductSearch] = useState('');
   const [openCustomerPopover, setOpenCustomerPopover] = useState(false);
 
 
@@ -85,13 +84,13 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
 
   const handleAddProductLine = () => {
     if (products.length > 0) {
-      const firstProduct = products[0];
       append({ 
-        productId: '', // User must select
+        productId: '', 
         productName: '', 
         productSku: '',
         quantity: 1, 
-        unitPrice: 0, // Will be set on product selection
+        unitPrice: 0, 
+        cost: 0, // Will be set on product selection
         notes: '' 
       });
     } else {
@@ -108,8 +107,9 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
         productName: selectedProduct.name,
         productSku: selectedProduct.sku,
         unitPrice: selectedProduct.price,
+        cost: selectedProduct.cost || 0,
       });
-      form.trigger(`items.${lineIndex}.quantity`); // Trigger validation for quantity
+      form.trigger(`items.${lineIndex}.quantity`); 
     }
   };
 
@@ -158,10 +158,11 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
       customerId: data.customerId,
       items: data.items.map(item => ({
         productId: item.productId,
-        productName: item.productName, // Already set on product select
-        productSku: item.productSku,   // Already set on product select
+        productName: item.productName, 
+        productSku: item.productSku,   
         quantity: Number(item.quantity),
-        unitPrice: Number(item.unitPrice), // Already set on product select
+        unitPrice: Number(item.unitPrice),
+        cost: Number(item.cost || 0), // Ensure cost is passed
         notes: item.notes,
       })),
       discountType: data.discountType,
@@ -188,7 +189,6 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
         });
          if (result.errors) {
           console.error("Order creation Zod errors:", result.errors);
-          // Handle specific Zod errors if needed, e.g., form.setError(...)
         }
       }
     } catch (error) {
@@ -203,7 +203,6 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
   }
   
   const handleCustomerAdded = (newCustomer: Customer) => {
-    // Add to local state and set as selected
     setCustomers(prev => [...prev, newCustomer]);
     form.setValue('customerId', newCustomer._id);
     toast({title: "Customer Selected", description: `${newCustomer.name} is now selected for this order.`});

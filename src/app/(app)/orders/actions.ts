@@ -50,20 +50,22 @@ export async function createOrder(
   currentUser: AuthUser
 ): Promise<{ success: boolean; order?: Order; error?: string; errors?: z.ZodIssue[] }> {
   
-  // Pre-process items to ensure unitPrice is a number
+  // Pre-process items to ensure unitPrice and quantity are numbers
   const processedItems = data.items.map(item => ({
     ...item,
     unitPrice: Number(item.unitPrice),
-    quantity: Number(item.quantity)
+    quantity: Number(item.quantity),
+    cost: Number(item.cost || 0) // Ensure cost is a number
   }));
 
   const validation = CreateOrderInputSchema.extend({
-     items: z.array(OrderLineItemSchema.extend({ // Use OrderLineItemSchema for validation here
+     items: z.array(OrderLineItemSchema.extend({ 
       productId: z.string(),
       productName: z.string(),
       productSku: z.string().optional(),
       quantity: z.coerce.number().int().min(1),
       unitPrice: z.coerce.number().min(0),
+      cost: z.coerce.number().min(0).optional().default(0),
       notes: z.string().optional().nullable(),
     })).min(1),
   }).safeParse({ ...data, items: processedItems });
@@ -77,11 +79,13 @@ export async function createOrder(
   const { customerId, items, discountType, discountValue, shippingFee, notes } = validation.data;
 
   const db = await getDb();
-  const session = (await clientPromise).startSession(); // Use clientPromise to get the client
+  const session = (await clientPromise).startSession(); 
 
   try {
+    let finalOrderResult: Order | undefined;
+
     await session.withTransaction(async () => {
-      // 1. Fetch customer details (for denormalization)
+      // 1. Fetch customer details
       const customer = await db.collection('customers').findOne({ _id: new ObjectId(customerId) }, { session });
       if (!customer) {
         throw new Error('Customer not found.');
@@ -89,6 +93,7 @@ export async function createOrder(
 
       // 2. Process Products and Inventory
       let subtotal = 0;
+      let totalCostOfGoodsSold = 0;
       const orderLineItems: OrderLineItem[] = [];
       const inventoryMovements: Omit<InventoryMovement, '_id'>[] = [];
 
@@ -103,10 +108,6 @@ export async function createOrder(
 
         const stockBefore = product.stock;
         const stockAfter = product.stock - item.quantity;
-
-        // TODO: Implement FEFO (First-Expired, First-Out) logic here.
-        // This requires a more granular inventory model (e.g., batches with expiry dates).
-        // For now, we directly update the product's total stock.
         
         const productUpdateResult = await db.collection(PRODUCTS_COLLECTION).updateOne(
           { _id: new ObjectId(item.productId) },
@@ -119,6 +120,8 @@ export async function createOrder(
         
         const lineItemTotal = item.unitPrice * item.quantity;
         subtotal += lineItemTotal;
+        const lineItemCost = (product.cost || 0) * item.quantity; // Use product.cost from DB
+        totalCostOfGoodsSold += lineItemCost;
 
         orderLineItems.push({
           productId: product._id.toString(),
@@ -126,6 +129,7 @@ export async function createOrder(
           productSku: product.sku,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          cost: product.cost || 0, // Store the actual cost per unit at time of sale
           notes: item.notes,
         });
 
@@ -137,8 +141,7 @@ export async function createOrder(
           movementDate: new Date(),
           userId: currentUser._id,
           userName: currentUser.name,
-          // relatedOrderId will be set after order is inserted
-          notes: `Sale for order.`, // Placeholder, will update with order number
+          notes: `Sale for order.`, 
           stockBefore,
           stockAfter,
         }));
@@ -152,11 +155,12 @@ export async function createOrder(
         } else if (discountType === 'fixed') {
           discountAmountCalculated = discountValue;
         }
-        discountAmountCalculated = Math.max(0, Math.min(discountAmountCalculated, subtotal)); // Ensure discount is not negative or more than subtotal
+        discountAmountCalculated = Math.max(0, Math.min(discountAmountCalculated, subtotal));
       }
       
       const finalShippingFee = shippingFee !== undefined && shippingFee !== null ? shippingFee : 0;
       const totalAmount = subtotal - discountAmountCalculated + finalShippingFee;
+      const profit = totalAmount - totalCostOfGoodsSold;
 
       // 4. Create Order
       const orderNumber = await generateOrderNumber();
@@ -171,11 +175,13 @@ export async function createOrder(
         discountAmount: discountAmountCalculated,
         shippingFee: finalShippingFee,
         totalAmount,
-        status: 'pending', // Or 'completed' if payment is integrated
+        status: 'pending', 
         orderDate: new Date(),
         notes: notes || undefined,
         createdByUserId: currentUser._id,
         createdByName: currentUser.name,
+        costOfGoodsSold: totalCostOfGoodsSold,
+        profit: profit,
       };
 
       const result = await db.collection(ORDERS_COLLECTION).insertOne({ ...newOrderData, createdAt: new Date(), updatedAt: new Date() }, { session });
@@ -184,36 +190,32 @@ export async function createOrder(
       }
       const insertedOrderId = result.insertedId.toString();
 
-      // Update inventory movements with order ID and notes
       for (const movement of inventoryMovements) {
         movement.relatedOrderId = insertedOrderId;
         movement.notes = `Sale for order ${orderNumber}.`;
       }
       await db.collection(INVENTORY_MOVEMENTS_COLLECTION).insertMany(inventoryMovements, { session });
       
-      // The transaction will commit here if all successful
-      const finalOrder = OrderSchema.parse({
+      finalOrderResult = OrderSchema.parse({
         ...newOrderData,
         _id: insertedOrderId,
-        createdAt: newOrderData.orderDate, // Assuming orderDate is createdAt for new orders
+        createdAt: newOrderData.orderDate, 
         updatedAt: newOrderData.orderDate,
       }) as Order;
-
-      revalidatePath('/orders');
-      revalidatePath('/products'); // Stock levels changed
-      revalidatePath('/inventory'); // New movements
-      
-      // This return won't be directly used due to transaction, but structure for non-transactional if needed
-      return { success: true, order: finalOrder }; 
     });
-    // If execution reaches here, the transaction was successful.
-    // We need to fetch the order again if we want to return it, as variables inside transaction are scoped.
-    // For simplicity, we'll just return success. The client can re-fetch.
-    return { success: true };
+    
+    if (finalOrderResult) {
+        revalidatePath('/orders');
+        revalidatePath('/products'); 
+        revalidatePath('/inventory'); 
+        return { success: true, order: finalOrderResult };
+    } else {
+        // This case should ideally not be reached if transaction completes without error
+        return { success: false, error: "Order creation completed but failed to retrieve final order details." };
+    }
 
   } catch (error: any) {
     console.error('Failed to create order:', error);
-    // Session will be automatically aborted on error by withTransaction
     return { success: false, error: error.message || 'An unexpected error occurred.' };
   } finally {
     await session.endSession();
@@ -226,7 +228,6 @@ export async function getOrders(searchTerm?: string): Promise<Order[]> {
     const db = await getDb();
     const query: any = {};
     if (searchTerm) {
-      // Example: Search by order number or customer name
       query.$or = [
         { orderNumber: { $regex: searchTerm, $options: 'i' } },
         { customerName: { $regex: searchTerm, $options: 'i' } },
@@ -234,8 +235,8 @@ export async function getOrders(searchTerm?: string): Promise<Order[]> {
     }
     const ordersFromDb = await db.collection(ORDERS_COLLECTION)
       .find(query)
-      .sort({ orderDate: -1 }) // Show newest first
-      .limit(100) // Basic pagination
+      .sort({ orderDate: -1 }) 
+      .limit(100) 
       .toArray();
     
     return ordersFromDb.map(orderDoc => OrderSchema.parse({
@@ -251,28 +252,65 @@ export async function getOrders(searchTerm?: string): Promise<Order[]> {
   }
 }
 
-// Placeholder for updateOrder
+
 export async function updateOrder(
   orderId: string,
-  data: Partial<CreateOrderInput>, // Use a more specific update schema later
+  data: Partial<CreateOrderInput>, 
   currentUser: AuthUser
 ): Promise<{ success: boolean; order?: Order; error?: string; errors?: z.ZodIssue[] }> {
   // TODO: Implement update logic
   // - Consider stock adjustments if items/quantities change. This is complex.
-  // - Re-calculate totals.
+  // - Re-calculate totals, COGS, profit.
   // - Log changes.
   console.log('updateOrder called with:', orderId, data, currentUser);
   return { success: false, error: "Order update not yet implemented." };
 }
 
-// Placeholder for deleteOrder
+
 export async function deleteOrder(orderId: string, userRole: string): Promise<{ success: boolean; error?: string }> {
   if (userRole !== 'admin') {
     return { success: false, error: 'Permission denied. Only admins can delete orders.' };
   }
-  // TODO: Implement delete logic
-  // - Consider if stock should be returned to inventory.
-  // - Or, mark order as "cancelled" instead of hard delete.
-  console.log('deleteOrder called with:', orderId, userRole);
-  return { success: false, error: "Order deletion not yet implemented." };
+  if (!ObjectId.isValid(orderId)) {
+    return { success: false, error: 'Invalid order ID format.' };
+  }
+
+  const db = await getDb();
+  const session = (await clientPromise).startSession();
+
+  try {
+    await session.withTransaction(async () => {
+      const orderToDelete = await db.collection<Order>(ORDERS_COLLECTION).findOne({ _id: new ObjectId(orderId) }, { session });
+      if (!orderToDelete) {
+        throw new Error('Order not found or already deleted.');
+      }
+
+      // TODO: Implement stock reversal. This is critical for inventory accuracy.
+      // For each item in orderToDelete.items:
+      //   1. Find the product.
+      //   2. Increase product.stock by item.quantity.
+      //   3. Create an InventoryMovement record (e.g., type 'order-cancellation-restock' or 'adjustment-add').
+      // This needs to be done carefully, potentially within the transaction.
+      // For now, we are simplifying and not reversing stock.
+      console.warn(`Order ${orderId} deleted. Stock reversal for items not yet implemented.`);
+
+      const result = await db.collection(ORDERS_COLLECTION).deleteOne({ _id: new ObjectId(orderId) }, { session });
+      if (result.deletedCount === 0) {
+        // Should have been caught by findOne, but good as a safeguard
+        throw new Error('Order not found during delete operation or already deleted.');
+      }
+    });
+
+    revalidatePath('/orders');
+    // Potentially revalidate products and inventory if stock reversal was implemented
+    // revalidatePath('/products');
+    // revalidatePath('/inventory');
+    return { success: true };
+
+  } catch (error: any) {
+    console.error(`Failed to delete order ${orderId}:`, error);
+    return { success: false, error: error.message || 'An unexpected error occurred while deleting the order.' };
+  } finally {
+    await session.endSession();
+  }
 }
