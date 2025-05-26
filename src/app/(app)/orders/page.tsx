@@ -32,9 +32,9 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle as DialogNativeTitle, // Renamed to avoid conflict
-  DialogDescription as DialogNativeDescription, // Renamed to avoid conflict
+  DialogHeader as DialogNativeHeader, // Aliased to avoid conflict if DialogHeader is used for other things
+  DialogTitle as DialogNativeTitle, 
+  DialogDescription as DialogNativeDescription, 
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Loader2, Search, PlusCircle, ShoppingCart, PackageSearch, Edit3, Trash2, Printer } from "lucide-react";
@@ -175,7 +175,15 @@ export default function OrdersPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-y-auto">
-              {/* DialogHeader is part of CreateOrderForm now */}
+              <DialogNativeHeader>
+                <DialogNativeTitle className="flex items-center text-2xl"> 
+                  <ShoppingCart className="mr-3 h-7 w-7 text-primary" />
+                  Create New Order
+                </DialogNativeTitle>
+                <DialogNativeDescription>
+                  Select customer, add products, and specify discounts or shipping.
+                </DialogNativeDescription>
+              </DialogNativeHeader>
               <CreateOrderForm onOrderCreated={handleOrderCreated} closeDialog={() => setIsCreateOrderDialogOpen(false)} />
             </DialogContent>
           </Dialog>

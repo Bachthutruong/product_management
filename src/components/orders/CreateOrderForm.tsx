@@ -214,17 +214,8 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <CardHeader className="px-0 pt-0">
-          <CardTitle className="flex items-center text-2xl">
-            <ShoppingCart className="mr-3 h-7 w-7 text-primary" />
-            Create New Order
-          </CardTitle>
-          <CardDescription>
-            Select customer, add products, and specify discounts or shipping.
-          </CardDescription>
-        </CardHeader>
-
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+        {/* Removed CardHeader from here, it's now handled by the Dialog in OrdersPage */}
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
           {/* Customer Selection */}
           <FormField
