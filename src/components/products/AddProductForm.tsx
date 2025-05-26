@@ -4,6 +4,7 @@
 import { useState, type ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod'; // Added missing import
 import { ProductFormInputSchema, type AddProductFormValues } from '@/models/Product'; // Updated type
 import { addProduct } from '@/app/(app)/products/actions';
 import { Button } from '@/components/ui/button';
