@@ -4,16 +4,15 @@
 import { useState, type ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod'; // Added missing import
-import { ProductFormInputSchema, type AddProductFormValues } from '@/models/Product'; // Updated type
+import { z } from 'zod';
+import { ProductFormInputSchema, type AddProductFormValues } from '@/models/Product';
 import { addProduct } from '@/app/(app)/products/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Image as ImageIcon, XCircle, CalendarIcon } from 'lucide-react';
+import { Loader2, PlusCircle, XCircle, CalendarIcon } from 'lucide-react';
 import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -27,7 +26,6 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
 
   const form = useForm<AddProductFormValues>({
     resolver: zodResolver(ProductFormInputSchema.extend({
-      // Allow string for initial input, coerce in schema or action
       price: z.union([z.string(), z.number()]).pipe(z.coerce.number().min(0, { message: "Price must be a positive number" })),
       stock: z.union([z.string(), z.number()]).pipe(z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" })),
       lowStockThreshold: z.union([z.string(), z.number()]).optional().pipe(z.coerce.number().int().min(0).optional().default(0)),
@@ -94,15 +92,13 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
       }
     });
     
-    formData.append('changedByUserId', userId); // For price history
+    formData.append('changedByUserId', userId); 
 
-    // Ensure numeric fields are sent correctly, even if 0
     if (data.price === 0 || (typeof data.price === 'string' && parseFloat(data.price) === 0) ) formData.set('price', '0');
     if (data.stock === 0 || (typeof data.stock === 'string' && parseInt(data.stock) === 0) ) formData.set('stock', '0');
     if (data.lowStockThreshold === 0 || (typeof data.lowStockThreshold === 'string' && parseInt(data.lowStockThreshold) === 0)) {
         formData.set('lowStockThreshold', '0');
     }
-
 
     try {
       const result = await addProduct(formData);
@@ -111,14 +107,13 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
           title: 'Product Added',
           description: `${result.product.name} has been successfully added.`,
         });
-        form.reset({ // Reset form to default or specific values
+        form.reset({ 
           name: '', sku: '', category: '', unitOfMeasure: '',
           price: 0, stock: 0, description: '', images: null,
           expiryDate: null, lowStockThreshold: 0,
         });
         setImagePreviews([]);
-        // Clear file input visually if possible, though it's tricky
-        const fileInput = document.getElementById('images') as HTMLInputElement;
+        const fileInput = document.getElementById('images-input-in-dialog') as HTMLInputElement; // Use a unique ID
         if (fileInput) fileInput.value = '';
 
         if (onProductAdded) onProductAdded();
@@ -146,17 +141,9 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
   }
 
   return (
-    <Card className="w-full shadow-lg">
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <PlusCircle className="mr-2 h-6 w-6 text-primary" />
-          Add New Product
-        </CardTitle>
-        <CardDescription>Fill in product details, including images, unit, expiry, and stock alerts.</CardDescription>
-      </CardHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-4">
+        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2"> {/* Scrollable content area */}
             <FormField
               control={form.control}
               name="name"
@@ -288,10 +275,10 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
-                          selected={field.value || undefined} // Pass undefined if null
-                          onSelect={(date) => field.onChange(date || null)} // Handle undefined from onSelect
+                          selected={field.value || undefined} 
+                          onSelect={(date) => field.onChange(date || null)} 
                           disabled={(date) =>
-                            date < new Date(new Date().setHours(0,0,0,0)) // Disable past dates
+                            date < new Date(new Date().setHours(0,0,0,0)) 
                           }
                           initialFocus
                         />
@@ -315,10 +302,10 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
               )}
             />
             <FormItem>
-              <FormLabel htmlFor="images">Product Images</FormLabel>
+              <FormLabel htmlFor="images-input-in-dialog">Product Images</FormLabel>
               <FormControl>
                 <Input 
-                  id="images"
+                  id="images-input-in-dialog" // Unique ID for file input
                   type="file" 
                   multiple 
                   accept="image/*" 
@@ -355,20 +342,21 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                 ))}
               </div>
             )}
+        </div>
 
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" disabled={isSubmitting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-              {isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <PlusCircle className="mr-2 h-4 w-4" />
-              )}
-              Add Product
-            </Button>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
+        <div className="pt-4"> {/* Add padding-top for separation if needed */}
+          <Button type="submit" disabled={isSubmitting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <PlusCircle className="mr-2 h-4 w-4" />
+            )}
+            Add Product
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }
+
+    

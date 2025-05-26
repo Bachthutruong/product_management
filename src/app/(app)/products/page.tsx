@@ -31,10 +31,10 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
+  AlertDialogDescription as AlertDialogNativeDescription, // Renamed
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as AlertDialogNativeTitle, // Renamed to avoid conflict
+  AlertDialogTitle as AlertDialogNativeTitle, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import Image from 'next/image';
@@ -90,9 +90,9 @@ function DeleteProductButton({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogNativeTitle>Are you sure you want to delete "{productName}"?</AlertDialogNativeTitle>
-          <AlertDialogDescription>
+          <AlertDialogNativeDescription>
             This action cannot be undone. This will permanently delete the product and its images.
-          </AlertDialogDescription>
+          </AlertDialogNativeDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
@@ -162,7 +162,15 @@ export default function ProductsPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
-              {/* The AddProductForm component includes its own CardHeader with title and description */}
+              <DialogHeader>
+                <DialogTitle className="flex items-center text-2xl">
+                  <PlusCircle className="mr-3 h-7 w-7 text-primary" />
+                  Add New Product
+                </DialogTitle>
+                <DialogDescription>
+                  Fill in product details, including images, unit, expiry, and stock alerts. Click "Add Product" when you're done.
+                </DialogDescription>
+              </DialogHeader>
               <AddProductForm userId={user._id} onProductAdded={handleProductAdded} />
             </DialogContent>
           </Dialog>
@@ -204,7 +212,6 @@ export default function ProductsPage() {
                 <TableBody>
                   {products.map((product) => {
                     const isLowStock = product.lowStockThreshold !== undefined && product.stock < product.lowStockThreshold;
-                    let isExpiringSoon = false;
                     let expiryWarningText = '';
                     if (product.expiryDate) {
                       const today = new Date();
@@ -287,3 +294,5 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+    
