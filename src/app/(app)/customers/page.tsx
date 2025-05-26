@@ -28,7 +28,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
-import { Loader2, Search, ShieldAlert, Trash2, UserPlus, UserX, Edit3 } from "lucide-react";
+import { EditCustomerDialog } from "@/components/customers/EditCustomerDialog";
+import { Loader2, Search, Trash2, UserPlus, UserX, Edit3, ListOrdered } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
@@ -100,8 +101,9 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  // TODO: State for edit dialog
-  // const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [isEditDialogVisible, setIsEditDialogVisible] = useState(false);
+
 
   const fetchCustomers = useCallback(async (term?: string) => {
     setIsLoadingCustomers(true);
@@ -121,10 +123,21 @@ export default function CustomersPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!authLoading) { // Fetch customers once auth state is resolved
+    if (!authLoading) { 
       fetchCustomers(searchTerm);
     }
   }, [user, authLoading, fetchCustomers, searchTerm]);
+
+  const handleEditCustomer = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setIsEditDialogVisible(true);
+  };
+
+  const handleCustomerUpdated = () => {
+    fetchCustomers(searchTerm); // Refresh list after update
+    setIsEditDialogVisible(false);
+    setEditingCustomer(null);
+  };
 
 
   if (authLoading) {
@@ -135,10 +148,7 @@ export default function CustomersPage() {
     );
   }
   
-  // For this page, any authenticated user can view, but only admin can delete/edit
-  // We can add specific role checks for actions later if needed for viewing restriction.
-
-  const filteredCustomers = customers; // Server-side filtering is now done via fetchCustomers(searchTerm)
+  const filteredCustomers = customers; 
 
   return (
     <div className="space-y-6">
@@ -164,7 +174,7 @@ export default function CustomersPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Customer Directory</CardTitle>
-          <CardDescription>View and manage your customer information. Edit functionality will be added soon.</CardDescription>
+          <CardDescription>View and manage your customer information.</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingCustomers && customers.length === 0 ? (
@@ -202,9 +212,13 @@ export default function CustomersPage() {
                       <TableCell>{cust.createdAt ? format(new Date(cust.createdAt), 'dd/MM/yyyy') : 'N/A'}</TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center items-center space-x-1">
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" 
-                                onClick={() => alert(`Edit customer: ${cust.name} - Not implemented`)}
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-muted-foreground hover:text-primary" 
+                                onClick={() => handleEditCustomer(cust)}
                                 disabled={user?.role !== 'admin'}
+                                title={user?.role !== 'admin' ? "Only admins can edit" : `Edit ${cust.name}`}
                                 >
                                 <Edit3 className="h-4 w-4" />
                                 <span className="sr-only">Edit {cust.name}</span>
@@ -212,7 +226,16 @@ export default function CustomersPage() {
                             {user?.role === 'admin' && (
                                 <DeleteCustomerButton customerId={cust._id} customerName={cust.name} onCustomerDeleted={() => fetchCustomers(searchTerm)} />
                             )}
-                            {/* Button to view customer orders - future enhancement */}
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-muted-foreground hover:text-primary" 
+                                onClick={() => alert(`View orders for ${cust.name} - Not implemented`)}
+                                title={`View orders for ${cust.name}`}
+                                >
+                                <ListOrdered className="h-4 w-4" />
+                                <span className="sr-only">View orders for {cust.name}</span>
+                            </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -223,8 +246,15 @@ export default function CustomersPage() {
           )}
         </CardContent>
       </Card>
-      {/* Placeholder for EditCustomerDialog */}
+      
+      {editingCustomer && isEditDialogVisible && (
+        <EditCustomerDialog
+          customer={editingCustomer}
+          isOpen={isEditDialogVisible}
+          onOpenChange={setIsEditDialogVisible}
+          onCustomerUpdated={handleCustomerUpdated}
+        />
+      )}
     </div>
   );
 }
-

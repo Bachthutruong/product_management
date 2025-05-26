@@ -53,9 +53,6 @@ export async function addCustomer(data: CreateCustomerInput): Promise<{ success:
 
   try {
     const db = await getDb();
-    // Optional: Check for existing customer by phone or email if they must be unique
-    // For now, allowing duplicates for simplicity
-
     const newCustomerDbData = {
       name,
       email: email || null,
@@ -76,7 +73,7 @@ export async function addCustomer(data: CreateCustomerInput): Promise<{ success:
     }) as Customer;
 
     revalidatePath('/customers');
-    revalidatePath('/orders'); // In case customer list is used in order creation
+    revalidatePath('/orders'); 
     return { success: true, customer: insertedCustomer };
   } catch (error) {
     console.error('Failed to add customer:', error);
@@ -93,8 +90,6 @@ export async function deleteCustomer(id: string, userRole: string): Promise<{ su
   }
   try {
     const db = await getDb();
-    // Optional: Check if customer has orders before deleting, or handle cascading deletes/archiving.
-    // For now, direct delete.
     const result = await db.collection(CUSTOMERS_COLLECTION).deleteOne({ _id: new ObjectId(id) });
     if (result.deletedCount === 0) {
       return { success: false, error: 'Customer not found or already deleted.' };
@@ -108,17 +103,14 @@ export async function deleteCustomer(id: string, userRole: string): Promise<{ su
 }
 
 
-// Placeholder for updateCustomer
 export async function updateCustomer(
   customerId: string,
   data: Partial<CreateCustomerInput>
 ): Promise<{ success: boolean; customer?: Customer; error?: string; errors?: z.ZodIssue[] }> {
-  console.log('updateCustomer called with:', customerId, data);
    if (!ObjectId.isValid(customerId)) {
     return { success: false, error: 'Invalid customer ID format.' };
   }
 
-  // Validate only the fields that are present
   const partialSchema = CreateCustomerInputSchema.partial();
   const validation = partialSchema.safeParse(data);
 
@@ -126,17 +118,37 @@ export async function updateCustomer(
     return { success: false, error: "Validation failed", errors: validation.error.errors };
   }
   
+  // Ensure no empty strings are passed for fields that should be unset/null if empty
+  const updatePayload: Record<string, any> = {};
+  for (const [key, value] of Object.entries(validation.data)) {
+    if (value === '' && (key === 'email' || key === 'phone' || key === 'address')) {
+      updatePayload[key] = null;
+    } else if (value !== undefined) { // only include defined values
+      updatePayload[key] = value;
+    }
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    // No actual data to update, maybe just return success or the original customer
+     const existingCustomer = await getCustomerById(customerId);
+     if (existingCustomer) {
+        return { success: true, customer: existingCustomer };
+     }
+     return { success: false, error: 'No data provided for update and customer not found.' };
+  }
+
+
   try {
     const db = await getDb();
-    const updateData = { ...validation.data, updatedAt: new Date() };
+    const updateDataWithTimestamp = { ...updatePayload, updatedAt: new Date() };
 
     const result = await db.collection(CUSTOMERS_COLLECTION).findOneAndUpdate(
       { _id: new ObjectId(customerId) },
-      { $set: updateData },
+      { $set: updateDataWithTimestamp },
       { returnDocument: 'after' }
     );
 
-    if (!result) { // Changed from !result.value to !result for MongoDB v5+ driver
+    if (!result) { 
       return { success: false, error: 'Customer not found or failed to update.' };
     }
     
@@ -146,12 +158,15 @@ export async function updateCustomer(
     }) as Customer;
 
     revalidatePath('/customers');
-    revalidatePath(`/customers/${customerId}`); // If there's a customer detail page
-    revalidatePath('/orders'); // If customer details are denormalized in orders list
+    revalidatePath(`/customers/${customerId}`); 
+    revalidatePath('/orders'); 
 
     return { success: true, customer: updatedCustomer };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to update customer:', error);
+     if (error instanceof z.ZodError) {
+      return { success: false, error: "Data validation error during update processing.", errors: error.errors };
+    }
     return { success: false, error: 'An unexpected error occurred while updating the customer.' };
   }
 }
