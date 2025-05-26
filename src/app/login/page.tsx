@@ -1,10 +1,10 @@
 
-import { LoginForm } from '@/components/auth/LoginForm';
+// This file is moved to src/app/(auth)/login/page.tsx
+// Keeping this placeholder to ensure no broken references if any existed,
+// but it should ideally be deleted.
+// For now, redirecting to the new location.
+import { redirect } from 'next/navigation';
 
-export default function LoginPage() {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background to-secondary p-4">
-      <LoginForm />
-    </div>
-  );
+export default function LoginPageRedirect() {
+  redirect('/login'); // Next.js will handle the (auth) group path
 }

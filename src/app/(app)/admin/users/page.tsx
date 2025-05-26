@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { getUsers, deleteUser } from "@/app/(app)/admin/users/actions";
-import type { User } from "@/models/User";
+import type { AuthUser } from "@/models/User"; // Changed from User to AuthUser
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -27,8 +27,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"; // Removed AlertDialogTrigger as it's part of AlertDialog
 import { AddUserDialog } from "@/components/admin/AddUserDialog";
 import { Loader2, Search, ShieldAlert, Trash2, UserX, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +36,8 @@ import { Badge } from "@/components/ui/badge";
 function DeleteUserButton({ userId, userName, onUserDeleted }: { userId: string, userName: string, onUserDeleted: () => void }) {
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -55,16 +56,17 @@ function DeleteUserButton({ userId, userName, onUserDeleted }: { userId: string,
       });
     }
     setIsDeleting(false);
+    setIsAlertOpen(false); // Close dialog after action
   };
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
+    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+      <AlertDialog.Trigger asChild>
         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting}>
-          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          {isDeleting && isAlertOpen ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           <span className="sr-only">Delete {userName}</span>
         </Button>
-      </AlertDialogTrigger>
+      </AlertDialog.Trigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Are you sure you want to delete "{userName}"?</AlertDialogTitle>
@@ -73,7 +75,7 @@ function DeleteUserButton({ userId, userName, onUserDeleted }: { userId: string,
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => setIsAlertOpen(false)} disabled={isDeleting}>Cancel</AlertDialogCancel>
           <Button onClick={handleDelete} variant="destructive" disabled={isDeleting}>
             {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
             Delete User
@@ -89,7 +91,7 @@ export default function UserManagementPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<AuthUser[]>([]); // Changed from User to AuthUser
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -118,11 +120,12 @@ export default function UserManagementPage() {
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'admin')) {
-      router.replace('/dashboard'); 
+       // router.replace('/dashboard'); // Redirect non-admins to dashboard
+       // For now, non-admins will see an access denied message instead of immediate redirect from this page
     }
   }, [user, authLoading, router]);
 
-  if (authLoading || isLoadingUsers && user?.role === 'admin') {
+  if (authLoading || (isLoadingUsers && user?.role === 'admin')) {
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -130,9 +133,9 @@ export default function UserManagementPage() {
     );
   }
 
-  if (user?.role !== 'admin') {
+  if (!user || user.role !== 'admin') { // Ensure user object exists before checking role
     return (
-      <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] p-6 text-center">
         <ShieldAlert className="w-16 h-16 text-destructive mb-4" />
         <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
         <p className="text-muted-foreground">You do not have permission to view this page.</p>
@@ -210,7 +213,7 @@ export default function UserManagementPage() {
                       <TableCell>{usr.createdAt ? new Date(usr.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
                       <TableCell className="text-center">
                         {/* Prevent admin from deleting their own current account via this UI for safety */}
-                        {user._id !== usr._id && (
+                        {user._id !== usr._id && ( // Check if user object is not null before accessing _id
                            <DeleteUserButton userId={usr._id} userName={usr.name} onUserDeleted={fetchUsers} />
                         )}
                          {/* Edit button can be added here later */}

@@ -4,18 +4,11 @@
 import type { ReactNode } from 'react';
 import { createContext, useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-
-export type UserRole = 'admin' | 'employee';
-
-interface User {
-  email: string;
-  role: UserRole;
-  name: string;
-}
+import type { AuthUser } from '@/models/User'; // Updated to use AuthUser
 
 interface AuthContextType {
-  user: User | null;
-  login: (email: string, role: UserRole) => void;
+  user: AuthUser | null;
+  login: (userData: AuthUser) => void; // Now takes AuthUser object
   logout: () => void;
   loading: boolean;
 }
@@ -27,7 +20,7 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -45,11 +38,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setLoading(false);
   }, []);
 
-  const login = useCallback((email: string, role: UserRole) => {
-    // In a real app, you'd validate credentials against a backend.
-    // For simulation, we'll just set the user.
-    const name = email.split('@')[0] || 'User';
-    const userData = { email, role, name: name.charAt(0).toUpperCase() + name.slice(1) };
+  // This login function is now just for setting the client-side context
+  // after successful authentication via server action.
+  const login = useCallback((userData: AuthUser) => {
     setUser(userData);
     localStorage.setItem('stockpilot-user', JSON.stringify(userData));
     router.push('/dashboard');
@@ -58,14 +49,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('stockpilot-user');
-    router.push('/login');
+    router.push('/login'); // Path will resolve to (auth)/login
   }, [router]);
 
   useEffect(() => {
-    if (!loading && !user && pathname !== '/login') {
-      router.push('/login');
+    // Check if current path is part of the auth group or general app
+    const isAuthPath = pathname.startsWith('/login') || pathname.startsWith('/register'); // Add other auth paths if needed
+
+    if (!loading && !user && !isAuthPath) {
+      router.push('/login'); // Path will resolve to (auth)/login
     }
-    if (!loading && user && pathname === '/login') {
+    if (!loading && user && isAuthPath) {
       router.push('/dashboard');
     }
   }, [user, loading, pathname, router]);

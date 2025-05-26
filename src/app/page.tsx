@@ -15,7 +15,7 @@ export default function HomePage() {
       if (user) {
         router.replace('/dashboard');
       } else {
-        router.replace('/login');
+        router.replace('/login'); // Updated from /login to /(auth)/login implicitly by router if (auth) is a route group
       }
     }
   }, [user, loading, router]);

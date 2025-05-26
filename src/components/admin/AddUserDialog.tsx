@@ -4,11 +4,10 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CreateUserSchema, type CreateUserInput, UserRoleSchema, UserRole } from '@/models/User';
+import { CreateUserSchema, type CreateUserInput, UserRoleSchema } from '@/models/User';
 import { addUser } from '@/app/(app)/admin/users/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -27,11 +26,12 @@ import {
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Eye, EyeOff } from 'lucide-react';
 
 export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<CreateUserInput>({
@@ -39,6 +39,7 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
     defaultValues: {
       name: '',
       email: '',
+      password: '',
       role: 'employee',
     },
   });
@@ -53,8 +54,9 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
           description: `${result.user.name} has been successfully added as an ${result.user.role}.`,
         });
         form.reset();
+        setShowPassword(false);
         setIsOpen(false);
-        if (onUserAdded) onUserAdded(); // This could trigger a re-fetch or revalidation on the parent page
+        if (onUserAdded) onUserAdded();
       } else {
         toast({
           variant: 'destructive',
@@ -63,7 +65,7 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
         });
          if (result.errors) {
           result.errors.forEach((err) => {
-            form.setError(err.path.join('.') as keyof CreateUserInput, { message: err.message });
+            form.setError(err.path[0] as keyof CreateUserInput, { message: err.message });
           });
         }
       }
@@ -79,7 +81,7 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) form.reset(); setShowPassword(false);}}>
       <DialogTrigger asChild>
         <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0">
           <PlusCircle className="mr-2 h-5 w-5" /> Add Employee
@@ -89,7 +91,7 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
         <DialogHeader>
           <DialogTitle>Add New Employee</DialogTitle>
           <DialogDescription>
-            Fill in the details for the new employee account.
+            Fill in the details for the new employee account. They can change their password later.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -101,7 +103,7 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
                 <FormItem>
                   <FormLabel>Full Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="John Doe" {...field} />
+                    <Input placeholder="John Doe" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -114,8 +116,40 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
                 <FormItem>
                   <FormLabel>Email Address</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="employee@example.com" {...field} />
+                    <Input type="email" placeholder="employee@example.com" {...field} disabled={isSubmitting} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Initial Password</FormLabel>
+                   <div className="relative">
+                    <FormControl>
+                        <Input 
+                          type={showPassword ? "text" : "password"} 
+                          placeholder="••••••••" 
+                          {...field} 
+                          disabled={isSubmitting}
+                        />
+                    </FormControl>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute inset-y-0 right-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        disabled={isSubmitting}
+                        tabIndex={-1}
+                    >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </Button>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -126,7 +160,7 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a role" />
@@ -144,7 +178,6 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
                 </FormItem>
               )}
             />
-            {/* Password field is omitted for admin creation; could be set via a reset link or default mechanism */}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>
                 Cancel
