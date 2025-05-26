@@ -29,3 +29,11 @@ export const RecordStockInInputSchema = z.object({
   userId: z.string(), // Will be passed from the authenticated user session
 });
 export type RecordStockInInput = z.infer<typeof RecordStockInInputSchema>;
+
+export const RecordStockAdjustmentInputSchema = z.object({
+  productId: z.string().min(1, "Product selection is required"),
+  quantityChange: z.coerce.number().int().refine(val => val !== 0, "Quantity change cannot be zero"),
+  reason: z.string().min(1, "Reason is required"),
+  notes: z.string().optional().nullable(),
+});
+export type RecordStockAdjustmentInput = z.infer<typeof RecordStockAdjustmentInputSchema>;
