@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { StockInForm } from '@/components/inventory/StockInForm';
+import { StockAdjustmentForm } from '@/components/inventory/StockAdjustmentForm'; // Import the new form
 import { getInventoryMovements } from '@/app/(app)/inventory/actions';
 import type { InventoryMovement } from '@/models/InventoryMovement';
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpFromLine, History, Loader2, PackageSearch } from "lucide-react";
+import { ArrowUpFromLine, History, Loader2, PackageSearch, Edit } from "lucide-react"; // Added Edit icon
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -42,8 +43,8 @@ export default function InventoryPage() {
     fetchHistory();
   }, [fetchHistory]);
 
-  const handleStockInRecorded = () => {
-    fetchHistory(); // Refresh history after new stock-in
+  const handleStockOperationRecorded = () => {
+    fetchHistory(); // Refresh history after new stock-in or adjustment
   };
 
   return (
@@ -55,34 +56,31 @@ export default function InventoryPage() {
       
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-1">
-          <StockInForm onStockInRecorded={handleStockInRecorded} />
+          <StockInForm onStockInRecorded={handleStockOperationRecorded} />
         </div>
 
-        <div className="md:col-span-2">
-          <Card className="shadow-lg">
+        <div className="md:col-span-1">
+          {/* Replaced placeholder with the new StockAdjustmentForm */}
+          <StockAdjustmentForm onStockAdjusted={handleStockOperationRecorded} />
+        </div>
+        
+        <div className="md:col-span-1">
+          {/* Placeholder for future functionality, e.g. Stock Transfer Form */}
+           <Card className="shadow-lg h-full">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <ArrowUpFromLine className="mr-2 h-6 w-6 text-red-500" />
-                Stock Out / Adjustments
+                Future Actions
               </CardTitle>
-              <CardDescription>Record stock removal or other adjustments (not sales orders).</CardDescription>
+              <CardDescription>Other inventory actions like transfers might go here.</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">Form for manual stock adjustments will be here...</p>
-              {/* Placeholder for Stock Out/Adjustment form */}
-              <div className="mt-4 p-4 border rounded-md bg-muted/50 space-y-2">
-                <p>Select Product, Enter Quantity, Reason for adjustment.</p>
-                <Button className="bg-red-600 hover:bg-red-700 text-white" disabled>
-                  Record Stock Adjustment
-                </Button>
-                <p className="text-xs text-muted-foreground">This functionality will be implemented soon.</p>
-              </div>
+              <p className="text-muted-foreground">This space is reserved for additional inventory operations.</p>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      <Card className="shadow-lg">
+      <Card className="shadow-lg md:col-span-3"> {/* Ensure history table takes full width below forms */}
         <CardHeader>
           <CardTitle className="flex items-center">
             <History className="mr-2 h-6 w-6 text-primary" />
@@ -99,7 +97,7 @@ export default function InventoryPage() {
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-foreground">No Inventory Movements Yet</h3>
-              <p className="text-muted-foreground">Stock in some items to see history here.</p>
+              <p className="text-muted-foreground">Stock in some items or make adjustments to see history here.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -109,12 +107,12 @@ export default function InventoryPage() {
                     <TableHead>Date</TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Qty Change</TableHead>
                     <TableHead className="text-right">Stock Before</TableHead>
                     <TableHead className="text-right">Stock After</TableHead>
                     <TableHead>Batch Expiry</TableHead>
                     <TableHead>User</TableHead>
-                    <TableHead>Notes</TableHead>
+                    <TableHead>Notes/Reason</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -132,14 +130,16 @@ export default function InventoryPage() {
                         className={
                             move.type === 'stock-in' ? 'bg-green-100 text-green-800 border-green-300' :
                             move.type === 'sale' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                            move.type.startsWith('adjustment-remove') || move.type === 'stock-out' ? 'bg-red-100 text-red-800 border-red-300' :
-                            move.type.startsWith('adjustment-add') ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : ''
+                            move.type === 'adjustment-remove' || move.type === 'stock-out' ? 'bg-red-100 text-red-800 border-red-300' :
+                            move.type === 'adjustment-add' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : ''
                         }
                         >
                           {move.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">{move.quantity > 0 ? `+${move.quantity}`: move.quantity}</TableCell>
+                      <TableCell className={`text-right font-medium ${move.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {move.quantity > 0 ? `+${move.quantity}`: move.quantity}
+                      </TableCell>
                       <TableCell className="text-right">{move.stockBefore}</TableCell>
                       <TableCell className="text-right">{move.stockAfter}</TableCell>
                       <TableCell>{move.batchExpiryDate ? format(new Date(move.batchExpiryDate), 'dd/MM/yy') : 'N/A'}</TableCell>

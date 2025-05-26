@@ -110,6 +110,7 @@ export async function recordStockIn(
 
     revalidatePath('/inventory');
     revalidatePath('/products');
+    revalidatePath('/dashboard');
     return { success: true, movement: insertedMovement };
 
   } catch (error: any) {
@@ -161,6 +162,10 @@ export async function recordStockAdjustment(
   }
   const { productId, quantityChange, reason, notes } = validation.data;
 
+  if (quantityChange === 0) {
+    return { success: false, error: "Quantity change cannot be zero." };
+  }
+
   const db = await getDb();
   const productObjectId = new ObjectId(productId);
   const product = await db.collection<Product>(PRODUCTS_COLLECTION).findOne({ _id: productObjectId });
@@ -173,7 +178,7 @@ export async function recordStockAdjustment(
   const stockAfter = stockBefore + quantityChange;
 
   if (stockAfter < 0) {
-    return { success: false, error: `Adjustment would result in negative stock (${stockAfter}). Current stock: ${stockBefore}.` };
+    return { success: false, error: `Adjustment would result in negative stock (${stockAfter}). Current stock: ${stockBefore}. Change: ${quantityChange}` };
   }
   
   // TODO: Add transaction support here if MongoDB version allows and it's critical
@@ -200,12 +205,14 @@ export async function recordStockAdjustment(
       notes: `${reason}${notes ? ` - ${notes}` : ''}`,
       stockBefore,
       stockAfter,
+      batchExpiryDate: null, // Adjustments typically don't have batch expiry, unless for specific scenarios
     };
 
     const movementResult = await db.collection(INVENTORY_MOVEMENTS_COLLECTION).insertOne(movementData);
     if (!movementResult.insertedId) {
       // Rollback product stock update if possible (or log critical error)
       console.error(`Critical: Failed to log stock adjustment for product ${productId} after stock was updated.`);
+      // Consider attempting to revert product stock if this fails in a real transactional system
       return { success: false, error: 'Failed to log stock adjustment after updating stock. Data inconsistency possible.' };
     }
     
@@ -217,6 +224,7 @@ export async function recordStockAdjustment(
 
     revalidatePath('/inventory');
     revalidatePath('/products');
+    revalidatePath('/dashboard');
     return { success: true, movement: insertedMovement };
 
   } catch (error: any) {
@@ -227,3 +235,4 @@ export async function recordStockAdjustment(
     return { success: false, error: error.message || 'An unexpected error occurred during stock adjustment.' };
   }
 }
+
