@@ -1,3 +1,4 @@
+
 {
   "name": "nextn",
   "version": "0.1.0",
@@ -40,7 +41,7 @@
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cloudinary": "^2.0.0",
+    "cloudinary": "^2.2.0",
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",
     "firebase": "^11.8.1",
@@ -49,7 +50,6 @@
     "mongodb": "^6.8.0",
     "next": "15.2.3",
     "next-cloudinary": "^6.8.0",
-    "patch-package": "^8.0.0",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
