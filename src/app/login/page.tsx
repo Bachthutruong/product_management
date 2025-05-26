@@ -1,10 +1,8 @@
+// This file's content has been moved to /src/app/(auth)/login/page.tsx.
+// This file is kept to avoid breaking any potential references but no longer
+// exports a page component to prevent routing conflicts.
+// Ideally, this file (src/app/login/page.tsx) should be deleted.
 
-// This file is moved to src/app/(auth)/login/page.tsx
-// Keeping this placeholder to ensure no broken references if any existed,
-// but it should ideally be deleted.
-// For now, redirecting to the new location.
-import { redirect } from 'next/navigation';
+export const message = "This is a placeholder file. The actual login page is at /src/app/(auth)/login/page.tsx.";
 
-export default function LoginPageRedirect() {
-  redirect('/login'); // Next.js will handle the (auth) group path
-}
+// Intentionally not exporting a default React component.
