@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2, ImageOff } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,13 +23,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { revalidatePath } from 'next/cache';
+import Image from 'next/image';
 
 // Component to handle delete confirmation and action
 function DeleteProductButton({ productId, productName }: { productId: string, productName: string }) {
   const handleDelete = async () => {
+    // The server action will handle revalidation.
     await deleteProduct(productId);
-    // Revalidation is handled by the server action, but if client-side state needs update, do it here or pass callback
   };
 
   return (
@@ -44,7 +44,7 @@ function DeleteProductButton({ productId, productName }: { productId: string, pr
         <AlertDialogHeader>
           <AlertDialogTitle>Are you sure you want to delete "{productName}"?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the product from your inventory.
+            This action cannot be undone. This will permanently delete the product and its images from your inventory.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -68,7 +68,6 @@ export default async function ProductsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground">Products</h1>
-        {/* The AddProductForm is now separate */}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -93,6 +92,7 @@ export default async function ProductsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[80px]">Image</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Category</TableHead>
@@ -104,6 +104,22 @@ export default async function ProductsPage() {
                   <TableBody>
                     {products.map((product) => (
                       <TableRow key={product._id}>
+                        <TableCell>
+                          {product.images && product.images.length > 0 && product.images[0].url ? (
+                            <Image 
+                              src={product.images[0].url} 
+                              alt={product.name} 
+                              width={64} 
+                              height={64} 
+                              className="rounded-md object-cover aspect-square"
+                              data-ai-hint="product item"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
+                              <ImageOff className="w-8 h-8 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{product.name}</TableCell>
                         <TableCell>{product.sku || 'N/A'}</TableCell>
                         <TableCell>{product.category || 'N/A'}</TableCell>
@@ -125,4 +141,3 @@ export default async function ProductsPage() {
     </div>
   );
 }
-
