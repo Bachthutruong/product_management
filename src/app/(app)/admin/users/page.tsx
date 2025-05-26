@@ -27,7 +27,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Removed AlertDialogTrigger as it's part of AlertDialog
+  AlertDialogTrigger, // Added AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 import { AddUserDialog } from "@/components/admin/AddUserDialog";
 import { Loader2, Search, ShieldAlert, Trash2, UserX, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -61,12 +62,12 @@ function DeleteUserButton({ userId, userName, onUserDeleted }: { userId: string,
 
   return (
     <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-      <AlertDialog.Trigger asChild>
+      <AlertDialogTrigger asChild>
         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting}>
           {isDeleting && isAlertOpen ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           <span className="sr-only">Delete {userName}</span>
         </Button>
-      </AlertDialog.Trigger>
+      </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Are you sure you want to delete "{userName}"?</AlertDialogTitle>
