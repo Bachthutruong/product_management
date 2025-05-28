@@ -3,8 +3,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { getOrders, deleteOrder } from '@/app/(app)/orders/actions'; 
-import type { Order } from '@/models/Order';
+import { getOrders, deleteOrder, updateOrderStatus } from '@/app/(app)/orders/actions'; 
+import type { Order, OrderStatus } from '@/models/Order';
 import { CreateOrderForm } from '@/components/orders/CreateOrderForm';
 
 import { Button } from "@/components/ui/button";
@@ -36,10 +36,84 @@ import {
   DialogDescription as DialogNativeDescription, 
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Loader2, Search, PlusCircle, ShoppingCart, PackageSearch, Edit3, Trash2, Printer } from "lucide-react";
+import { Loader2, Search, PlusCircle, ShoppingCart, PackageSearch, Edit3, Trash2, Printer, CheckCircle, Truck, ThumbsUp } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+
+interface OrderStatusActionButtonProps {
+  order: Order;
+  onStatusUpdated: () => void;
+}
+
+function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionButtonProps) {
+  const { toast } = useToast();
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  const handleUpdateStatus = async (newStatus: OrderStatus) => {
+    setIsUpdatingStatus(true);
+    const result = await updateOrderStatus(order._id, newStatus);
+    if (result.success) {
+      toast({
+        title: "Order Status Updated",
+        description: `Order ${order.orderNumber} status changed to ${newStatus}.`,
+      });
+      onStatusUpdated();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error Updating Status",
+        description: result.error || "An unexpected error occurred.",
+      });
+    }
+    setIsUpdatingStatus(false);
+  };
+
+  if (order.status === 'pending' || order.status === 'processing') {
+    return (
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={() => handleUpdateStatus('shipped')} 
+        disabled={isUpdatingStatus}
+        className="text-xs bg-blue-500 hover:bg-blue-600 text-white"
+      >
+        {isUpdatingStatus ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Truck className="mr-1 h-3 w-3" />}
+        Mark as Shipped
+      </Button>
+    );
+  }
+  if (order.status === 'shipped') {
+    return (
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={() => handleUpdateStatus('delivered')} 
+        disabled={isUpdatingStatus}
+        className="text-xs bg-green-500 hover:bg-green-600 text-white"
+      >
+        {isUpdatingStatus ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle className="mr-1 h-3 w-3" />}
+        Mark as Delivered
+      </Button>
+    );
+  }
+   if (order.status === 'delivered') { // Assuming "hoàn thành" means completed after delivery
+    return (
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={() => handleUpdateStatus('completed')} 
+        disabled={isUpdatingStatus}
+        className="text-xs bg-teal-500 hover:bg-teal-600 text-white"
+      >
+        {isUpdatingStatus ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <ThumbsUp className="mr-1 h-3 w-3" />}
+        Mark as Completed
+      </Button>
+    );
+  }
+  return null; // No action for other statuses like 'completed', 'cancelled'
+}
+
 
 function DeleteOrderButton({ orderId, orderNumber, onOrderDeleted }: { orderId: string, orderNumber: string, onOrderDeleted: () => void }) {
   const { toast } = useToast();
@@ -58,7 +132,7 @@ function DeleteOrderButton({ orderId, orderNumber, onOrderDeleted }: { orderId: 
     if (result.success) {
       toast({
         title: "Order Deleted",
-        description: `Order ${orderNumber} has been successfully deleted.`,
+        description: `Order ${orderNumber} has been successfully deleted. Stock levels NOT automatically restocked.`,
       });
       onOrderDeleted();
     } else {
@@ -137,9 +211,9 @@ export default function OrdersPage() {
     }
   }, [user, authLoading, fetchOrders, searchTerm]);
 
-  const handleOrderCreated = () => {
+  const handleOrderCreatedOrUpdated = () => {
     fetchOrders(searchTerm); 
-    setIsCreateOrderDialogOpen(false); 
+    setIsCreateOrderDialogOpen(false); // Assuming this is for create, edit dialog would have its own state
   };
 
   if (authLoading) {
@@ -183,7 +257,7 @@ export default function OrdersPage() {
                   Select customer, add products, and specify discounts or shipping.
                 </DialogNativeDescription>
               </DialogNativeHeader>
-              <CreateOrderForm onOrderCreated={handleOrderCreated} closeDialog={() => setIsCreateOrderDialogOpen(false)} />
+              <CreateOrderForm onOrderCreated={handleOrderCreatedOrUpdated} closeDialog={() => setIsCreateOrderDialogOpen(false)} />
             </DialogContent>
           </Dialog>
         </div>
@@ -222,7 +296,12 @@ export default function OrdersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orders.map((order) => (
+                  {orders.map((order) => {
+                    const isEmployee = user?.role === 'employee';
+                    const canEmployeeEdit = isEmployee && (order.status === 'pending' || order.status === 'processing');
+                    const isEditDisabledForEmployee = isEmployee && !canEmployeeEdit;
+
+                    return (
                     <TableRow key={order._id}>
                       <TableCell className="font-medium">{order.orderNumber}</TableCell>
                       <TableCell>{order.customerName}</TableCell>
@@ -233,10 +312,11 @@ export default function OrdersPage() {
                           variant={order.status === 'completed' || order.status === 'delivered' ? 'default' : 
                                    order.status === 'cancelled' ? 'destructive' : 'secondary'}
                           className={
-                            order.status === 'completed' || order.status === 'delivered' ? 'bg-green-100 text-green-800 border-green-300' :
-                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                            order.status === 'processing' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                            order.status === 'shipped' ? 'bg-purple-100 text-purple-800 border-purple-300' : ''
+                            order.status === 'completed' ? 'bg-green-600 text-white border-green-700' :
+                            order.status === 'delivered' ? 'bg-emerald-500 text-white border-emerald-600' :
+                            order.status === 'pending' ? 'bg-yellow-400 text-yellow-900 border-yellow-500' :
+                            order.status === 'processing' ? 'bg-blue-400 text-blue-900 border-blue-500' :
+                            order.status === 'shipped' ? 'bg-purple-500 text-white border-purple-600' : ''
                           }
                         >
                           {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
@@ -248,25 +328,37 @@ export default function OrdersPage() {
                         </TableCell>
                       )}
                       <TableCell className="text-center">
-                        <div className="flex justify-center items-center space-x-1">
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" 
-                                onClick={() => alert(`Edit order: ${order.orderNumber} - Edit order functionality is complex (involving stock reconciliation, COGS recalculation, etc.) and will be implemented in a future update.`)}>
+                        <div className="flex flex-col sm:flex-row justify-center items-center space-y-1 sm:space-y-0 sm:space-x-1">
+                            <OrderStatusActionButton order={order} onStatusUpdated={handleOrderCreatedOrUpdated} />
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-muted-foreground hover:text-primary" 
+                                onClick={() => alert(`Edit order: ${order.orderNumber} - Edit order functionality is complex (involving stock reconciliation, COGS recalculation, etc.) and will be implemented in a future update.`)}
+                                disabled={isEditDisabledForEmployee}
+                                title={isEditDisabledForEmployee ? `Cannot edit order in '${order.status}' status` : `Edit order ${order.orderNumber}`}
+                                >
                                 <Edit3 className="h-4 w-4" />
                                 <span className="sr-only">Edit order {order.orderNumber}</span>
                             </Button>
-                            {/* Delete button is admin-only */}
                             {user?.role === 'admin' && (
-                                <DeleteOrderButton orderId={order._id} orderNumber={order.orderNumber} onOrderDeleted={fetchOrders} />
+                                <DeleteOrderButton orderId={order._id} orderNumber={order.orderNumber} onOrderDeleted={handleOrderCreatedOrUpdated} />
                             )}
-                             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" 
-                                onClick={() => alert(`Print order: ${order.orderNumber} - Print functionality (e.g., print-friendly view or PDF) will be implemented later.`)}>
+                             <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-muted-foreground hover:text-primary" 
+                                onClick={() => alert(`Print order: ${order.orderNumber} - Print functionality (e.g., print-friendly view or PDF) will be implemented later.`)}
+                                title={`Print order ${order.orderNumber}`}
+                                >
                                 <Printer className="h-4 w-4" />
                                 <span className="sr-only">Print order {order.orderNumber}</span>
                             </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );
+                })}
                 </TableBody>
               </Table>
             </div>
@@ -276,3 +368,4 @@ export default function OrdersPage() {
     </div>
   );
 }
+

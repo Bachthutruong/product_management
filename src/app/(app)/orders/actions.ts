@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import { OrderSchema, type Order, type CreateOrderInput, CreateOrderInputSchema, OrderLineItemSchema, type OrderLineItem } from '@/models/Order';
+import { OrderSchema, type Order, type CreateOrderInput, CreateOrderInputSchema, OrderLineItemSchema, type OrderLineItem, OrderStatusSchema, type OrderStatus } from '@/models/Order';
 import type { Product } from '@/models/Product';
 import { InventoryMovementSchema, type InventoryMovement } from '@/models/InventoryMovement';
 import type { AuthUser } from '@/models/User';
@@ -209,6 +209,7 @@ export async function createOrder(
         revalidatePath('/products'); 
         revalidatePath('/inventory'); 
         revalidatePath(`/customers/${customerId}/orders`); // Revalidate specific customer orders page
+        revalidatePath('/dashboard');
         return { success: true, order: finalOrderResult };
     } else {
         // This case should ideally not be reached if transaction completes without error
@@ -261,18 +262,84 @@ export async function getOrders(filters?: { searchTerm?: string, customerId?: st
   }
 }
 
+export async function updateOrderStatus(
+  orderId: string,
+  newStatus: OrderStatus
+): Promise<{ success: boolean; order?: Order; error?: string }> {
+  if (!ObjectId.isValid(orderId)) {
+    return { success: false, error: 'Invalid order ID format.' };
+  }
+  
+  try {
+    OrderStatusSchema.parse(newStatus); // Validate the new status
+  } catch (error) {
+    return { success: false, error: 'Invalid status value provided.' };
+  }
+
+  const db = await getDb();
+  try {
+    const order = await db.collection<Order>(ORDERS_COLLECTION).findOne({ _id: new ObjectId(orderId) });
+    if (!order) {
+      return { success: false, error: 'Order not found.' };
+    }
+
+    // Basic validation for status transitions (can be expanded)
+    if (newStatus === 'shipped' && !['pending', 'processing'].includes(order.status)) {
+        return { success: false, error: `Order cannot be marked as shipped from '${order.status}' status.`};
+    }
+    if (newStatus === 'delivered' && order.status !== 'shipped') {
+        return { success: false, error: `Order cannot be marked as delivered if not yet shipped.`};
+    }
+     if (newStatus === 'completed' && order.status !== 'delivered') { // If 'completed' is a separate step after 'delivered'
+        return { success: false, error: `Order cannot be marked as completed if not yet delivered.`};
+    }
+
+
+    const result = await db.collection(ORDERS_COLLECTION).findOneAndUpdate(
+      { _id: new ObjectId(orderId) },
+      { $set: { status: newStatus, updatedAt: new Date() } },
+      { returnDocument: 'after' }
+    );
+
+    if (!result) {
+      return { success: false, error: 'Failed to update order status or order not found.' };
+    }
+    
+    const updatedOrder = OrderSchema.parse({
+        ...result,
+        _id: result._id.toString(),
+    }) as Order;
+
+    revalidatePath('/orders');
+    if (order.customerId) {
+        revalidatePath(`/customers/${order.customerId}/orders`);
+    }
+    revalidatePath('/dashboard');
+    return { success: true, order: updatedOrder };
+  } catch (error: any) {
+    console.error(`Failed to update status for order ${orderId}:`, error);
+    if (error instanceof z.ZodError) {
+      return { success: false, error: "Data validation error during status update.", errors: error.errors };
+    }
+    return { success: false, error: 'An unexpected error occurred while updating order status.' };
+  }
+}
+
 
 export async function updateOrder(
   orderId: string,
   data: Partial<CreateOrderInput>, 
   currentUser: AuthUser
 ): Promise<{ success: boolean; order?: Order; error?: string; errors?: z.ZodIssue[] }> {
-  // TODO: Implement update logic
-  // - Consider stock adjustments if items/quantities change. This is complex.
+  // TODO: Implement full update logic
+  // - Fetch the original order to check current status before allowing edits, especially for non-admins.
+  // - Consider stock adjustments if items/quantities change. This is complex and might require
+  //   reversing old inventory movements and creating new ones.
   // - Re-calculate totals, COGS, profit.
-  // - Log changes.
+  // - Log changes or create an audit trail for order modifications.
+  // - This action should also validate user permissions (e.g., employee cannot edit completed orders).
   console.log('updateOrder called with:', orderId, data, currentUser);
-  return { success: false, error: "Order update not yet implemented." };
+  return { success: false, error: "Order update not yet implemented. This is a complex feature requiring careful stock and financial reconciliation." };
 }
 
 
@@ -301,7 +368,7 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
       //   1. Find the product.
       //   2. Increase product.stock by item.quantity.
       //   3. Create an InventoryMovement record (e.g., type 'order-cancellation-restock' or 'adjustment-add').
-      // This needs to be done carefully, potentially within the transaction.
+      // This needs to be done carefully, possibly within the transaction.
       // For now, we are simplifying and not reversing stock.
       console.warn(`Order ${orderId} deleted. Stock reversal for items not yet implemented.`);
 
@@ -310,12 +377,15 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
         // Should have been caught by findOne, but good as a safeguard
         throw new Error('Order not found during delete operation or already deleted.');
       }
+      // Also delete related inventory movements if desired.
+      // await db.collection(INVENTORY_MOVEMENTS_COLLECTION).deleteMany({ relatedOrderId: orderToDelete._id.toString() }, { session });
     });
 
     revalidatePath('/orders');
     if (customerIdForRevalidation) {
         revalidatePath(`/customers/${customerIdForRevalidation}/orders`);
     }
+    revalidatePath('/dashboard');
     // Potentially revalidate products and inventory if stock reversal was implemented
     // revalidatePath('/products');
     // revalidatePath('/inventory');
@@ -328,4 +398,3 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
     await session.endSession();
   }
 }
-
