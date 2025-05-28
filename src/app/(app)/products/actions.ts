@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import clientPromise from '@/lib/mongodb';
-import { ProductSchema, type Product, type ProductFormInput, ProductFormInputSchema, PriceHistoryEntrySchema, ProductImageSchema } from '@/models/Product';
+import { ProductSchema, type Product, type ProductFormInput, ProductImageSchema, PriceHistoryEntrySchema } from '@/models/Product';
 import type { UserRole, AuthUser } from '@/models/User';
 import { uploadImageToCloudinary, deleteImageFromCloudinary } from '@/lib/cloudinary';
 import { ObjectId } from 'mongodb';
@@ -92,11 +92,12 @@ export async function getProductById(id: string): Promise<Product | null> {
   }
 }
 
+// Server-side schema for add product, includes coercion for FormData values
 const AddProductServerSchema = ProductFormInputSchema.extend({
   changedByUserId: z.string().min(1),
-  price: z.coerce.number().min(0),
-  cost: z.coerce.number().min(0).optional().default(0),
-  stock: z.coerce.number().int().min(0),
+  price: z.coerce.number().min(0, "Price must be a positive number"),
+  cost: z.coerce.number().min(0, "Cost must be non-negative").optional().default(0),
+  stock: z.coerce.number().int("Stock must be an integer").min(0, "Stock must be non-negative"),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
   expiryDate: z.coerce.date().optional().nullable(),
 });
@@ -108,16 +109,20 @@ export async function addProduct(
   
   const rawFormData: Record<string, any> = {};
   formData.forEach((value, key) => {
-    // Don't process 'images' here, handle files separately
-    if (key !== 'images') {
-        rawFormData[key] = value;
+    if (key !== 'images') { // Files are handled separately
+        // Convert empty strings for optional numeric/date fields to undefined so Zod default/optional works
+        if ((key === 'cost' || key === 'lowStockThreshold' || key === 'expiryDate' || key === 'sku' || key === 'category' || key === 'unitOfMeasure' || key === 'description') && value === '') {
+            rawFormData[key] = undefined; // Zod .optional() will handle this
+        } else {
+            rawFormData[key] = value;
+        }
     }
   });
   
-  if (!formData.has('changedByUserId')) {
+  if (!formData.has('changedByUserId')) { 
      return { success: false, error: "changedByUserId is missing from form data." };
   }
-  // changedByUserId is already in rawFormData
+  rawFormData.changedByUserId = formData.get('changedByUserId');
   
   const validation = AddProductServerSchema.safeParse(rawFormData);
 
@@ -127,17 +132,17 @@ export async function addProduct(
   }
 
   const { changedByUserId, ...validatedData } = validation.data;
-  const uploadedImages: { url: string; publicId: string }[] = [];
+  const uploadedImages: ProductImage[] = [];
 
   try {
     const files = formData.getAll('images') as File[];
     if (files && files.length > 0) {
       for (const file of files) {
-        if (file.size > 0) { 
+        if (file instanceof File && file.size > 0) { 
           const arrayBuffer = await file.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
           const result = await uploadImageToCloudinary(buffer, CLOUDINARY_PRODUCT_IMAGE_FOLDER);
-          uploadedImages.push(result);
+          uploadedImages.push(ProductImageSchema.parse(result)); 
         }
       }
     }
@@ -145,18 +150,14 @@ export async function addProduct(
     const db = await getDb();
     
     const initialPriceHistoryEntry = PriceHistoryEntrySchema.parse({
-      price: validatedData.price,
+      price: validatedData.price, 
       changedAt: new Date(),
       changedBy: changedByUserId,
     });
 
     const newProductDataForDb = {
       ...validatedData, 
-      sku: validatedData.sku || '', 
-      category: validatedData.category || '',
-      unitOfMeasure: validatedData.unitOfMeasure || '',
-      description: validatedData.description || '',
-      images: uploadedImages, // Save all uploaded images
+      images: uploadedImages,
       priceHistory: [initialPriceHistoryEntry],
       expiryDate: validatedData.expiryDate ? new Date(validatedData.expiryDate) : null,
       createdAt: new Date(),
@@ -170,23 +171,33 @@ export async function addProduct(
       return { success: false, error: 'Failed to insert product into database.' };
     }
     
-    // Re-fetch the product to ensure consistency and correct parsing of all fields, including images
-    const insertedProduct = await getProductById(result.insertedId.toString());
-    if (!insertedProduct) {
-      // This case should be rare if insertion succeeded
-      for (const img of uploadedImages) { await deleteImageFromCloudinary(img.publicId); } // Clean up uploaded images
-      return { success: false, error: 'Product added but failed to retrieve from database.' };
+    const productForReturn = {
+      ...newProductDataForDb, // Contains validatedData and uploadedImages
+      _id: result.insertedId.toString(),
+      // createdAt and updatedAt are already Date objects in newProductDataForDb
+    };
+
+    try {
+      // Parse the constructed object to ensure it matches the Product schema for the client
+      const parsedProduct = ProductSchema.parse(productForReturn);
+      revalidatePath('/products');
+      revalidatePath('/dashboard');
+      return { success: true, product: parsedProduct as Product };
+    } catch (parseError: any) {
+      console.error('Error parsing product data after insert for return:', parseError);
+      // Product is in DB, but we can't return it structured.
+      // This indicates a mismatch between what we inserted and ProductSchema.
+      revalidatePath('/products');
+      revalidatePath('/dashboard');
+      return { success: true, error: "Product added, but there was an issue preparing its data for immediate display. Please refresh." };
     }
 
-    revalidatePath('/products');
-    revalidatePath('/dashboard');
-    return { success: true, product: insertedProduct };
   } catch (error: any) {
     console.error('Failed to add product:', error);
-    for (const img of uploadedImages) { // Attempt to clean up any uploaded images on error
+    for (const img of uploadedImages) { 
         try { await deleteImageFromCloudinary(img.publicId); } catch (deleteError) { console.error('Failed to delete uploaded image after error:', deleteError); }
     }
-    if (error instanceof z.ZodError) { // This can happen if Zod parsing within the try block fails
+    if (error instanceof z.ZodError) { 
         return { success: false, error: "Data validation error after processing.", errors: error.errors };
     }
     return { success: false, error: error.message || 'An unexpected error occurred while adding the product.' };
@@ -202,9 +213,11 @@ export async function deleteProduct(id: string, userRole: UserRole): Promise<{ s
   }
   try {
     const db = await getDb();
-    const productToDelete = await db.collection<Product>(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(id) });
+    const productToDeleteDoc = await db.collection(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(id) });
 
-    if (!productToDelete) { return { success: false, error: 'Product not found.' }; }
+    if (!productToDeleteDoc) { return { success: false, error: 'Product not found.' }; }
+    
+    const productToDelete = ProductSchema.parse({...productToDeleteDoc, _id: productToDeleteDoc._id.toString()}) as Product;
 
     if (productToDelete.images && productToDelete.images.length > 0) {
       for (const image of productToDelete.images) {
@@ -234,11 +247,12 @@ export async function updateProductStock(
     return { success: false, error: 'Invalid product ID.' };
   }
   const db = await getDb();
-  const product = await db.collection<Product>(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(productId) }, { session });
+  const productDoc = await db.collection(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(productId) }, { session });
 
-  if (!product) {
+  if (!productDoc) {
     return { success: false, error: 'Product not found for stock update.' };
   }
+  const product = ProductSchema.parse({...productDoc, _id: productDoc._id.toString()}) as Product;
 
   const newStock = product.stock + quantityChange;
   if (newStock < 0) {
@@ -255,7 +269,6 @@ export async function updateProductStock(
      return { success: false, error: 'Product not found during stock update operation.' };
   }
    if (result.modifiedCount === 0 && result.matchedCount > 0) {
-    // This can happen if the stock was already the target value, which is fine.
     // console.warn(`Product ${productId} stock was matched but not modified. Current stock might already be ${newStock}.`);
   }
 
@@ -270,7 +283,7 @@ const UpdateProductServerSchema = ProductFormInputSchema.extend({
   stock: z.coerce.number().int().min(0).optional(),
   lowStockThreshold: z.coerce.number().int().min(0).optional(),
   expiryDate: z.coerce.date().optional().nullable(),
-}).partial(); // .partial() allows any field to be optional
+}).partial(); 
 
 
 export async function updateProduct(
@@ -292,28 +305,22 @@ export async function updateProduct(
 
   const rawFormData: Record<string, any> = { changedByUserId: currentUser._id };
   const imagesToDeletePublicIds: string[] = [];
-  let hasNewImages = false;
-
+  
   formData.forEach((value, key) => {
     if (key.startsWith('imagesToDelete[')) { 
       imagesToDeletePublicIds.push(value as string);
     } else if (key === 'images') {
-      // Check if the 'images' field actually contains a File object.
-      // FormData can have multiple 'images' entries if multiple files were selected.
-      // We just need to know if *any* new files were added.
-      if (value instanceof File && value.size > 0) {
-        hasNewImages = true;
-      }
-      // Don't add File objects to rawFormData for Zod parsing
+      // New files handled separately
     } else {
-      rawFormData[key] = value;
+        if ((key === 'cost' || key === 'lowStockThreshold' || key === 'expiryDate' || 
+             key === 'price' || key === 'stock' || key === 'category' || key === 'unitOfMeasure' || key === 'description' || key === 'sku'
+            ) && value === '') {
+            rawFormData[key] = undefined;
+        } else {
+            rawFormData[key] = value;
+        }
     }
   });
-  
-  // Ensure changedByUserId is set, even if not explicitly in Zod schema for client-side form
-  if (!rawFormData.changedByUserId && currentUser?._id) {
-    rawFormData.changedByUserId = currentUser._id;
-  }
   
   const validation = UpdateProductServerSchema.safeParse(rawFormData);
   if (!validation.success) {
@@ -328,11 +335,10 @@ export async function updateProduct(
   
   for (const key in updateDataFromZod) {
     const typedKey = key as keyof typeof updateDataFromZod;
-    const newValue = updateDataFromZod[typedKey];
+    let newValue = updateDataFromZod[typedKey];
     const oldValue = (existingProduct as any)[typedKey];
 
-    // Special handling for dates to compare properly
-    if (typedKey === 'expiryDate') {
+    if (typedKey === 'expiryDate' && newValue instanceof Date) {
         const newDate = newValue ? new Date(newValue).toISOString() : null;
         const oldDate = oldValue ? new Date(oldValue).toISOString() : null;
         if (newDate !== oldDate) {
@@ -345,11 +351,9 @@ export async function updateProduct(
     }
   }
   
-
   const newUploadedImages: ProductImage[] = [];
 
   try {
-    // Handle image deletions
     if (imagesToDeletePublicIds && imagesToDeletePublicIds.length > 0) {
       for (const publicId of imagesToDeletePublicIds) {
         await deleteImageFromCloudinary(publicId);
@@ -358,16 +362,14 @@ export async function updateProduct(
       hasMeaningfulChanges = true;
     }
 
-    // Handle new image uploads
     const files = formData.getAll('images') as File[]; 
     if (files && files.length > 0) {
         for (const file of files) {
-            // Ensure we only process actual files, not empty strings or other placeholders
             if (file instanceof File && file.size > 0) { 
               const arrayBuffer = await file.arrayBuffer();
               const buffer = Buffer.from(arrayBuffer);
               const result = await uploadImageToCloudinary(buffer, CLOUDINARY_PRODUCT_IMAGE_FOLDER);
-              newUploadedImages.push(ProductImageSchema.parse(result)); // Parse to ensure correct type
+              newUploadedImages.push(ProductImageSchema.parse(result));
             }
         }
       if (newUploadedImages.length > 0) {
@@ -379,34 +381,26 @@ export async function updateProduct(
     
     if (updateDataFromZod.price !== undefined && updateDataFromZod.price !== existingProduct.price) {
       const priceHistoryEntry = PriceHistoryEntrySchema.parse({
-        price: updateDataFromZod.price, // price is now definitely a number
+        price: updateDataFromZod.price,
         changedAt: new Date(),
         changedBy: changedByUserId!, 
       });
       if (!finalUpdateOps.$push) finalUpdateOps.$push = {};
-      // Ensure priceHistory isn't pushed multiple times if other $push ops exist
-      if (finalUpdateOps.$push.images) {
+      
+      if (finalUpdateOps.$push && finalUpdateOps.$push.images) {
           finalUpdateOps.$push.priceHistory = priceHistoryEntry;
       } else {
-          finalUpdateOps.$push.priceHistory = { $each: [priceHistoryEntry] };
+          finalUpdateOps.$push = { ...finalUpdateOps.$push, priceHistory: priceHistoryEntry };
       }
-      // Price change itself is already a meaningful change
+      hasMeaningfulChanges = true; 
     }
     
-    if (!hasMeaningfulChanges && Object.keys(finalUpdateOps.$set).length === 0 && !finalUpdateOps.$pull && !finalUpdateOps.$push && !hasNewImages) {
-        const currentProduct = await getProductById(productId); // Re-fetch to be sure
+    if (!hasMeaningfulChanges && Object.keys(finalUpdateOps.$set).length === 0 && !finalUpdateOps.$pull && !(finalUpdateOps.$push && (finalUpdateOps.$push.images || finalUpdateOps.$push.priceHistory))) {
+        const currentProduct = await getProductById(productId); 
         return { success: true, product: currentProduct || existingProduct, error: "No changes detected." };
     }
     
-    if (Object.keys(finalUpdateOps.$set).length > 0 || finalUpdateOps.$pull || finalUpdateOps.$push) {
-        finalUpdateOps.$set.updatedAt = new Date();
-    } else if (hasNewImages) { // If only new images were added but no other $set ops
-        finalUpdateOps.$set.updatedAt = new Date();
-    } else { // No meaningful textual changes, no image changes
-        const currentProduct = await getProductById(productId);
-        return { success: true, product: currentProduct || existingProduct, error: "No changes detected." };
-    }
-
+    finalUpdateOps.$set.updatedAt = new Date();
 
     const updateResult = await db.collection<Product>(PRODUCTS_COLLECTION).findOneAndUpdate(
       { _id: new ObjectId(productId) },
@@ -425,20 +419,19 @@ export async function updateProduct(
     }) as Product;
 
     revalidatePath('/products');
-    revalidatePath(`/products/${productId}`); // Assuming a detail page might exist later
+    revalidatePath(`/products/${productId}`);
     revalidatePath('/dashboard');
     return { success: true, product: updatedProduct };
 
   } catch (error: any) {
     console.error('Failed to update product:', error);
-    for (const img of newUploadedImages) { // Attempt to clean up any uploaded images on error
+    for (const img of newUploadedImages) { 
         try { await deleteImageFromCloudinary(img.publicId); } catch (deleteError) { console.error('Failed to delete newly uploaded image after update error:', deleteError); }
     }
-    if (error instanceof z.ZodError) { // This can happen from ProductImageSchema.parse or PriceHistoryEntrySchema.parse
+    if (error instanceof z.ZodError) { 
         return { success: false, error: "Data validation error during product update internal processing.", errors: error.errors };
     }
     return { success: false, error: error.message || 'An unexpected error occurred while updating the product.' };
   }
 }
-
     

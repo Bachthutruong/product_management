@@ -23,9 +23,9 @@ import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, Pac
 import {
   Dialog,
   DialogContent,
-  DialogDescription as DialogNativeDescription,
-  DialogHeader as DialogNativeHeader,
-  DialogTitle as DialogNativeTitle,
+  DialogDescription as DialogNativeDescription, 
+  DialogHeader as DialogNativeHeader,       
+  DialogTitle as DialogNativeTitle,         
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
@@ -35,10 +35,10 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as AlertDialogNativeTitle, 
+  AlertDialogTitle, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import NextImage from 'next/image'; // Use NextImage to avoid conflict with local Image
+import NextImage from 'next/image'; 
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { format, isBefore, addYears } from 'date-fns';
@@ -90,7 +90,7 @@ function DeleteProductButton({
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogNativeTitle>Are you sure you want to delete "{productName}"?</AlertDialogNativeTitle>
+          <AlertDialogTitle>Are you sure you want to delete "{productName}"?</AlertDialogTitle>
           <AlertDialogDescription>
             This action cannot be undone. This will permanently delete the product and its images.
           </AlertDialogDescription>
@@ -118,6 +118,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isStockInHistoryDialogOpen, setIsStockInHistoryDialogOpen] = useState(false);
   const [viewingHistoryForProduct, setViewingHistoryForProduct] = useState<Product | null>(null);
+  
   const [isPreviewImageDialogOpen, setIsPreviewImageDialogOpen] = useState(false);
   const [imageToPreview, setImageToPreview] = useState<ProductImage | null>(null);
 
@@ -165,7 +166,7 @@ export default function ProductsPage() {
     setViewingHistoryForProduct(product);
     setIsStockInHistoryDialogOpen(true);
   };
-
+  
   const openImagePreviewDialog = (image: ProductImage) => {
     setImageToPreview(image);
     setIsPreviewImageDialogOpen(true);
@@ -319,7 +320,7 @@ export default function ProductsPage() {
                                 className="text-muted-foreground hover:text-primary" 
                                 onClick={() => openEditDialog(product)}
                                 title={`Edit ${product.name}`}
-                                disabled={!user} // All logged-in users can edit
+                                disabled={!user} 
                                 >
                                 <Edit3 className="h-4 w-4" />
                                 <span className="sr-only">Edit ${product.name}</span>
@@ -395,7 +396,7 @@ export default function ProductsPage() {
       {imageToPreview && (
         <Dialog open={isPreviewImageDialogOpen} onOpenChange={setIsPreviewImageDialogOpen}>
           <DialogContent className="max-w-xl p-2">
-            <DialogNativeHeader className="sr-only">
+            <DialogNativeHeader className="sr-only"> {/* Title and Desc for screen readers */}
               <DialogNativeTitle>Image Preview</DialogNativeTitle>
               <DialogNativeDescription>{imageToPreview.url}</DialogNativeDescription>
             </DialogNativeHeader>
