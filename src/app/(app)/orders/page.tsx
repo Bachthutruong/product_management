@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/table";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -32,7 +31,7 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogHeader as DialogNativeHeader, // Aliased to avoid conflict if DialogHeader is used for other things
+  DialogHeader as DialogNativeHeader, 
   DialogTitle as DialogNativeTitle, 
   DialogDescription as DialogNativeDescription, 
   DialogTrigger,
@@ -44,7 +43,7 @@ import { Badge } from '@/components/ui/badge';
 
 function DeleteOrderButton({ orderId, orderNumber, onOrderDeleted }: { orderId: string, orderNumber: string, onOrderDeleted: () => void }) {
   const { toast } = useToast();
-  const { user } = useAuth(); // Assuming useAuth provides the current user's role
+  const { user } = useAuth(); 
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
 
@@ -74,7 +73,7 @@ function DeleteOrderButton({ orderId, orderNumber, onOrderDeleted }: { orderId: 
   };
 
   if (!user || user.role !== 'admin') {
-    return null; // Don't render if user is not admin
+    return null; 
   }
 
   return (
@@ -118,7 +117,7 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(async (term?: string) => {
     setIsLoadingOrders(true);
     try {
-      const fetchedOrders = await getOrders(term);
+      const fetchedOrders = await getOrders({ searchTerm: term }); // Pass searchTerm correctly
       setOrders(fetchedOrders);
     } catch (error) {
       console.error("Failed to fetch orders:", error);
@@ -251,15 +250,18 @@ export default function OrdersPage() {
                       <TableCell className="text-center">
                         <div className="flex justify-center items-center space-x-1">
                             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" 
-                                onClick={() => alert(`Edit order: ${order.orderNumber} - Not implemented`)}>
+                                onClick={() => alert(`Edit order: ${order.orderNumber} - Edit order functionality is complex (involving stock reconciliation, COGS recalculation, etc.) and will be implemented in a future update.`)}>
                                 <Edit3 className="h-4 w-4" />
+                                <span className="sr-only">Edit order {order.orderNumber}</span>
                             </Button>
+                            {/* Delete button is admin-only */}
                             {user?.role === 'admin' && (
                                 <DeleteOrderButton orderId={order._id} orderNumber={order.orderNumber} onOrderDeleted={fetchOrders} />
                             )}
                              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" 
-                                onClick={() => alert(`Print order: ${order.orderNumber} - Not implemented`)}>
+                                onClick={() => alert(`Print order: ${order.orderNumber} - Print functionality (e.g., print-friendly view or PDF) will be implemented later.`)}>
                                 <Printer className="h-4 w-4" />
+                                <span className="sr-only">Print order {order.orderNumber}</span>
                             </Button>
                         </div>
                       </TableCell>

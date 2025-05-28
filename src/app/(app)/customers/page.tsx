@@ -2,8 +2,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link"; // Import Link
-import { useRouter } from "next/navigation"; // Import useRouter
+import Link from "next/link"; 
+import { useRouter } from "next/navigation"; 
 import { useAuth } from "@/hooks/useAuth";
 import { getCustomers, deleteCustomer } from "@/app/(app)/customers/actions";
 import type { Customer } from "@/models/Customer";
@@ -99,7 +99,7 @@ function DeleteCustomerButton({ customerId, customerName, onCustomerDeleted }: {
 export default function CustomersPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const router = useRouter(); // Initialize router
+  const router = useRouter(); 
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
@@ -137,7 +137,7 @@ export default function CustomersPage() {
   };
 
   const handleCustomerUpdated = () => {
-    fetchCustomers(searchTerm); // Refresh list after update
+    fetchCustomers(searchTerm); 
     setIsEditDialogVisible(false);
     setEditingCustomer(null);
   };
@@ -170,6 +170,7 @@ export default function CustomersPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </form>
+          {/* Add Customer button is available to all logged-in users */}
           <AddCustomerDialog onCustomerAdded={() => fetchCustomers(searchTerm)} />
         </div>
       </div>
@@ -215,17 +216,18 @@ export default function CustomersPage() {
                       <TableCell>{cust.createdAt ? format(new Date(cust.createdAt), 'dd/MM/yyyy') : 'N/A'}</TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center items-center space-x-1">
+                            {/* Edit button is now available to all logged-in users */}
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
                                 className="text-muted-foreground hover:text-primary" 
                                 onClick={() => handleEditCustomer(cust)}
-                                disabled={user?.role !== 'admin'}
-                                title={user?.role !== 'admin' ? "Only admins can edit" : `Edit ${cust.name}`}
+                                title={`Edit ${cust.name}`}
                                 >
                                 <Edit3 className="h-4 w-4" />
                                 <span className="sr-only">Edit {cust.name}</span>
                             </Button>
+                            {/* Delete button remains admin-only */}
                             {user?.role === 'admin' && (
                                 <DeleteCustomerButton customerId={cust._id} customerName={cust.name} onCustomerDeleted={() => fetchCustomers(searchTerm)} />
                             )}
@@ -233,11 +235,11 @@ export default function CustomersPage() {
                                 variant="ghost" 
                                 size="icon" 
                                 className="text-muted-foreground hover:text-primary" 
-                                onClick={() => router.push(`/customers/${cust._id}/orders`)} // Navigate to customer orders page
+                                onClick={() => router.push(`/customers/${cust._id}/orders`)} 
                                 title={`View orders for ${cust.name}`}
                                 >
                                 <ListOrdered className="h-4 w-4" />
-                                <span className="sr-only">View orders for {cust.name}</span>
+                                <span className="sr-only">View orders for ${cust.name}</span>
                             </Button>
                         </div>
                       </TableCell>

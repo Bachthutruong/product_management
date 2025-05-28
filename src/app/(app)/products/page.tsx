@@ -8,7 +8,7 @@ import type { UserRole } from '@/models/User';
 import { useAuth } from '@/hooks/useAuth';
 import { AddProductForm } from '@/components/products/AddProductForm';
 import { EditProductForm } from '@/components/products/EditProductForm';
-import { ProductStockInHistoryDialog } from '@/components/products/ProductStockInHistoryDialog'; // New Import
+import { ProductStockInHistoryDialog } from '@/components/products/ProductStockInHistoryDialog';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX, PlusCircle, Loader2, History } from "lucide-react"; // Added History
+import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX, PlusCircle, Loader2, History } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +35,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as AlertDialogNativeTitle, // Aliased to avoid conflict
+  AlertDialogTitle as AlertDialogNativeTitle, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import Image from 'next/image';
@@ -116,8 +116,8 @@ export default function ProductsPage() {
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [isStockInHistoryDialogOpen, setIsStockInHistoryDialogOpen] = useState(false); // New state
-  const [viewingHistoryForProduct, setViewingHistoryForProduct] = useState<Product | null>(null); // New state
+  const [isStockInHistoryDialogOpen, setIsStockInHistoryDialogOpen] = useState(false);
+  const [viewingHistoryForProduct, setViewingHistoryForProduct] = useState<Product | null>(null);
 
 
   const fetchProducts = useCallback(async () => {
@@ -159,7 +159,7 @@ export default function ProductsPage() {
     setIsEditProductDialogOpen(true);
   };
 
-  const openStockInHistoryDialog = (product: Product) => { // New handler
+  const openStockInHistoryDialog = (product: Product) => { 
     setViewingHistoryForProduct(product);
     setIsStockInHistoryDialogOpen(true);
   };
@@ -176,27 +176,26 @@ export default function ProductsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground">Products</h1>
-        {user?.role === 'admin' && (
-          <Dialog open={isAddProductDialogOpen} onOpenChange={setIsAddProductDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <PlusCircle className="mr-2 h-5 w-5" /> Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogNativeHeader>
-                <DialogNativeTitle className="flex items-center text-2xl">
-                  <PlusCircle className="mr-3 h-7 w-7 text-primary" />
-                  Add New Product
-                </DialogNativeTitle>
-                <DialogNativeDescription>
-                  Fill in product details, including images, unit, expiry, and stock alerts. Click "Add Product" when you're done.
-                </DialogNativeDescription>
-              </DialogNativeHeader>
-              {user?._id && <AddProductForm userId={user._id} onProductAdded={handleProductAdded} />}
-            </DialogContent>
-          </Dialog>
-        )}
+        {/* Add Product button is now available to all logged-in users */}
+        <Dialog open={isAddProductDialogOpen} onOpenChange={setIsAddProductDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <PlusCircle className="mr-2 h-5 w-5" /> Add Product
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogNativeHeader>
+              <DialogNativeTitle className="flex items-center text-2xl">
+                <PlusCircle className="mr-3 h-7 w-7 text-primary" />
+                Add New Product
+              </DialogNativeTitle>
+              <DialogNativeDescription>
+                Fill in product details, including images, unit, expiry, and stock alerts. Click "Add Product" when you're done.
+              </DialogNativeDescription>
+            </DialogNativeHeader>
+            {user?._id && <AddProductForm userId={user._id} onProductAdded={handleProductAdded} />}
+          </DialogContent>
+        </Dialog>
       </div>
         
       <Card className="shadow-lg">
@@ -295,24 +294,25 @@ export default function ProductsPage() {
                                 variant="ghost" 
                                 size="icon" 
                                 className="text-muted-foreground hover:text-primary" 
-                                onClick={() => openStockInHistoryDialog(product)} // New button
+                                onClick={() => openStockInHistoryDialog(product)} 
                                 title={`View stock-in history for ${product.name}`}
                                 >
                                 <History className="h-4 w-4" />
                                 <span className="sr-only">View stock-in history for {product.name}</span>
                             </Button>
+                            {/* Edit button is now available to all logged-in users */}
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
                                 className="text-muted-foreground hover:text-primary" 
                                 onClick={() => openEditDialog(product)}
-                                disabled={user?.role !== 'admin'}
-                                title={user?.role !== 'admin' ? "Only admins can edit" : `Edit ${product.name}`}
+                                title={`Edit ${product.name}`}
                                 >
                                 <Edit3 className="h-4 w-4" />
                                 <span className="sr-only">Edit {product.name}</span>
                             </Button>
-                            {user?.role && ( 
+                            {/* Delete button remains admin-only */}
+                            {user?.role === 'admin' && ( 
                               <DeleteProductButton 
                                 productId={product._id} 
                                 productName={product.name} 
@@ -332,7 +332,7 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
-      {editingProduct && user?.role === 'admin' && (
+      {editingProduct && user && ( // Ensure user exists for userId prop
         <Dialog open={isEditProductDialogOpen} onOpenChange={(isOpen) => {
           setIsEditProductDialogOpen(isOpen);
           if (!isOpen) setEditingProduct(null);
@@ -349,7 +349,7 @@ export default function ProductsPage() {
             </DialogNativeHeader>
             <EditProductForm
                 product={editingProduct}
-                userId={user._id || ''} // Pass userId, ensure it's string
+                userId={user._id || ''} 
                 onProductUpdated={handleProductUpdated}
                 onCancel={() => {
                     setIsEditProductDialogOpen(false);
@@ -360,7 +360,7 @@ export default function ProductsPage() {
         </Dialog>
       )}
 
-      {viewingHistoryForProduct && ( // New Dialog for Stock-In History
+      {viewingHistoryForProduct && ( 
         <Dialog open={isStockInHistoryDialogOpen} onOpenChange={(isOpen) => {
           setIsStockInHistoryDialogOpen(isOpen);
           if (!isOpen) setViewingHistoryForProduct(null);
