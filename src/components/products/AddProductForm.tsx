@@ -4,7 +4,7 @@
 import { useState, type ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { z } from 'zod'; // Ensure Zod is imported
 import { ProductFormInputSchema, type AddProductFormValues } from '@/models/Product';
 import { addProduct } from '@/app/(app)/products/actions';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, XCircle, CalendarIcon } from 'lucide-react';
+import { Loader2, PlusCircle, XCircle, CalendarIcon, UploadCloud } from 'lucide-react';
 import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -24,36 +24,47 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const { toast } = useToast();
 
+  const formSchemaWithCoercion = ProductFormInputSchema.extend({
+    price: z.union([z.string(), z.number()]).pipe(z.coerce.number().min(0, { message: "Price must be a positive number" })),
+    cost: z.union([z.string(), z.number()]).optional().pipe(z.coerce.number().min(0, { message: "Cost must be non-negative" }).default(0).transform(val => val || 0)),
+    stock: z.union([z.string(), z.number()]).pipe(z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" })),
+    lowStockThreshold: z.union([z.string(), z.number()]).optional().pipe(z.coerce.number().int().min(0).optional().default(0).transform(val => val || 0)),
+    expiryDate: z.date().optional().nullable(),
+  });
+
   const form = useForm<AddProductFormValues>({
-    resolver: zodResolver(ProductFormInputSchema.extend({
-      price: z.union([z.string(), z.number()]).pipe(z.coerce.number().min(0, { message: "Price must be a positive number" })),
-      cost: z.union([z.string(), z.number()]).optional().pipe(z.coerce.number().min(0, { message: "Cost must be non-negative" }).default(0)),
-      stock: z.union([z.string(), z.number()]).pipe(z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" })),
-      lowStockThreshold: z.union([z.string(), z.number()]).optional().pipe(z.coerce.number().int().min(0).optional().default(0)),
-      expiryDate: z.date().optional().nullable(),
-    })),
+    resolver: zodResolver(formSchemaWithCoercion),
     defaultValues: {
       name: '',
       sku: '',
       category: '',
       unitOfMeasure: '',
-      price: '', // Keep as string for controlled input, Zod will coerce
-      cost: '',  // Keep as string
-      stock: '',  // Keep as string
+      price: '',
+      cost: '',
+      stock: '',
       description: '',
       images: null,
       expiryDate: null,
-      lowStockThreshold: '', // Keep as string
+      lowStockThreshold: '',
     },
   });
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (files) {
-      form.setValue('images', files);
+    if (files && files.length > 0) {
+      form.setValue('images', files); // Store FileList in form state
       const newPreviews: string[] = [];
-      Array.from(files).forEach(file => newPreviews.push(URL.createObjectURL(file)));
-      setImagePreviews(newPreviews);
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPreviews.push(reader.result as string);
+          // Ensure previews are updated after all files are read
+          if (newPreviews.length === files.length) {
+            setImagePreviews(newPreviews);
+          }
+        }
+        reader.readAsDataURL(file);
+      });
     } else {
       form.setValue('images', null);
       setImagePreviews([]);
@@ -73,27 +84,42 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
       const newPreviews = [...imagePreviews];
       newPreviews.splice(index, 1);
       setImagePreviews(newPreviews);
+
+      // Reset file input if all previews are removed
+      if (newPreviews.length === 0) {
+        const fileInput = document.getElementById('images-input-in-dialog') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+      }
     }
+  };
+
+  const resetFormAndPreviews = () => {
+    form.reset({ 
+      name: '', sku: '', category: '', unitOfMeasure: '',
+      price: '', cost:'', stock: '', description: '', images: null,
+      expiryDate: null, lowStockThreshold: '',
+    });
+    setImagePreviews([]);
+    const fileInput = document.getElementById('images-input-in-dialog') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
   async function onSubmit(data: AddProductFormValues) {
     setIsSubmitting(true);
 
     const formData = new FormData();
-    // Append text fields, ensuring numeric fields are sent as strings if they are empty or valid numbers
     Object.entries(data).forEach(([key, value]) => {
       if (key === 'images') {
-        // Handled below
+        // Image files handled below
       } else if (key === 'expiryDate' && value instanceof Date) {
         formData.append(key, value.toISOString());
-      } else if (value !== undefined && value !== null) {
-         // For numeric fields, send the string value (even if empty)
-         // Zod on server-side will coerce/validate
+      } else if (value !== undefined && value !== null && value !== '') {
          formData.append(key, String(value));
+      } else if (key === 'cost' || key === 'lowStockThreshold') { // ensure default 0 is sent if empty
+        formData.append(key, '0');
       }
     });
     
-    // Append image files
     if (data.images instanceof FileList) {
       for (let i = 0; i < data.images.length; i++) {
         formData.append('images', data.images[i]);
@@ -109,15 +135,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
           title: 'Product Added',
           description: `${result.product.name} has been successfully added.`,
         });
-        form.reset({ 
-          name: '', sku: '', category: '', unitOfMeasure: '',
-          price: '', cost:'', stock: '', description: '', images: null,
-          expiryDate: null, lowStockThreshold: '',
-        });
-        setImagePreviews([]);
-        const fileInput = document.getElementById('images-input-in-dialog') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-
+        resetFormAndPreviews();
         if (onProductAdded) onProductAdded();
       } else {
         toast({
@@ -132,10 +150,11 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
         }
       }
     } catch (error) {
+      console.error("Error in addProduct submission:", error);
       toast({
         variant: 'destructive',
         title: 'Submission Error',
-        description: 'An unexpected error occurred.',
+        description: 'An unexpected error occurred during product submission.',
       });
     } finally {
       setIsSubmitting(false);
@@ -311,16 +330,30 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
               )}
             />
             <FormItem>
-              <FormLabel htmlFor="images-input-in-dialog">Product Images</FormLabel>
+              <FormLabel htmlFor="images-input-in-dialog">Product Images (Multiple)</FormLabel>
               <FormControl>
-                <Input 
-                  id="images-input-in-dialog" 
-                  type="file" 
-                  multiple 
-                  accept="image/*" 
-                  onChange={handleImageChange}
-                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                />
+                <div className="flex items-center justify-center w-full">
+                    <label 
+                        htmlFor="images-input-in-dialog" 
+                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-border border-dashed rounded-lg cursor-pointer bg-card hover:bg-muted transition-colors"
+                    >
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
+                            <p className="mb-1 text-sm text-muted-foreground">
+                                <span className="font-semibold">Click to upload</span> or drag and drop
+                            </p>
+                            <p className="text-xs text-muted-foreground">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
+                        </div>
+                        <Input 
+                          id="images-input-in-dialog" 
+                          type="file" 
+                          multiple 
+                          accept="image/*" 
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                    </label>
+                </div> 
               </FormControl>
               <FormMessage>{form.formState.errors.images?.message as React.ReactNode}</FormMessage>
             </FormItem>
@@ -367,3 +400,5 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
     </Form>
   );
 }
+
+    

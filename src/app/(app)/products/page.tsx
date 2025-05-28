@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { getProducts, deleteProduct } from '@/app/(app)/products/actions';
-import type { Product } from '@/models/Product';
+import type { Product, ProductImage } from '@/models/Product';
 import type { UserRole } from '@/models/User';
 import { useAuth } from '@/hooks/useAuth';
 import { AddProductForm } from '@/components/products/AddProductForm';
@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX, PlusCircle, Loader2, History } from "lucide-react";
+import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX, PlusCircle, Loader2, History, Eye as EyeIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +38,7 @@ import {
   AlertDialogTitle as AlertDialogNativeTitle, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import Image from 'next/image';
+import NextImage from 'next/image'; // Use NextImage to avoid conflict with local Image
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { format, isBefore, addYears } from 'date-fns';
@@ -83,7 +83,7 @@ function DeleteProductButton({
   return (
     <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting}>
+        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting} title={`Delete ${productName}`}>
            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           <span className="sr-only">Delete {productName}</span>
         </Button>
@@ -118,6 +118,8 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isStockInHistoryDialogOpen, setIsStockInHistoryDialogOpen] = useState(false);
   const [viewingHistoryForProduct, setViewingHistoryForProduct] = useState<Product | null>(null);
+  const [isPreviewImageDialogOpen, setIsPreviewImageDialogOpen] = useState(false);
+  const [imageToPreview, setImageToPreview] = useState<ProductImage | null>(null);
 
 
   const fetchProducts = useCallback(async () => {
@@ -164,6 +166,11 @@ export default function ProductsPage() {
     setIsStockInHistoryDialogOpen(true);
   };
 
+  const openImagePreviewDialog = (image: ProductImage) => {
+    setImageToPreview(image);
+    setIsPreviewImageDialogOpen(true);
+  };
+
   if (authLoading || (isLoading && products.length === 0)) { 
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
@@ -176,7 +183,6 @@ export default function ProductsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground">Products</h1>
-        {/* Add Product button is now available to all logged-in users */}
         <Dialog open={isAddProductDialogOpen} onOpenChange={setIsAddProductDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -246,19 +252,26 @@ export default function ProductsPage() {
                         expiryWarningText = 'Expires <1yr';
                       }
                     }
+                    const firstImage = product.images && product.images.length > 0 ? product.images[0] : null;
 
                     return (
                       <TableRow key={product._id}>
                         <TableCell>
-                          {product.images && product.images.length > 0 && product.images[0].url ? (
-                            <Image 
-                              src={product.images[0].url} 
-                              alt={product.name} 
-                              width={48} 
-                              height={48} 
-                              className="rounded-md object-cover aspect-square"
-                              data-ai-hint="product item"
-                            />
+                          {firstImage && firstImage.url ? (
+                            <button 
+                              onClick={() => openImagePreviewDialog(firstImage)} 
+                              className="focus:outline-none focus:ring-2 focus:ring-primary rounded-md"
+                              title={`View image for ${product.name}`}
+                            >
+                              <NextImage 
+                                src={firstImage.url} 
+                                alt={product.name} 
+                                width={48} 
+                                height={48} 
+                                className="rounded-md object-cover aspect-square cursor-pointer hover:opacity-80 transition-opacity"
+                                data-ai-hint="product item"
+                              />
+                            </button>
                           ) : (
                             <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center">
                               <ImageOff className="w-6 h-6 text-muted-foreground" />
@@ -300,18 +313,17 @@ export default function ProductsPage() {
                                 <History className="h-4 w-4" />
                                 <span className="sr-only">View stock-in history for {product.name}</span>
                             </Button>
-                            {/* Edit button is now available to all logged-in users */}
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
                                 className="text-muted-foreground hover:text-primary" 
                                 onClick={() => openEditDialog(product)}
                                 title={`Edit ${product.name}`}
+                                disabled={!user} // All logged-in users can edit
                                 >
                                 <Edit3 className="h-4 w-4" />
-                                <span className="sr-only">Edit {product.name}</span>
+                                <span className="sr-only">Edit ${product.name}</span>
                             </Button>
-                            {/* Delete button remains admin-only */}
                             {user?.role === 'admin' && ( 
                               <DeleteProductButton 
                                 productId={product._id} 
@@ -332,7 +344,7 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
-      {editingProduct && user && ( // Ensure user exists for userId prop
+      {editingProduct && user && (
         <Dialog open={isEditProductDialogOpen} onOpenChange={(isOpen) => {
           setIsEditProductDialogOpen(isOpen);
           if (!isOpen) setEditingProduct(null);
@@ -379,6 +391,27 @@ export default function ProductsPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {imageToPreview && (
+        <Dialog open={isPreviewImageDialogOpen} onOpenChange={setIsPreviewImageDialogOpen}>
+          <DialogContent className="max-w-xl p-2">
+            <DialogNativeHeader className="sr-only">
+              <DialogNativeTitle>Image Preview</DialogNativeTitle>
+              <DialogNativeDescription>{imageToPreview.url}</DialogNativeDescription>
+            </DialogNativeHeader>
+            <NextImage
+              src={imageToPreview.url}
+              alt="Product image preview"
+              width={800}
+              height={600}
+              className="rounded-md object-contain max-h-[80vh] w-full"
+              data-ai-hint="product image large"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
+
+    
