@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import clientPromise from '@/lib/mongodb';
-import { ProductSchema, type Product, type ProductFormInput, ProductImageSchema, PriceHistoryEntrySchema } from '@/models/Product';
+import { ProductSchema, type Product, type ProductFormInput, ProductImageSchema, PriceHistoryEntrySchema, ProductFormInputSchema as ProductFormInputSchemaValidation } from '@/models/Product'; // Added ProductFormInputSchemaValidation
 import type { UserRole, AuthUser } from '@/models/User';
 import { uploadImageToCloudinary, deleteImageFromCloudinary } from '@/lib/cloudinary';
 import { ObjectId } from 'mongodb';
@@ -93,7 +93,7 @@ export async function getProductById(id: string): Promise<Product | null> {
 }
 
 // Server-side schema for add product, includes coercion for FormData values
-const AddProductServerSchema = ProductFormInputSchema.extend({
+const AddProductServerSchema = ProductFormInputSchemaValidation.extend({
   changedByUserId: z.string().min(1),
   price: z.coerce.number().min(0, "Price must be a positive number"),
   cost: z.coerce.number().min(0, "Cost must be non-negative").optional().default(0),
@@ -110,19 +110,21 @@ export async function addProduct(
   const rawFormData: Record<string, any> = {};
   formData.forEach((value, key) => {
     if (key !== 'images') { // Files are handled separately
-        // Convert empty strings for optional numeric/date fields to undefined so Zod default/optional works
-        if ((key === 'cost' || key === 'lowStockThreshold' || key === 'expiryDate' || key === 'sku' || key === 'category' || key === 'unitOfMeasure' || key === 'description') && value === '') {
-            rawFormData[key] = undefined; // Zod .optional() will handle this
+        if ((key === 'cost' || key === 'lowStockThreshold' || key === 'expiryDate' || 
+             key === 'price' || key === 'stock' || key === 'category' || key === 'unitOfMeasure' || key === 'description' || key === 'sku'
+            ) && value === '') {
+            rawFormData[key] = undefined; // Zod .optional() and .default() will handle these
         } else {
             rawFormData[key] = value;
         }
     }
   });
   
-  if (!formData.has('changedByUserId')) { 
+  const changedByUserIdFromForm = formData.get('changedByUserId');
+  if (!changedByUserIdFromForm) { 
      return { success: false, error: "changedByUserId is missing from form data." };
   }
-  rawFormData.changedByUserId = formData.get('changedByUserId');
+  rawFormData.changedByUserId = changedByUserIdFromForm;
   
   const validation = AddProductServerSchema.safeParse(rawFormData);
 
@@ -171,25 +173,26 @@ export async function addProduct(
       return { success: false, error: 'Failed to insert product into database.' };
     }
     
+    // Construct productForReturn directly, then parse it to ensure schema compliance
     const productForReturn = {
-      ...newProductDataForDb, // Contains validatedData and uploadedImages
+      ...newProductDataForDb,
       _id: result.insertedId.toString(),
-      // createdAt and updatedAt are already Date objects in newProductDataForDb
     };
 
     try {
-      // Parse the constructed object to ensure it matches the Product schema for the client
       const parsedProduct = ProductSchema.parse(productForReturn);
       revalidatePath('/products');
       revalidatePath('/dashboard');
       return { success: true, product: parsedProduct as Product };
     } catch (parseError: any) {
-      console.error('Error parsing product data after insert for return:', parseError);
+      console.error('Critical Error: Product inserted into DB, but failed to parse for return. Data structure mismatch with ProductSchema.', parseError);
+      console.error('Data that failed parsing:', productForReturn);
       // Product is in DB, but we can't return it structured.
       // This indicates a mismatch between what we inserted and ProductSchema.
       revalidatePath('/products');
       revalidatePath('/dashboard');
-      return { success: true, error: "Product added, but there was an issue preparing its data for immediate display. Please refresh." };
+      // To prevent app crash, we return success but with an error message for the client to handle (e.g., prompt refresh)
+      return { success: true, error: "Product added, but there was an issue preparing its data for immediate display. Please refresh to see the new product." };
     }
 
   } catch (error: any) {
@@ -276,14 +279,15 @@ export async function updateProductStock(
 }
 
 
-const UpdateProductServerSchema = ProductFormInputSchema.extend({
+// Server-side schema for update product, includes coercion for FormData values
+const UpdateProductServerSchema = ProductFormInputSchemaValidation.extend({
   changedByUserId: z.string().min(1),
   price: z.coerce.number().min(0).optional(),
   cost: z.coerce.number().min(0).optional(),
   stock: z.coerce.number().int().min(0).optional(),
   lowStockThreshold: z.coerce.number().int().min(0).optional(),
   expiryDate: z.coerce.date().optional().nullable(),
-}).partial(); 
+}).partial(); // .partial() is key here, as not all fields need to be submitted for an update
 
 
 export async function updateProduct(
@@ -310,10 +314,16 @@ export async function updateProduct(
     if (key.startsWith('imagesToDelete[')) { 
       imagesToDeletePublicIds.push(value as string);
     } else if (key === 'images') {
-      // New files handled separately
-    } else {
+      // New files handled separately below
+    } else if (key === 'changedByUserId') {
+      // Already set above
+    }
+    else {
+        // For optional fields that can be cleared, convert empty string to undefined
+        // so Zod's .optional() can correctly process them (and not treat '' as a value)
         if ((key === 'cost' || key === 'lowStockThreshold' || key === 'expiryDate' || 
-             key === 'price' || key === 'stock' || key === 'category' || key === 'unitOfMeasure' || key === 'description' || key === 'sku'
+             key === 'price' || key === 'stock' || key === 'category' || 
+             key === 'unitOfMeasure' || key === 'description' || key === 'sku'
             ) && value === '') {
             rawFormData[key] = undefined;
         } else {
@@ -333,21 +343,32 @@ export async function updateProduct(
   const finalUpdateOps: { $set: Partial<Product>, $push?: any, $pull?: any } = { $set: {} };
   let hasMeaningfulChanges = false;
   
+  // Only include fields in $set if they are actually present in the validated data
   for (const key in updateDataFromZod) {
-    const typedKey = key as keyof typeof updateDataFromZod;
-    let newValue = updateDataFromZod[typedKey];
-    const oldValue = (existingProduct as any)[typedKey];
+    if (Object.prototype.hasOwnProperty.call(updateDataFromZod, key)) {
+        const typedKey = key as keyof typeof updateDataFromZod;
+        let newValue = updateDataFromZod[typedKey];
+        
+        // Compare with existing product to see if there's a change
+        const oldValue = (existingProduct as any)[typedKey];
 
-    if (typedKey === 'expiryDate' && newValue instanceof Date) {
-        const newDate = newValue ? new Date(newValue).toISOString() : null;
-        const oldDate = oldValue ? new Date(oldValue).toISOString() : null;
-        if (newDate !== oldDate) {
-            (finalUpdateOps.$set as any)[typedKey] = newValue ? new Date(newValue) : null;
+        if (typedKey === 'expiryDate') {
+            // Handle expiryDate carefully: null means clear, undefined means no change
+            if (newValue === null && oldValue !== null) { // Clearing the date
+                 (finalUpdateOps.$set as any)[typedKey] = null;
+                 hasMeaningfulChanges = true;
+            } else if (newValue instanceof Date && (!oldValue || new Date(newValue).toISOString() !== new Date(oldValue).toISOString())) {
+                (finalUpdateOps.$set as any)[typedKey] = new Date(newValue);
+                hasMeaningfulChanges = true;
+            } else if (newValue === undefined && oldValue !== undefined){
+                // If new value is undefined but old value existed, it means it was not in form data
+                // but if it's a field that can be cleared (like expiryDate), we might need to handle $unset
+                // For now, if undefined, we assume no change intended unless explicitly handled as null above
+            }
+        } else if (newValue !== undefined && newValue !== oldValue) {
+            (finalUpdateOps.$set as any)[typedKey] = newValue;
             hasMeaningfulChanges = true;
         }
-    } else if (newValue !== undefined && newValue !== oldValue) {
-      (finalUpdateOps.$set as any)[typedKey] = newValue;
-      hasMeaningfulChanges = true;
     }
   }
   
@@ -387,6 +408,7 @@ export async function updateProduct(
       });
       if (!finalUpdateOps.$push) finalUpdateOps.$push = {};
       
+      // Ensure priceHistory is pushed correctly even if images are also being pushed
       if (finalUpdateOps.$push && finalUpdateOps.$push.images) {
           finalUpdateOps.$push.priceHistory = priceHistoryEntry;
       } else {
@@ -395,11 +417,12 @@ export async function updateProduct(
       hasMeaningfulChanges = true; 
     }
     
+    // If no meaningful changes were detected, return success with the existing product
     if (!hasMeaningfulChanges && Object.keys(finalUpdateOps.$set).length === 0 && !finalUpdateOps.$pull && !(finalUpdateOps.$push && (finalUpdateOps.$push.images || finalUpdateOps.$push.priceHistory))) {
-        const currentProduct = await getProductById(productId); 
-        return { success: true, product: currentProduct || existingProduct, error: "No changes detected." };
+        return { success: true, product: existingProduct, error: "No changes detected." };
     }
     
+    // Always set updatedAt if there are any changes
     finalUpdateOps.$set.updatedAt = new Date();
 
     const updateResult = await db.collection<Product>(PRODUCTS_COLLECTION).findOneAndUpdate(
@@ -435,3 +458,4 @@ export async function updateProduct(
   }
 }
     
+
