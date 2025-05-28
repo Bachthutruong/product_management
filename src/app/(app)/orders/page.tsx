@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -49,14 +50,22 @@ interface OrderStatusActionButtonProps {
 function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionButtonProps) {
   const { toast } = useToast();
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [targetStatus, setTargetStatus] = useState<OrderStatus | null>(null);
 
-  const handleUpdateStatus = async (newStatus: OrderStatus) => {
+  const openConfirmationDialog = (newStatus: OrderStatus) => {
+    setTargetStatus(newStatus);
+    setIsAlertOpen(true);
+  };
+
+  const handleConfirmUpdateStatus = async () => {
+    if (!targetStatus) return;
     setIsUpdatingStatus(true);
-    const result = await updateOrderStatus(order._id, newStatus);
+    const result = await updateOrderStatus(order._id, targetStatus);
     if (result.success) {
       toast({
         title: "Order Status Updated",
-        description: `Order ${order.orderNumber} status changed to ${newStatus}.`,
+        description: `Order ${order.orderNumber} status changed to ${targetStatus}.`,
       });
       onStatusUpdated();
     } else {
@@ -67,51 +76,98 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
       });
     }
     setIsUpdatingStatus(false);
+    setIsAlertOpen(false);
+    setTargetStatus(null);
   };
 
+  let actionButton = null;
+  let dialogTitle = "";
+  let dialogDescription = "";
+
   if (order.status === 'pending' || order.status === 'processing') {
-    return (
+    actionButton = (
       <Button 
         variant="outline" 
         size="sm" 
-        onClick={() => handleUpdateStatus('shipped')} 
+        onClick={() => openConfirmationDialog('shipped')} 
         disabled={isUpdatingStatus}
         className="text-xs bg-blue-500 hover:bg-blue-600 text-white"
       >
-        {isUpdatingStatus ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Truck className="mr-1 h-3 w-3" />}
+        {isUpdatingStatus && targetStatus === 'shipped' ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Truck className="mr-1 h-3 w-3" />}
         Mark as Shipped
       </Button>
     );
-  }
-  if (order.status === 'shipped') {
-    return (
+    dialogTitle = `Mark Order ${order.orderNumber} as Shipped?`;
+    dialogDescription = "This will change the order status to 'Shipped'. Are you sure?";
+  } else if (order.status === 'shipped') {
+    actionButton = (
       <Button 
         variant="outline" 
         size="sm" 
-        onClick={() => handleUpdateStatus('delivered')} 
+        onClick={() => openConfirmationDialog('delivered')} 
         disabled={isUpdatingStatus}
         className="text-xs bg-green-500 hover:bg-green-600 text-white"
       >
-        {isUpdatingStatus ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle className="mr-1 h-3 w-3" />}
+        {isUpdatingStatus && targetStatus === 'delivered' ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle className="mr-1 h-3 w-3" />}
         Mark as Delivered
       </Button>
     );
-  }
-   if (order.status === 'delivered') { // Assuming "hoàn thành" means completed after delivery
-    return (
+    dialogTitle = `Mark Order ${order.orderNumber} as Delivered?`;
+    dialogDescription = "This will change the order status to 'Delivered'. Are you sure?";
+  } else if (order.status === 'delivered') {
+    actionButton = (
       <Button 
         variant="outline" 
         size="sm" 
-        onClick={() => handleUpdateStatus('completed')} 
+        onClick={() => openConfirmationDialog('completed')} 
         disabled={isUpdatingStatus}
         className="text-xs bg-teal-500 hover:bg-teal-600 text-white"
       >
-        {isUpdatingStatus ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <ThumbsUp className="mr-1 h-3 w-3" />}
+        {isUpdatingStatus && targetStatus === 'completed' ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <ThumbsUp className="mr-1 h-3 w-3" />}
         Mark as Completed
       </Button>
     );
+    dialogTitle = `Mark Order ${order.orderNumber} as Completed?`;
+    dialogDescription = "This will finalize the order status to 'Completed'. Are you sure?";
   }
-  return null; // No action for other statuses like 'completed', 'cancelled'
+
+  if (!actionButton) return null;
+
+  return (
+    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+      <AlertDialogTrigger asChild>
+        {actionButton}
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {dialogDescription}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => { setIsAlertOpen(false); setTargetStatus(null); }} disabled={isUpdatingStatus}>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={handleConfirmUpdateStatus} 
+            disabled={isUpdatingStatus}
+            className={
+                targetStatus === 'shipped' ? 'bg-blue-500 hover:bg-blue-600' :
+                targetStatus === 'delivered' ? 'bg-green-500 hover:bg-green-600' :
+                targetStatus === 'completed' ? 'bg-teal-500 hover:bg-teal-600' : ''
+            }
+          >
+            {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 
+             (targetStatus === 'shipped' ? <Truck className="mr-2 h-4 w-4" /> :
+              targetStatus === 'delivered' ? <CheckCircle className="mr-2 h-4 w-4" /> :
+              targetStatus === 'completed' ? <ThumbsUp className="mr-2 h-4 w-4" /> : null
+             )
+            }
+            Confirm
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }
 
 
@@ -213,7 +269,7 @@ export default function OrdersPage() {
 
   const handleOrderCreatedOrUpdated = () => {
     fetchOrders(searchTerm); 
-    setIsCreateOrderDialogOpen(false); // Assuming this is for create, edit dialog would have its own state
+    setIsCreateOrderDialogOpen(false); 
   };
 
   if (authLoading) {
@@ -298,7 +354,9 @@ export default function OrdersPage() {
                 <TableBody>
                   {orders.map((order) => {
                     const isEmployee = user?.role === 'employee';
+                    // Employee can edit only if status is 'pending' or 'processing'
                     const canEmployeeEdit = isEmployee && (order.status === 'pending' || order.status === 'processing');
+                    // Disable edit for employee if status is not pending/processing
                     const isEditDisabledForEmployee = isEmployee && !canEmployeeEdit;
 
                     return (
@@ -309,14 +367,20 @@ export default function OrdersPage() {
                       <TableCell className="text-right">${order.totalAmount.toFixed(2)}</TableCell>
                       <TableCell>
                         <Badge 
-                          variant={order.status === 'completed' || order.status === 'delivered' ? 'default' : 
-                                   order.status === 'cancelled' ? 'destructive' : 'secondary'}
+                          variant={
+                            order.status === 'completed' ? 'default' : 
+                            order.status === 'delivered' ? 'default' :
+                            order.status === 'shipped' ? 'default' :
+                            order.status === 'cancelled' ? 'destructive' : 
+                            'secondary'
+                          }
                           className={
                             order.status === 'completed' ? 'bg-green-600 text-white border-green-700' :
                             order.status === 'delivered' ? 'bg-emerald-500 text-white border-emerald-600' :
                             order.status === 'pending' ? 'bg-yellow-400 text-yellow-900 border-yellow-500' :
                             order.status === 'processing' ? 'bg-blue-400 text-blue-900 border-blue-500' :
-                            order.status === 'shipped' ? 'bg-purple-500 text-white border-purple-600' : ''
+                            order.status === 'shipped' ? 'bg-purple-500 text-white border-purple-600' : 
+                            order.status === 'cancelled' ? 'bg-red-500 text-white border-red-600' : ''
                           }
                         >
                           {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
@@ -352,7 +416,7 @@ export default function OrdersPage() {
                                 title={`Print order ${order.orderNumber}`}
                                 >
                                 <Printer className="h-4 w-4" />
-                                <span className="sr-only">Print order {order.orderNumber}</span>
+                                <span className="sr-only">Print order ${order.orderNumber}</span>
                             </Button>
                         </div>
                       </TableCell>
