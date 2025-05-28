@@ -5,7 +5,7 @@ import { useState, type ChangeEvent, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ProductFormInputSchema, type Product, type ProductImage } from '@/models/Product'; // Removed AddProductFormValues as it's not used here
+import { ProductFormInputSchema, type Product, type ProductImage } from '@/models/Product';
 import { updateProduct } from '@/app/(app)/products/actions';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -13,14 +13,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, XCircle, CalendarIcon } from 'lucide-react'; // Removed UploadCloud, not used
+import { Loader2, Save, XCircle, CalendarIcon } from 'lucide-react'; 
 import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
-// Schema for form values, allowing strings for numeric/date fields that will be coerced
 const EditProductFormValuesSchema = ProductFormInputSchema.extend({
   price: z.union([z.string(), z.number()]).pipe(z.coerce.number().min(0, { message: "Price must be a positive number" })),
   cost: z.union([z.string(), z.number()]).optional().pipe(z.coerce.number().min(0, { message: "Cost must be non-negative" }).default(0)),
@@ -43,23 +42,23 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<ProductImage[]>(product.images || []);
   const [imagesToDeletePublicIds, setImagesToDeletePublicIds] = useState<string[]>([]);
-  const [newRawFiles, setNewRawFiles] = useState<FileList | null>(null); // State for new raw files
+  const [newRawFiles, setNewRawFiles] = useState<FileList | null>(null);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
 
   const form = useForm<EditProductFormValues>({
     resolver: zodResolver(EditProductFormValuesSchema),
-    defaultValues: {
+    defaultValues: { // Initialize with string for text inputs, Zod will coerce
       name: product.name || '',
       sku: product.sku || '',
       category: product.category || '',
       unitOfMeasure: product.unitOfMeasure || '',
-      price: product.price ?? 0,
-      cost: product.cost ?? 0,
-      stock: product.stock ?? 0,
+      price: product.price?.toString() ?? '',
+      cost: product.cost?.toString() ?? '',
+      stock: product.stock?.toString() ?? '',
       description: product.description || '',
       expiryDate: product.expiryDate ? new Date(product.expiryDate) : null,
-      lowStockThreshold: product.lowStockThreshold ?? 0,
+      lowStockThreshold: product.lowStockThreshold?.toString() ?? '',
     },
   });
 
@@ -69,18 +68,17 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
       sku: product.sku || '',
       category: product.category || '',
       unitOfMeasure: product.unitOfMeasure || '',
-      price: product.price ?? 0,
-      cost: product.cost ?? 0,
-      stock: product.stock ?? 0,
+      price: product.price?.toString() ?? '',
+      cost: product.cost?.toString() ?? '',
+      stock: product.stock?.toString() ?? '',
       description: product.description || '',
       expiryDate: product.expiryDate ? new Date(product.expiryDate) : null,
-      lowStockThreshold: product.lowStockThreshold ?? 0,
+      lowStockThreshold: product.lowStockThreshold?.toString() ?? '',
     });
     setExistingImages(product.images || []);
     setNewImagePreviews([]);
     setImagesToDeletePublicIds([]);
-    setNewRawFiles(null); // Reset new raw files
-    // Clear file input explicitly
+    setNewRawFiles(null);
     const fileInput = document.getElementById('images-input-in-edit-dialog') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
 
@@ -89,7 +87,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
   const handleNewImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-      setNewRawFiles(files); // Set new raw files to state
+      setNewRawFiles(files); 
       const previews: string[] = [];
       Array.from(files).forEach(file => previews.push(URL.createObjectURL(file)));
       setNewImagePreviews(previews);
@@ -107,7 +105,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
       
       const dataTransfer = new DataTransfer();
       newFilesArray.forEach(file => dataTransfer.items.add(file));
-      setNewRawFiles(dataTransfer.files.length > 0 ? dataTransfer.files : null); // Update state
+      setNewRawFiles(dataTransfer.files.length > 0 ? dataTransfer.files : null);
 
       const previews = [...newImagePreviews];
       previews.splice(index, 1);
@@ -131,32 +129,21 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
     Object.entries(data).forEach(([key, value]) => {
       if (key === 'expiryDate' && value instanceof Date) {
         formData.append(key, value.toISOString());
-      } else if (value !== undefined && value !== null && value !== '') {
+      } else if (value !== undefined && value !== null) { // Send empty strings for Zod to coerce
          formData.append(key, String(value));
       }
     });
     formData.append('changedByUserId', userId);
 
-    // Append new images if any
-    if (newRawFiles) { // Use newRawFiles from state
+    if (newRawFiles) {
       for (let i = 0; i < newRawFiles.length; i++) {
         formData.append('images', newRawFiles[i]);
       }
     }
     
-    // Append publicIds of images to delete
     imagesToDeletePublicIds.forEach(publicId => {
       formData.append('imagesToDelete[]', publicId);
     });
-
-    // Ensure numeric fields that might be empty strings are set correctly for Zod on the server
-    if (data.price === 0 || (typeof data.price === 'string' && parseFloat(data.price) === 0) ) formData.set('price', '0');
-    if (data.cost === 0 || (typeof data.cost === 'string' && parseFloat(data.cost) === 0) ) formData.set('cost', '0');
-    if (data.stock === 0 || (typeof data.stock === 'string' && parseInt(data.stock) === 0) ) formData.set('stock', '0');
-    if (data.lowStockThreshold === 0 || (typeof data.lowStockThreshold === 'string' && parseInt(data.lowStockThreshold) === 0)) {
-        formData.set('lowStockThreshold', '0');
-    }
-
 
     try {
       const result = await updateProduct(product._id, formData, currentUser);
@@ -242,9 +229,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                   <FormItem>
                     <FormLabel>Price</FormLabel>
                     <FormControl>
-                       <Input type="number" step="0.01" placeholder="e.g., 19.99" {...field} 
-                       onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                       value={field.value ?? ""} />
+                       <Input type="text" inputMode="decimal" placeholder="e.g., 19.99" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -257,9 +242,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                   <FormItem>
                     <FormLabel>Cost</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" placeholder="e.g., 10.50" {...field} 
-                       onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                       value={field.value ?? ""} />
+                      <Input type="text" inputMode="decimal" placeholder="e.g., 10.50" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -272,9 +255,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                   <FormItem>
                     <FormLabel>Stock Quantity</FormLabel>
                     <FormControl>
-                      <Input type="number" step="1" placeholder="e.g., 100" {...field} 
-                       onChange={e => field.onChange(e.target.value === '' ? '' : parseInt(e.target.value,10))}
-                       value={field.value ?? ""}/>
+                      <Input type="text" inputMode="numeric" placeholder="e.g., 100" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -302,9 +283,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                   <FormItem>
                     <FormLabel>Low Stock Threshold</FormLabel>
                     <FormControl>
-                      <Input type="number" step="1" placeholder="e.g., 10" {...field} 
-                       onChange={e => field.onChange(e.target.value === '' ? '' : parseInt(e.target.value,10))}
-                       value={field.value ?? ""}/>
+                      <Input type="text" inputMode="numeric" placeholder="e.g., 10" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -366,13 +345,12 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               )}
             />
             
-            {/* Existing Images */}
             {existingImages.length > 0 && (
               <FormItem>
                 <FormLabel>Current Images</FormLabel>
                 <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {existingImages.map((image, index) => (
-                    <div key={image.publicId} className="relative group aspect-square">
+                    <div key={image.publicId || `existing-${index}`} className="relative group aspect-square">
                       <Image
                         src={image.url}
                         alt={`Current image ${index + 1}`}
@@ -397,12 +375,11 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               </FormItem>
             )}
 
-            {/* New Images Upload */}
             <FormItem>
               <FormLabel htmlFor="images-input-in-edit-dialog">Add New Images</FormLabel>
               <FormControl>
                 <Input 
-                  id="images-input-in-edit-dialog" // Unique ID for file input
+                  id="images-input-in-edit-dialog" 
                   type="file" 
                   multiple 
                   accept="image/*" 
@@ -410,13 +387,12 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                   className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                 />
               </FormControl>
-              {/* Intentionally not showing form.formState.errors.images here as 'images' is not in the Zod schema for this form */}
             </FormItem>
 
             {newImagePreviews.length > 0 && (
               <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {newImagePreviews.map((src, index) => (
-                  <div key={index} className="relative group aspect-square">
+                  <div key={`new-${index}`} className="relative group aspect-square">
                     <Image
                       src={src}
                       alt={`New preview ${index + 1}`}
@@ -458,4 +434,3 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
     </Form>
   );
 }
-

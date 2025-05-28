@@ -37,13 +37,13 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
       sku: '',
       category: '',
       unitOfMeasure: '',
-      price: 0,
-      cost: 0,
-      stock: 0,
+      price: '', // Keep as string for controlled input, Zod will coerce
+      cost: '',  // Keep as string
+      stock: '',  // Keep as string
       description: '',
       images: null,
       expiryDate: null,
-      lowStockThreshold: 0,
+      lowStockThreshold: '', // Keep as string
     },
   });
 
@@ -80,29 +80,27 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
     setIsSubmitting(true);
 
     const formData = new FormData();
+    // Append text fields, ensuring numeric fields are sent as strings if they are empty or valid numbers
     Object.entries(data).forEach(([key, value]) => {
       if (key === 'images') {
-        if (value instanceof FileList) {
-          for (let i = 0; i < value.length; i++) {
-            formData.append('images', value[i]);
-          }
-        }
+        // Handled below
       } else if (key === 'expiryDate' && value instanceof Date) {
         formData.append(key, value.toISOString());
-      } else if (value !== undefined && value !== null && value !== '') {
+      } else if (value !== undefined && value !== null) {
+         // For numeric fields, send the string value (even if empty)
+         // Zod on server-side will coerce/validate
          formData.append(key, String(value));
       }
     });
     
-    formData.append('changedByUserId', userId); 
-
-    if (data.price === 0 || (typeof data.price === 'string' && parseFloat(data.price) === 0) ) formData.set('price', '0');
-    if (data.cost === 0 || (typeof data.cost === 'string' && parseFloat(data.cost) === 0) ) formData.set('cost', '0');
-    if (data.stock === 0 || (typeof data.stock === 'string' && parseInt(data.stock) === 0) ) formData.set('stock', '0');
-    if (data.lowStockThreshold === 0 || (typeof data.lowStockThreshold === 'string' && parseInt(data.lowStockThreshold) === 0)) {
-        formData.set('lowStockThreshold', '0');
+    // Append image files
+    if (data.images instanceof FileList) {
+      for (let i = 0; i < data.images.length; i++) {
+        formData.append('images', data.images[i]);
+      }
     }
-
+    
+    formData.append('changedByUserId', userId); 
 
     try {
       const result = await addProduct(formData);
@@ -113,11 +111,11 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
         });
         form.reset({ 
           name: '', sku: '', category: '', unitOfMeasure: '',
-          price: 0, cost:0, stock: 0, description: '', images: null,
-          expiryDate: null, lowStockThreshold: 0,
+          price: '', cost:'', stock: '', description: '', images: null,
+          expiryDate: null, lowStockThreshold: '',
         });
         setImagePreviews([]);
-        const fileInput = document.getElementById('images-input-in-dialog') as HTMLInputElement; // Use a unique ID
+        const fileInput = document.getElementById('images-input-in-dialog') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
 
         if (onProductAdded) onProductAdded();
@@ -147,7 +145,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-4">
-        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2"> {/* Scrollable content area */}
+        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2">
             <FormField
               control={form.control}
               name="name"
@@ -197,9 +195,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                   <FormItem>
                     <FormLabel>Price</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" placeholder="e.g., 19.99" {...field} 
-                       onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                       value={field.value ?? ""} />
+                      <Input type="text" inputMode="decimal" placeholder="e.g., 19.99" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -212,9 +208,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                   <FormItem>
                     <FormLabel>Cost</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" placeholder="e.g., 10.50" {...field} 
-                       onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                       value={field.value ?? ""} />
+                      <Input type="text" inputMode="decimal" placeholder="e.g., 10.50" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -227,9 +221,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                   <FormItem>
                     <FormLabel>Stock Quantity</FormLabel>
                     <FormControl>
-                      <Input type="number" step="1" placeholder="e.g., 100" {...field} 
-                       onChange={e => field.onChange(e.target.value === '' ? '' : parseInt(e.target.value,10))}
-                       value={field.value ?? ""}/>
+                      <Input type="text" inputMode="numeric" placeholder="e.g., 100" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -257,9 +249,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                   <FormItem>
                     <FormLabel>Low Stock Threshold</FormLabel>
                     <FormControl>
-                      <Input type="number" step="1" placeholder="e.g., 10" {...field} 
-                       onChange={e => field.onChange(e.target.value === '' ? '' : parseInt(e.target.value,10))}
-                       value={field.value ?? ""}/>
+                      <Input type="text" inputMode="numeric" placeholder="e.g., 10" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -324,7 +314,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
               <FormLabel htmlFor="images-input-in-dialog">Product Images</FormLabel>
               <FormControl>
                 <Input 
-                  id="images-input-in-dialog" // Unique ID for file input
+                  id="images-input-in-dialog" 
                   type="file" 
                   multiple 
                   accept="image/*" 
@@ -363,7 +353,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
             )}
         </div>
 
-        <div className="pt-4"> {/* Add padding-top for separation if needed */}
+        <div className="pt-4"> 
           <Button type="submit" disabled={isSubmitting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
