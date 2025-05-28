@@ -5,7 +5,7 @@ import { useState, type ChangeEvent, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ProductFormInputSchema, type Product, type ProductImage, type AddProductFormValues } from '@/models/Product';
+import { ProductFormInputSchema, type Product, type ProductImage } from '@/models/Product'; // Removed AddProductFormValues as it's not used here
 import { updateProduct } from '@/app/(app)/products/actions';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, XCircle, CalendarIcon, UploadCloud } from 'lucide-react';
+import { Loader2, Save, XCircle, CalendarIcon } from 'lucide-react'; // Removed UploadCloud, not used
 import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -43,6 +43,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<ProductImage[]>(product.images || []);
   const [imagesToDeletePublicIds, setImagesToDeletePublicIds] = useState<string[]>([]);
+  const [newRawFiles, setNewRawFiles] = useState<FileList | null>(null); // State for new raw files
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
 
@@ -78,6 +79,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
     setExistingImages(product.images || []);
     setNewImagePreviews([]);
     setImagesToDeletePublicIds([]);
+    setNewRawFiles(null); // Reset new raw files
     // Clear file input explicitly
     const fileInput = document.getElementById('images-input-in-edit-dialog') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
@@ -87,25 +89,25 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
   const handleNewImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-      form.setValue('images', files); // Although 'images' is not in EditProductFormValues, we pass it to FormData
+      setNewRawFiles(files); // Set new raw files to state
       const previews: string[] = [];
       Array.from(files).forEach(file => previews.push(URL.createObjectURL(file)));
       setNewImagePreviews(previews);
     } else {
-      form.setValue('images', null);
+      setNewRawFiles(null);
       setNewImagePreviews([]);
     }
   };
 
   const removeNewImagePreview = (index: number) => {
-    const currentFiles = form.getValues('images') as FileList | null; // Cast needed
+    const currentFiles = newRawFiles;
     if (currentFiles) {
       const newFilesArray = Array.from(currentFiles);
       newFilesArray.splice(index, 1);
       
       const dataTransfer = new DataTransfer();
       newFilesArray.forEach(file => dataTransfer.items.add(file));
-      form.setValue('images', dataTransfer.files.length > 0 ? dataTransfer.files : null);
+      setNewRawFiles(dataTransfer.files.length > 0 ? dataTransfer.files : null); // Update state
 
       const previews = [...newImagePreviews];
       previews.splice(index, 1);
@@ -136,10 +138,9 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
     formData.append('changedByUserId', userId);
 
     // Append new images if any
-    const newImageFiles = form.getValues('images') as FileList | null; // Cast needed
-    if (newImageFiles) {
-      for (let i = 0; i < newImageFiles.length; i++) {
-        formData.append('images', newImageFiles[i]);
+    if (newRawFiles) { // Use newRawFiles from state
+      for (let i = 0; i < newRawFiles.length; i++) {
+        formData.append('images', newRawFiles[i]);
       }
     }
     
@@ -409,7 +410,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                   className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                 />
               </FormControl>
-              <FormMessage>{form.formState.errors.images?.message as React.ReactNode}</FormMessage>
+              {/* Intentionally not showing form.formState.errors.images here as 'images' is not in the Zod schema for this form */}
             </FormItem>
 
             {newImagePreviews.length > 0 && (
@@ -457,3 +458,4 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
     </Form>
   );
 }
+
