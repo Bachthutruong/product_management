@@ -55,8 +55,8 @@ export default function InventoryPage() {
   const fetchProductsForFilter = useCallback(async () => {
     setIsLoadingProducts(true);
     try {
-      const result = await getProducts(); // getProducts now returns an object
-      setProducts(result.products); // Correctly access the products array
+      const result = await getProducts({limit: 1000}); // Fetch a large number for filter dropdown
+      setProducts(result.products);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Could not load products for filter." });
     } finally {
@@ -68,8 +68,8 @@ export default function InventoryPage() {
     setIsLoadingHistory(true);
     try {
       const result = await getInventoryMovements({
-        productId: selectedProductId === "all" ? undefined : selectedProductId, // Handle "all" case
-        type: selectedMovementType,
+        productId: selectedProductId === "all" ? undefined : selectedProductId,
+        type: selectedMovementType === "all" ? undefined : selectedMovementType,
         dateFrom: dateFrom ? dateFrom.toISOString() : undefined,
         dateTo: dateTo ? dateTo.toISOString() : undefined,
         searchTerm: appliedSearchTerm,
@@ -90,23 +90,23 @@ export default function InventoryPage() {
 
   useEffect(() => {
     fetchProductsForFilter();
-    // fetchHistory(1); // Initial fetch for page 1 - This is now handled by the second useEffect
   }, [fetchProductsForFilter]);
   
-  // Re-fetch when appliedSearchTerm or filters change, resetting to page 1
   useEffect(() => {
-    fetchHistory(1);
-  }, [selectedProductId, selectedMovementType, dateFrom, dateTo, appliedSearchTerm, fetchHistory]);
-
+    fetchHistory(currentPage); // Fetch based on currentPage
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedSearchTerm, selectedProductId, selectedMovementType, dateFrom, dateTo]); // fetchHistory is memoized
 
   const handleStockOperationRecorded = () => {
-    fetchHistory(currentPage); // Refresh current page of history
+    // Refetch the current page if filters haven't changed, or page 1 if they might have
+    fetchHistory(currentPage); 
   };
 
   const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setAppliedSearchTerm(searchTerm);
     setCurrentPage(1); // Reset to first page on new search/filter
+    fetchHistory(1); // Explicitly fetch page 1
   };
 
   const handleClearFilters = () => {
@@ -117,10 +117,11 @@ export default function InventoryPage() {
     setDateFrom(undefined);
     setDateTo(undefined);
     setCurrentPage(1); // Reset to first page
+    fetchHistory(1); // Explicitly fetch page 1 with cleared filters
   };
   
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
       fetchHistory(newPage);
     }
@@ -160,29 +161,32 @@ export default function InventoryPage() {
             <History className="mr-2 h-6 w-6 text-primary" />
             Inventory History
           </CardTitle>
-          <CardDescription>Log of all stock movements. {totalMovements} entries found.</CardDescription>
+          <CardDescription>
+            Log of all stock movements. 
+            {isLoadingHistory && totalMovements === 0 ? " Loading entries..." : ` ${totalMovements} entries found.`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {/* Filter and Search Section */}
           <form onSubmit={handleSearchSubmit} className="mb-6 space-y-4 p-4 border rounded-lg shadow-sm bg-card">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
               <div className="lg:col-span-1">
-                <label htmlFor="searchTerm" className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
+                <label htmlFor="searchTermInventory" className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
                 <Input 
-                  id="searchTerm"
+                  id="searchTermInventory"
                   placeholder="Product, user, notes..." 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
                 />
               </div>
               <div>
-                <label htmlFor="productFilter" className="block text-sm font-medium text-muted-foreground mb-1">Product</label>
+                <label htmlFor="productFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">Product</label>
                 <Select 
                   value={selectedProductId} 
                   onValueChange={(value) => setSelectedProductId(value === "all" ? undefined : value)} 
                   disabled={isLoadingProducts}
                 >
-                  <SelectTrigger id="productFilter">
+                  <SelectTrigger id="productFilterInventory">
                     <SelectValue placeholder={isLoadingProducts ? "Loading products..." : "All Products"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -192,9 +196,9 @@ export default function InventoryPage() {
                 </Select>
               </div>
               <div>
-                <label htmlFor="typeFilter" className="block text-sm font-medium text-muted-foreground mb-1">Movement Type</label>
+                <label htmlFor="typeFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">Movement Type</label>
                 <Select value={selectedMovementType} onValueChange={(value) => setSelectedMovementType(value === "all" ? undefined : value as InventoryMovementType)}>
-                  <SelectTrigger id="typeFilter">
+                  <SelectTrigger id="typeFilterInventory">
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -208,11 +212,11 @@ export default function InventoryPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                <div>
-                  <label htmlFor="dateFrom" className="block text-sm font-medium text-muted-foreground mb-1">Date From</label>
+                  <label htmlFor="dateFromInventory" className="block text-sm font-medium text-muted-foreground mb-1">Date From</label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
-                        id="dateFrom"
+                        id="dateFromInventory"
                         variant={"outline"}
                         className={cn("w-full justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}
                       >
@@ -226,11 +230,11 @@ export default function InventoryPage() {
                   </Popover>
               </div>
               <div>
-                <label htmlFor="dateTo" className="block text-sm font-medium text-muted-foreground mb-1">Date To</label>
+                <label htmlFor="dateToInventory" className="block text-sm font-medium text-muted-foreground mb-1">Date To</label>
                  <Popover>
                     <PopoverTrigger asChild>
                       <Button
-                        id="dateTo"
+                        id="dateToInventory"
                         variant={"outline"}
                         className={cn("w-full justify-start text-left font-normal", !dateTo && "text-muted-foreground")}
                       >
@@ -254,7 +258,7 @@ export default function InventoryPage() {
             </div>
           </form>
 
-          {isLoadingHistory ? (
+          {isLoadingHistory && movements.length === 0 ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
@@ -262,7 +266,11 @@ export default function InventoryPage() {
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-foreground">No Inventory Movements Found</h3>
-              <p className="text-muted-foreground">No records match your current filters or search term.</p>
+              <p className="text-muted-foreground">
+                {appliedSearchTerm || selectedProductId || selectedMovementType || dateFrom || dateTo 
+                  ? "No records match your current filters or search term."
+                  : "There are no inventory movements recorded yet."}
+              </p>
             </div>
           ) : (
             <>
@@ -303,7 +311,7 @@ export default function InventoryPage() {
                             {move.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </Badge>
                         </TableCell>
-                        <TableCell className={`text-right font-medium ${move.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <TableCell className={`text-right font-medium ${move.quantity > 0 ? 'text-green-600' : move.quantity < 0 ? 'text-red-600' : ''}`}>
                           {move.quantity > 0 ? `+${move.quantity}`: move.quantity}
                         </TableCell>
                         <TableCell className="text-right">{move.stockBefore}</TableCell>
