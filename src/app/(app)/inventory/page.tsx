@@ -29,7 +29,8 @@ import { format, isValid } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
+const DEFAULT_ITEMS_PER_PAGE = ITEMS_PER_PAGE_OPTIONS[1]; // Default to 10
 
 interface InventoryFilters {
   searchTerm: string;
@@ -66,6 +67,7 @@ export default function InventoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalMovements, setTotalMovements] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
 
 
   const fetchProductsForFilterDropdown = useCallback(async () => {
@@ -90,19 +92,19 @@ export default function InventoryPage() {
         dateTo: appliedFilters.dateTo ? appliedFilters.dateTo.toISOString() : undefined,
         searchTerm: appliedFilters.searchTerm,
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: itemsPerPage,
       });
       setMovements(result.movements);
       setTotalPages(result.totalPages);
       setTotalMovements(result.totalCount);
-      setCurrentPage(result.currentPage);
+      // setCurrentPage(result.currentPage); // Backend might adjust page
     } catch (error) {
       console.error("Failed to fetch inventory history:", error);
       toast({ variant: "destructive", title: "Loading Error", description: "Could not load inventory history." });
     } finally {
       setIsLoading(false);
     }
-  }, [toast, appliedFilters, currentPage]);
+  }, [toast, appliedFilters, currentPage, itemsPerPage]);
 
   useEffect(() => {
     fetchProductsForFilterDropdown();
@@ -148,6 +150,11 @@ export default function InventoryPage() {
     if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
     }
+  };
+
+  const handleItemsPerPageChange = (newSize: string) => {
+    setItemsPerPage(parseInt(newSize, 10));
+    setCurrentPage(1);
   };
 
   return (
@@ -280,7 +287,7 @@ export default function InventoryPage() {
             </div>
           </form>
 
-          {isLoading && movements.length === 0 ? (
+          {isLoading && movements.length === 0 && totalMovements === 0 ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
@@ -347,24 +354,44 @@ export default function InventoryPage() {
                 </Table>
               </div>
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePageChange(currentPage - 1)} 
-                    disabled={currentPage === 1 || isLoading}
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Previous
-                  </Button>
+                <div className="flex items-center justify-between mt-6 gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Rows per page:</span>
+                    <Select 
+                      value={itemsPerPage.toString()}
+                      onValueChange={handleItemsPerPageChange}
+                    >
+                      <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue placeholder={itemsPerPage} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ITEMS_PER_PAGE_OPTIONS.map(size => (
+                          <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <span className="text-sm text-muted-foreground">
                     Page {currentPage} of {totalPages}
                   </span>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePageChange(currentPage + 1)} 
-                    disabled={currentPage === totalPages || isLoading}
-                  >
-                    Next <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)} 
+                      disabled={currentPage === 1 || isLoading}
+                    >
+                      <ArrowLeft className="mr-1 h-4 w-4" /> Previous
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)} 
+                      disabled={currentPage === totalPages || isLoading}
+                    >
+                      Next <ArrowRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </>
@@ -374,3 +401,4 @@ export default function InventoryPage() {
     </div>
   );
 }
+

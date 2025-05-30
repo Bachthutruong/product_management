@@ -47,7 +47,8 @@ import { format, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
+const DEFAULT_ITEMS_PER_PAGE = ITEMS_PER_PAGE_OPTIONS[1]; // Default to 10
 
 interface OrderFilters {
   searchTerm: string;
@@ -274,6 +275,7 @@ export default function OrdersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
 
   const fetchOrders = useCallback(async () => {
     if (authLoading) return;
@@ -285,11 +287,11 @@ export default function OrdersPage() {
         dateFrom: appliedFilters.dateFrom ? appliedFilters.dateFrom.toISOString() : undefined,
         dateTo: appliedFilters.dateTo ? appliedFilters.dateTo.toISOString() : undefined,
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: itemsPerPage,
       });
       setOrders(result.orders);
       setTotalPages(result.totalPages);
-      setCurrentPage(result.currentPage);
+      // setCurrentPage(result.currentPage); // Backend might adjust page if out of bounds
       setTotalOrders(result.totalCount);
     } catch (error) {
       console.error("Failed to fetch orders:", error);
@@ -301,7 +303,7 @@ export default function OrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, authLoading, appliedFilters, currentPage]);
+  }, [toast, authLoading, appliedFilters, currentPage, itemsPerPage]);
 
   useEffect(() => {
     fetchOrders();
@@ -314,7 +316,7 @@ export default function OrdersPage() {
   
   const handleOrderDeleted = () => {
      if (orders.length === 1 && currentPage > 1) {
-      setCurrentPage(prev => prev - 1);
+      setCurrentPage(prev => prev - 1); // This will trigger fetchOrders via useEffect
     } else {
       fetchOrders();
     }
@@ -351,7 +353,12 @@ export default function OrdersPage() {
     }
   };
 
-  if (authLoading && isLoading) {
+  const handleItemsPerPageChange = (newSize: string) => {
+    setItemsPerPage(parseInt(newSize, 10));
+    setCurrentPage(1);
+  };
+
+  if (authLoading && isLoading && orders.length === 0) {
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -393,7 +400,7 @@ export default function OrdersPage() {
             Filter & Search Orders
           </CardTitle>
            <CardDescription>
-            Refine your order view. {isLoading ? "Loading..." : `${totalOrders} orders found.`}
+            Refine your order view. {isLoading && totalOrders === 0 ? "Loading..." : `${totalOrders} orders found.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -479,7 +486,7 @@ export default function OrdersPage() {
           <CardDescription>Manage and track all customer orders.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && orders.length === 0 ? (
+          {isLoading && orders.length === 0 && totalOrders === 0 ? (
              <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
@@ -553,7 +560,7 @@ export default function OrdersPage() {
                                   variant="ghost" 
                                   size="icon" 
                                   className="text-muted-foreground hover:text-primary" 
-                                  onClick={() => alert(`Edit order: ${order.orderNumber} - Edit order functionality is complex (involving stock reconciliation, COGS recalculation, etc.) and will be implemented in a future update.`)}
+                                  onClick={() => alert(`Edit order functionality is complex (involving stock reconciliation, COGS recalculation, etc.) and will be implemented in a future update.`)}
                                   disabled={isEditDisabledForEmployee}
                                   title={isEditDisabledForEmployee ? `Cannot edit order in '${order.status}' status` : `Edit order ${order.orderNumber}`}
                                   >
@@ -567,7 +574,7 @@ export default function OrdersPage() {
                                   variant="ghost" 
                                   size="icon" 
                                   className="text-muted-foreground hover:text-primary" 
-                                  onClick={() => alert(`Print order: ${order.orderNumber} - Print functionality (e.g., print-friendly view or PDF) will be implemented later.`)}
+                                  onClick={() => alert(`Print functionality (e.g., print-friendly view or PDF) will be implemented later.`)}
                                   title={`Print order ${order.orderNumber}`}
                                   >
                                   <Printer className="h-4 w-4" />
@@ -582,24 +589,44 @@ export default function OrdersPage() {
                 </Table>
               </div>
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePageChange(currentPage - 1)} 
-                    disabled={currentPage === 1 || isLoading}
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Previous
-                  </Button>
+                <div className="flex items-center justify-between mt-6 gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Rows per page:</span>
+                    <Select 
+                      value={itemsPerPage.toString()}
+                      onValueChange={handleItemsPerPageChange}
+                    >
+                      <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue placeholder={itemsPerPage} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ITEMS_PER_PAGE_OPTIONS.map(size => (
+                          <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <span className="text-sm text-muted-foreground">
                     Page {currentPage} of {totalPages}
                   </span>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePageChange(currentPage + 1)} 
-                    disabled={currentPage === totalPages || isLoading}
-                  >
-                    Next <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                   <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)} 
+                      disabled={currentPage === 1 || isLoading}
+                    >
+                      <ArrowLeft className="mr-1 h-4 w-4" /> Previous
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)} 
+                      disabled={currentPage === totalPages || isLoading}
+                    >
+                      Next <ArrowRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </>
@@ -609,3 +636,4 @@ export default function OrdersPage() {
     </div>
   );
 }
+

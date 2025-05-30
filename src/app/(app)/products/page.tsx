@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX, PlusCircle, Loader2, History, Eye as EyeIcon, Search, Filter, X, ArrowLeft, ArrowRight } from "lucide-react";
+import { Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX, PlusCircle, Loader2, History, Eye as EyeIcon, Search, Filter, X, ArrowLeft, ArrowRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +37,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as AlertDialogNativeTitle, // Renamed to avoid conflict
+  AlertDialogTitle as AlertDialogNativeTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import NextImage from 'next/image'; 
@@ -45,7 +45,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { format, isBefore, addYears } from 'date-fns';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
+const DEFAULT_ITEMS_PER_PAGE = ITEMS_PER_PAGE_OPTIONS[1]; // Default to 10
 
 type StockStatusFilter = 'all' | 'low' | 'inStock' | 'outOfStock';
 
@@ -149,6 +150,8 @@ export default function ProductsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
+
 
   const fetchProducts = useCallback(async () => {
     if (authLoading) return;
@@ -159,33 +162,35 @@ export default function ProductsPage() {
         category: appliedFilters.category,
         stockStatus: appliedFilters.stockStatus === 'all' ? undefined : appliedFilters.stockStatus,
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: itemsPerPage,
       });
       setProducts(result.products);
       setTotalPages(result.totalPages);
       setTotalProducts(result.totalCount);
-      setCurrentPage(result.currentPage); // Ensure currentPage is updated from backend result
+      // Ensure currentPage is updated from backend if it adjusts (e.g. if requested page > totalPages)
+      // However, getProducts current return type might not return the adjusted current page.
+      // For now, we assume the requested currentPage is valid or backend handles it.
+      // If backend adjusts, we'd need to set `setCurrentPage(result.currentPage)`
     } catch (error) {
       console.error("Failed to fetch products:", error);
       toast({ variant: "destructive", title: "Loading Error", description: "Could not load products." });
     } finally {
       setIsLoading(false);
     }
-  }, [toast, authLoading, appliedFilters, currentPage]);
+  }, [toast, authLoading, appliedFilters, currentPage, itemsPerPage]);
 
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]); 
 
   const handleProductAddedOrUpdated = () => {
-    fetchProducts(); // Refresh current page or page 1 if preferred
+    fetchProducts(); 
     setIsAddProductDialogOpen(false); 
     setIsEditProductDialogOpen(false);
     setEditingProduct(null);
   };
   
   const handleProductDeleted = () => {
-    // If current page becomes empty after deletion, try to go to previous page or page 1
     if (products.length === 1 && currentPage > 1) {
       setCurrentPage(prev => prev - 1);
     } else {
@@ -236,7 +241,12 @@ export default function ProductsPage() {
     }
   };
 
-  if (authLoading && isLoading) { 
+  const handleItemsPerPageChange = (newSize: string) => {
+    setItemsPerPage(parseInt(newSize, 10));
+    setCurrentPage(1);
+  };
+
+  if (authLoading && isLoading && products.length === 0) { 
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -276,7 +286,7 @@ export default function ProductsPage() {
             Filter & Search Products
           </CardTitle>
            <CardDescription>
-            Refine your product view. {isLoading ? "Loading..." : `${totalProducts} products found.`}
+            Refine your product view. {isLoading && totalProducts === 0 ? "Loading..." : `${totalProducts} products found.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -333,7 +343,7 @@ export default function ProductsPage() {
           <CardDescription>Your current product catalog. Warnings for low stock & upcoming expiry.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && products.length === 0 ? ( 
+          {isLoading && products.length === 0 && totalProducts === 0 ? ( 
              <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
@@ -448,7 +458,7 @@ export default function ProductsPage() {
                                   className="text-muted-foreground hover:text-primary" 
                                   onClick={() => openEditDialog(product)}
                                   title={`Edit ${product.name}`}
-                                  disabled={!user || user.role !== 'admin'} // Temporarily restrict to admin for safety during refactor
+                                  disabled={!user} 
                                   >
                                   <Edit3 className="h-4 w-4" />
                                   <span className="sr-only">Edit ${product.name}</span>
@@ -470,24 +480,44 @@ export default function ProductsPage() {
                 </Table>
               </div>
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePageChange(currentPage - 1)} 
-                    disabled={currentPage === 1 || isLoading}
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Previous
-                  </Button>
+                <div className="flex items-center justify-between mt-6 gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Rows per page:</span>
+                    <Select 
+                      value={itemsPerPage.toString()}
+                      onValueChange={handleItemsPerPageChange}
+                    >
+                      <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue placeholder={itemsPerPage} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ITEMS_PER_PAGE_OPTIONS.map(size => (
+                          <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <span className="text-sm text-muted-foreground">
                     Page {currentPage} of {totalPages}
                   </span>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePageChange(currentPage + 1)} 
-                    disabled={currentPage === totalPages || isLoading}
-                  >
-                    Next <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)} 
+                      disabled={currentPage === 1 || isLoading}
+                    >
+                      <ArrowLeft className="mr-1 h-4 w-4" /> Previous
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                       size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)} 
+                      disabled={currentPage === totalPages || isLoading}
+                    >
+                      Next <ArrowRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </>
