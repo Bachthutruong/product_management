@@ -1,16 +1,16 @@
 
 import { z } from 'zod';
-import { ProductSchema } from './Product'; // Assuming ProductSchema is defined
-import { CustomerSchema } from './Customer'; // Assuming CustomerSchema is defined
+import { ProductSchema } from './Product'; 
+import { CustomerSchema } from './Customer'; 
 
 export const OrderLineItemSchema = z.object({
-  _id: z.any().optional(), // Not stored as a separate doc usually, but useful if expanding
-  productId: z.string(), // ObjectId as string
-  productName: z.string(), // Denormalized
-  productSku: z.string().optional(), // Denormalized
+  _id: z.any().optional(), 
+  productId: z.string(), 
+  productName: z.string(), 
+  productSku: z.string().optional(), 
   quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
-  unitPrice: z.coerce.number().min(0), // Price at the time of sale
-  cost: z.coerce.number().min(0).optional().default(0), // Cost of the item at time of sale, for profit calculation
+  unitPrice: z.coerce.number().min(0), 
+  cost: z.coerce.number().min(0).optional().default(0), 
   notes: z.string().optional().nullable(),
 });
 export type OrderLineItem = z.infer<typeof OrderLineItemSchema>;
@@ -22,62 +22,60 @@ export const OrderStatusSchema = z.enum(['pending', 'processing', 'shipped', 'de
 export type OrderStatus = z.infer<typeof OrderStatusSchema>;
 
 export const OrderSchema = z.object({
-  _id: z.any().optional(), // MongoDB ObjectId
-  orderNumber: z.string().min(1, "Order number is required").optional(), // Can be auto-generated
-  customerId: z.string(), // ObjectId as string
-  customerName: z.string(), // Denormalized
+  _id: z.any().optional(), 
+  orderNumber: z.string().min(1, "Order number is required").optional(), 
+  customerId: z.string(), 
+  customerName: z.string(), 
   items: z.array(OrderLineItemSchema).min(1, "Order must have at least one item"),
-  subtotal: z.coerce.number().min(0), // Sum of (item.unitPrice * item.quantity)
+  subtotal: z.coerce.number().min(0), 
   discountType: DiscountTypeSchema.optional().nullable(),
   discountValue: z.coerce.number().min(0).optional().nullable(),
-  discountAmount: z.coerce.number().min(0).optional().nullable().default(0), // Calculated discount
+  discountAmount: z.coerce.number().min(0).optional().nullable().default(0), 
   shippingFee: z.coerce.number().min(0).optional().nullable().default(0),
-  totalAmount: z.coerce.number().min(0), // subtotal - discountAmount + shippingFee
+  totalAmount: z.coerce.number().min(0), 
   status: OrderStatusSchema.default('pending'),
   orderDate: z.date().default(() => new Date()),
   notes: z.string().optional().nullable(),
-  createdByUserId: z.string(), // User who created the order
-  createdByName: z.string(), // Denormalized user name
+  createdByUserId: z.string(), 
+  createdByName: z.string(), 
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
-  // For admin view later
-  costOfGoodsSold: z.coerce.number().min(0).optional().nullable(), // To calculate profit
-  profit: z.coerce.number().optional().nullable(), // To calculate profit
+  costOfGoodsSold: z.coerce.number().min(0).optional().nullable(), 
+  profit: z.coerce.number().optional().nullable(), 
 });
 
 export type Order = z.infer<typeof OrderSchema> & { _id: string };
 
-// Schema for the Create Order Form
 export const CreateOrderFormSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
   items: z.array(z.object({
     productId: z.string().min(1, "Product is required"),
     quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
-    unitPrice: z.coerce.number(), // Will be fetched, non-editable by user directly in line item
-    productName: z.string(), // For display and reference
+    unitPrice: z.coerce.number(), 
+    productName: z.string(), 
     productSku: z.string().optional(),
-    cost: z.coerce.number().optional().default(0), // Populated when product selected
+    cost: z.coerce.number().optional().default(0), 
     notes: z.string().optional().nullable(),
   })).min(1, "Order must have at least one item."),
   discountType: DiscountTypeSchema.optional().nullable(),
-  discountValueInput: z.string().optional().nullable(), // Input for discount value, will be coerced
-  shippingFeeInput: z.string().optional().nullable(), // Input for shipping, will be coerced
+  discountValueInput: z.string().optional().nullable(), 
+  shippingFeeInput: z.string().optional().nullable(), 
   notes: z.string().optional().nullable(),
 });
 
 export type CreateOrderFormValues = z.infer<typeof CreateOrderFormSchema>;
 
-// Schema for the data sent to the createOrder server action
 export const CreateOrderInputSchema = OrderSchema.pick({
   customerId: true,
-  items: true, // Will use OrderLineItemSchema for items
+  items: true, 
   discountType: true,
   notes: true,
 }).extend({
-  // raw inputs that will be processed into final amounts
   discountValue: z.coerce.number().min(0).optional().nullable(), 
   shippingFee: z.coerce.number().min(0).optional().nullable(),
-  // userId and userName will be added server-side from auth context
 });
 
 export type CreateOrderInput = z.infer<typeof CreateOrderInputSchema>;
+
+export const AllOrderStatusOptions = OrderStatusSchema.options; // Export options for UI
+

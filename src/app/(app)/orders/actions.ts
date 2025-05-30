@@ -50,12 +50,11 @@ export async function createOrder(
   currentUser: AuthUser
 ): Promise<{ success: boolean; order?: Order; error?: string; errors?: z.ZodIssue[] }> {
   
-  // Pre-process items to ensure unitPrice and quantity are numbers
   const processedItems = data.items.map(item => ({
     ...item,
     unitPrice: Number(item.unitPrice),
     quantity: Number(item.quantity),
-    cost: Number(item.cost || 0) // Ensure cost is a number
+    cost: Number(item.cost || 0) 
   }));
 
   const validation = CreateOrderInputSchema.extend({
@@ -85,13 +84,11 @@ export async function createOrder(
     let finalOrderResult: Order | undefined;
 
     await session.withTransaction(async () => {
-      // 1. Fetch customer details
       const customer = await db.collection('customers').findOne({ _id: new ObjectId(customerId) }, { session });
       if (!customer) {
         throw new Error('Customer not found.');
       }
 
-      // 2. Process Products and Inventory
       let subtotal = 0;
       let totalCostOfGoodsSold = 0;
       const orderLineItems: OrderLineItem[] = [];
@@ -120,7 +117,7 @@ export async function createOrder(
         
         const lineItemTotal = item.unitPrice * item.quantity;
         subtotal += lineItemTotal;
-        const lineItemCost = (product.cost || 0) * item.quantity; // Use product.cost from DB
+        const lineItemCost = (product.cost || 0) * item.quantity; 
         totalCostOfGoodsSold += lineItemCost;
 
         orderLineItems.push({
@@ -129,7 +126,7 @@ export async function createOrder(
           productSku: product.sku,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          cost: product.cost || 0, // Store the actual cost per unit at time of sale
+          cost: product.cost || 0, 
           notes: item.notes,
         });
 
@@ -137,7 +134,7 @@ export async function createOrder(
           productId: product._id.toString(),
           productName: product.name,
           type: 'sale',
-          quantity: -item.quantity, // Negative for stock out
+          quantity: -item.quantity, 
           movementDate: new Date(),
           userId: currentUser._id,
           userName: currentUser.name,
@@ -147,7 +144,6 @@ export async function createOrder(
         }));
       }
 
-      // 3. Calculate totals
       let discountAmountCalculated = 0;
       if (discountType && discountValue !== undefined && discountValue !== null) {
         if (discountType === 'percentage') {
@@ -162,7 +158,6 @@ export async function createOrder(
       const totalAmount = subtotal - discountAmountCalculated + finalShippingFee;
       const profit = totalAmount - totalCostOfGoodsSold;
 
-      // 4. Create Order
       const orderNumber = await generateOrderNumber();
       const newOrderData: Omit<Order, '_id' | 'createdAt' | 'updatedAt'> = {
         orderNumber,
@@ -208,11 +203,10 @@ export async function createOrder(
         revalidatePath('/orders');
         revalidatePath('/products'); 
         revalidatePath('/inventory'); 
-        revalidatePath(`/customers/${customerId}/orders`); // Revalidate specific customer orders page
+        revalidatePath(`/customers/${customerId}/orders`); 
         revalidatePath('/dashboard');
         return { success: true, order: finalOrderResult };
     } else {
-        // This case should ideally not be reached if transaction completes without error
         return { success: false, error: "Order creation completed but failed to retrieve final order details." };
     }
 
@@ -225,40 +219,80 @@ export async function createOrder(
 }
 
 
-export async function getOrders(filters?: { searchTerm?: string, customerId?: string }): Promise<Order[]> {
+export async function getOrders(filters: { 
+  searchTerm?: string; 
+  customerId?: string;
+  status?: OrderStatus | 'all'; 
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  page?: number;
+  limit?: number;
+} = {}): Promise<{ orders: Order[]; totalCount: number; totalPages: number; currentPage: number }> {
   try {
     const db = await getDb();
     const query: any = {};
-    if (filters?.searchTerm) {
+    const { 
+      searchTerm, 
+      customerId, 
+      status, 
+      dateFrom, 
+      dateTo,
+      page = 1,
+      limit = 10 // Default items per page
+    } = filters;
+
+
+    if (searchTerm) {
+      const regex = { $regex: searchTerm, $options: 'i' };
       query.$or = [
-        { orderNumber: { $regex: filters.searchTerm, $options: 'i' } },
-        { customerName: { $regex: filters.searchTerm, $options: 'i' } },
+        { orderNumber: regex },
+        { customerName: regex },
       ];
     }
-    if (filters?.customerId) {
-      if (!ObjectId.isValid(filters.customerId)) {
-        console.error('Invalid customerId provided to getOrders:', filters.customerId);
-        return []; // Or throw an error
+    if (customerId && ObjectId.isValid(customerId)) {
+      query.customerId = customerId;
+    }
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    if (dateFrom || dateTo) {
+      query.orderDate = {};
+      if (dateFrom) query.orderDate.$gte = new Date(dateFrom);
+      if (dateTo) {
+        const endDate = new Date(dateTo);
+        endDate.setHours(23, 59, 59, 999); // Include the whole end day
+        query.orderDate.$lte = endDate;
       }
-      query.customerId = filters.customerId; // No need to wrap in new ObjectId() if schema stores as string
     }
 
+    const skip = (page - 1) * limit;
+    const totalCount = await db.collection(ORDERS_COLLECTION).countDocuments(query);
+    
     const ordersFromDb = await db.collection(ORDERS_COLLECTION)
       .find(query)
       .sort({ orderDate: -1 }) 
-      .limit(100) 
+      .skip(skip)
+      .limit(limit) 
       .toArray();
     
-    return ordersFromDb.map(orderDoc => OrderSchema.parse({
+    const parsedOrders = ordersFromDb.map(orderDoc => OrderSchema.parse({
       ...orderDoc,
       _id: orderDoc._id.toString(),
       orderDate: new Date(orderDoc.orderDate),
       createdAt: orderDoc.createdAt ? new Date(orderDoc.createdAt) : undefined,
       updatedAt: orderDoc.updatedAt ? new Date(orderDoc.updatedAt) : undefined,
     }) as Order);
+
+    return {
+      orders: parsedOrders,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
+    };
+
   } catch (error) {
     console.error('Failed to fetch orders:', error);
-    return [];
+    return { orders: [], totalCount: 0, totalPages: 0, currentPage: 1 };
   }
 }
 
@@ -271,7 +305,7 @@ export async function updateOrderStatus(
   }
   
   try {
-    OrderStatusSchema.parse(newStatus); // Validate the new status
+    OrderStatusSchema.parse(newStatus); 
   } catch (error) {
     return { success: false, error: 'Invalid status value provided.' };
   }
@@ -283,14 +317,13 @@ export async function updateOrderStatus(
       return { success: false, error: 'Order not found.' };
     }
 
-    // Basic validation for status transitions (can be expanded)
     if (newStatus === 'shipped' && !['pending', 'processing'].includes(order.status)) {
         return { success: false, error: `Order cannot be marked as shipped from '${order.status}' status.`};
     }
     if (newStatus === 'delivered' && order.status !== 'shipped') {
         return { success: false, error: `Order cannot be marked as delivered if not yet shipped.`};
     }
-     if (newStatus === 'completed' && order.status !== 'delivered') { // If 'completed' is a separate step after 'delivered'
+     if (newStatus === 'completed' && order.status !== 'delivered') { 
         return { success: false, error: `Order cannot be marked as completed if not yet delivered.`};
     }
 
@@ -319,7 +352,7 @@ export async function updateOrderStatus(
   } catch (error: any) {
     console.error(`Failed to update status for order ${orderId}:`, error);
     if (error instanceof z.ZodError) {
-      return { success: false, error: "Data validation error during status update.", errors: error.errors };
+      return { success: false, error: "Data validation error during status update." }; // Removed errors: error.errors
     }
     return { success: false, error: 'An unexpected error occurred while updating order status.' };
   }
@@ -331,13 +364,6 @@ export async function updateOrder(
   data: Partial<CreateOrderInput>, 
   currentUser: AuthUser
 ): Promise<{ success: boolean; order?: Order; error?: string; errors?: z.ZodIssue[] }> {
-  // TODO: Implement full update logic
-  // - Fetch the original order to check current status before allowing edits, especially for non-admins.
-  // - Consider stock adjustments if items/quantities change. This is complex and might require
-  //   reversing old inventory movements and creating new ones.
-  // - Re-calculate totals, COGS, profit.
-  // - Log changes or create an audit trail for order modifications.
-  // - This action should also validate user permissions (e.g., employee cannot edit completed orders).
   console.log('updateOrder called with:', orderId, data, currentUser);
   return { success: false, error: "Order update not yet implemented. This is a complex feature requiring careful stock and financial reconciliation." };
 }
@@ -363,22 +389,12 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
       }
       customerIdForRevalidation = orderToDelete.customerId;
 
-      // TODO: Implement stock reversal. This is critical for inventory accuracy.
-      // For each item in orderToDelete.items:
-      //   1. Find the product.
-      //   2. Increase product.stock by item.quantity.
-      //   3. Create an InventoryMovement record (e.g., type 'order-cancellation-restock' or 'adjustment-add').
-      // This needs to be done carefully, possibly within the transaction.
-      // For now, we are simplifying and not reversing stock.
       console.warn(`Order ${orderId} deleted. Stock reversal for items not yet implemented.`);
 
       const result = await db.collection(ORDERS_COLLECTION).deleteOne({ _id: new ObjectId(orderId) }, { session });
       if (result.deletedCount === 0) {
-        // Should have been caught by findOne, but good as a safeguard
         throw new Error('Order not found during delete operation or already deleted.');
       }
-      // Also delete related inventory movements if desired.
-      // await db.collection(INVENTORY_MOVEMENTS_COLLECTION).deleteMany({ relatedOrderId: orderToDelete._id.toString() }, { session });
     });
 
     revalidatePath('/orders');
@@ -386,9 +402,6 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
         revalidatePath(`/customers/${customerIdForRevalidation}/orders`);
     }
     revalidatePath('/dashboard');
-    // Potentially revalidate products and inventory if stock reversal was implemented
-    // revalidatePath('/products');
-    // revalidatePath('/inventory');
     return { success: true };
 
   } catch (error: any) {
@@ -398,3 +411,4 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
     await session.endSession();
   }
 }
+

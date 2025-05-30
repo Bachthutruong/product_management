@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import clientPromise from '@/lib/mongodb';
-import { ProductSchema, type Product, type ProductFormInput, ProductImageSchema, PriceHistoryEntrySchema, ProductFormInputSchema as ProductFormInputSchemaValidation } from '@/models/Product'; // Added ProductFormInputSchemaValidation
+import { ProductSchema, type Product, type ProductFormInput, ProductImageSchema, PriceHistoryEntrySchema, ProductFormInputSchema as ProductFormInputSchemaValidation } from '@/models/Product';
 import type { UserRole, AuthUser } from '@/models/User';
 import { uploadImageToCloudinary, deleteImageFromCloudinary } from '@/lib/cloudinary';
 import { ObjectId } from 'mongodb';
@@ -18,35 +18,58 @@ async function getDb() {
   return client.db(DB_NAME);
 }
 
-export async function getProducts(filters?: { category?: string; searchTerm?: string; stockStatus?: 'low' | 'inStock' | 'outOfStock' }): Promise<Product[]> {
+export async function getProducts(filters: { 
+  category?: string; 
+  searchTerm?: string; 
+  stockStatus?: 'low' | 'inStock' | 'outOfStock' | 'all';
+  page?: number;
+  limit?: number;
+} = {}): Promise<{ products: Product[]; totalCount: number; totalPages: number; currentPage: number }> {
   try {
     const db = await getDb();
     const query: any = {};
+    const { 
+      category, 
+      searchTerm, 
+      stockStatus,
+      page = 1,
+      limit = 10, // Default items per page
+    } = filters;
 
-    if (filters?.category) {
-      query.category = filters.category;
+    if (category) {
+      query.category = { $regex: category, $options: 'i' };
     }
-    if (filters?.searchTerm) {
+    if (searchTerm) {
+      const regex = { $regex: searchTerm, $options: 'i' };
       query.$or = [
-        { name: { $regex: filters.searchTerm, $options: 'i' } },
-        { sku: { $regex: filters.searchTerm, $options: 'i' } },
-        { description: { $regex: filters.searchTerm, $options: 'i' } },
+        { name: regex },
+        { sku: regex },
+        { description: regex },
       ];
     }
-    if (filters?.stockStatus) {
-      if (filters.stockStatus === 'low') {
+    if (stockStatus && stockStatus !== 'all') {
+      if (stockStatus === 'low') {
         query.$expr = { $lt: [ "$stock", "$lowStockThreshold" ] };
-      } else if (filters.stockStatus === 'inStock') {
+        query.stock = { $gt: 0 }; // Ensure low stock means stock is > 0 but below threshold
+      } else if (stockStatus === 'inStock') {
         query.stock = { $gt: 0 };
-      } else if (filters.stockStatus === 'outOfStock') {
+      } else if (stockStatus === 'outOfStock') {
         query.stock = { $lte: 0 };
       }
     }
 
-    const productsFromDb = await db.collection(PRODUCTS_COLLECTION).find(query).sort({ createdAt: -1 }).toArray();
+    const skip = (page - 1) * limit;
+    const totalCount = await db.collection(PRODUCTS_COLLECTION).countDocuments(query);
     
-    return productsFromDb.map(productDoc => {
-      const parsedProduct = ProductSchema.parse({
+    const productsFromDb = await db.collection(PRODUCTS_COLLECTION)
+      .find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+    
+    const parsedProducts = productsFromDb.map(productDoc => {
+      return ProductSchema.parse({
         ...productDoc,
         _id: productDoc._id.toString(),
         images: productDoc.images || [],
@@ -56,12 +79,19 @@ export async function getProducts(filters?: { category?: string; searchTerm?: st
         updatedAt: productDoc.updatedAt ? new Date(productDoc.updatedAt) : undefined,
         lowStockThreshold: productDoc.lowStockThreshold ?? 0, 
         cost: productDoc.cost ?? 0, 
-      });
-      return parsedProduct as Product; 
+      }) as Product; 
     });
+
+    return {
+      products: parsedProducts,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
+    };
+
   } catch (error) {
     console.error('Failed to fetch products:', error);
-    return [];
+    return { products: [], totalCount: 0, totalPages: 0, currentPage: 1 };
   }
 }
 
@@ -92,7 +122,6 @@ export async function getProductById(id: string): Promise<Product | null> {
   }
 }
 
-// Server-side schema for add product, includes coercion for FormData values
 const AddProductServerSchema = ProductFormInputSchemaValidation.extend({
   changedByUserId: z.string().min(1),
   price: z.coerce.number().min(0, "Price must be a positive number"),
@@ -109,12 +138,15 @@ export async function addProduct(
   
   const rawFormData: Record<string, any> = {};
   formData.forEach((value, key) => {
-    if (key !== 'images') { // Files are handled separately
-        if ((key === 'cost' || key === 'lowStockThreshold' || key === 'expiryDate' || 
-             key === 'price' || key === 'stock' || key === 'category' || key === 'unitOfMeasure' || key === 'description' || key === 'sku'
-            ) && value === '') {
-            rawFormData[key] = undefined; // Zod .optional() and .default() will handle these
-        } else {
+    if (key !== 'images') { 
+        if ((key === 'sku' || key === 'category' || key === 'unitOfMeasure' || key === 'description') && value === '') {
+            rawFormData[key] = undefined; // Let Zod .optional() handle it
+        } else if ((key === 'cost' || key === 'lowStockThreshold') && value === '') {
+            rawFormData[key] = undefined; // Will be handled by .default(0) in Zod
+        } else if (key === 'expiryDate' && value === '') {
+            rawFormData[key] = undefined; // Will be handled by .nullable() in Zod
+        }
+         else {
             rawFormData[key] = value;
         }
     }
@@ -173,7 +205,6 @@ export async function addProduct(
       return { success: false, error: 'Failed to insert product into database.' };
     }
     
-    // Construct productForReturn directly, then parse it to ensure schema compliance
     const productForReturn = {
       ...newProductDataForDb,
       _id: result.insertedId.toString(),
@@ -187,11 +218,8 @@ export async function addProduct(
     } catch (parseError: any) {
       console.error('Critical Error: Product inserted into DB, but failed to parse for return. Data structure mismatch with ProductSchema.', parseError);
       console.error('Data that failed parsing:', productForReturn);
-      // Product is in DB, but we can't return it structured.
-      // This indicates a mismatch between what we inserted and ProductSchema.
       revalidatePath('/products');
       revalidatePath('/dashboard');
-      // To prevent app crash, we return success but with an error message for the client to handle (e.g., prompt refresh)
       return { success: true, error: "Product added, but there was an issue preparing its data for immediate display. Please refresh to see the new product." };
     }
 
@@ -271,15 +299,11 @@ export async function updateProductStock(
   if (result.modifiedCount === 0 && result.matchedCount === 0) {
      return { success: false, error: 'Product not found during stock update operation.' };
   }
-   if (result.modifiedCount === 0 && result.matchedCount > 0) {
-    // console.warn(`Product ${productId} stock was matched but not modified. Current stock might already be ${newStock}.`);
-  }
 
   return { success: true };
 }
 
 
-// Server-side schema for update product, includes coercion for FormData values
 const UpdateProductServerSchema = ProductFormInputSchemaValidation.extend({
   changedByUserId: z.string().min(1),
   price: z.coerce.number().min(0).optional(),
@@ -287,7 +311,7 @@ const UpdateProductServerSchema = ProductFormInputSchemaValidation.extend({
   stock: z.coerce.number().int().min(0).optional(),
   lowStockThreshold: z.coerce.number().int().min(0).optional(),
   expiryDate: z.coerce.date().optional().nullable(),
-}).partial(); // .partial() is key here, as not all fields need to be submitted for an update
+}).partial(); 
 
 
 export async function updateProduct(
@@ -319,12 +343,7 @@ export async function updateProduct(
       // Already set above
     }
     else {
-        // For optional fields that can be cleared, convert empty string to undefined
-        // so Zod's .optional() can correctly process them (and not treat '' as a value)
-        if ((key === 'cost' || key === 'lowStockThreshold' || key === 'expiryDate' || 
-             key === 'price' || key === 'stock' || key === 'category' || 
-             key === 'unitOfMeasure' || key === 'description' || key === 'sku'
-            ) && value === '') {
+        if ((key === 'sku' || key === 'category' || key === 'unitOfMeasure' || key === 'description' || key === 'cost' || key === 'lowStockThreshold' || key === 'expiryDate') && value === '') {
             rawFormData[key] = undefined;
         } else {
             rawFormData[key] = value;
@@ -340,30 +359,22 @@ export async function updateProduct(
 
   const { changedByUserId, ...updateDataFromZod } = validation.data; 
   
-  const finalUpdateOps: { $set: Partial<Product>, $push?: any, $pull?: any } = { $set: {} };
+  const finalUpdateOps: { $set: Partial<Omit<Product, '_id' | 'createdAt' | 'images' | 'priceHistory'>>, $push?: any, $pull?: any } = { $set: {} };
   let hasMeaningfulChanges = false;
   
-  // Only include fields in $set if they are actually present in the validated data
   for (const key in updateDataFromZod) {
     if (Object.prototype.hasOwnProperty.call(updateDataFromZod, key)) {
         const typedKey = key as keyof typeof updateDataFromZod;
         let newValue = updateDataFromZod[typedKey];
-        
-        // Compare with existing product to see if there's a change
         const oldValue = (existingProduct as any)[typedKey];
 
         if (typedKey === 'expiryDate') {
-            // Handle expiryDate carefully: null means clear, undefined means no change
-            if (newValue === null && oldValue !== null) { // Clearing the date
+            if (newValue === null && oldValue !== null) { 
                  (finalUpdateOps.$set as any)[typedKey] = null;
                  hasMeaningfulChanges = true;
             } else if (newValue instanceof Date && (!oldValue || new Date(newValue).toISOString() !== new Date(oldValue).toISOString())) {
                 (finalUpdateOps.$set as any)[typedKey] = new Date(newValue);
                 hasMeaningfulChanges = true;
-            } else if (newValue === undefined && oldValue !== undefined){
-                // If new value is undefined but old value existed, it means it was not in form data
-                // but if it's a field that can be cleared (like expiryDate), we might need to handle $unset
-                // For now, if undefined, we assume no change intended unless explicitly handled as null above
             }
         } else if (newValue !== undefined && newValue !== oldValue) {
             (finalUpdateOps.$set as any)[typedKey] = newValue;
@@ -400,15 +411,14 @@ export async function updateProduct(
       }
     }
     
-    if (updateDataFromZod.price !== undefined && updateDataFromZod.price !== existingProduct.price) {
+    if (finalUpdateOps.$set.price !== undefined && finalUpdateOps.$set.price !== existingProduct.price) {
       const priceHistoryEntry = PriceHistoryEntrySchema.parse({
-        price: updateDataFromZod.price,
+        price: finalUpdateOps.$set.price,
         changedAt: new Date(),
         changedBy: changedByUserId!, 
       });
       if (!finalUpdateOps.$push) finalUpdateOps.$push = {};
       
-      // Ensure priceHistory is pushed correctly even if images are also being pushed
       if (finalUpdateOps.$push && finalUpdateOps.$push.images) {
           finalUpdateOps.$push.priceHistory = priceHistoryEntry;
       } else {
@@ -417,12 +427,10 @@ export async function updateProduct(
       hasMeaningfulChanges = true; 
     }
     
-    // If no meaningful changes were detected, return success with the existing product
     if (!hasMeaningfulChanges && Object.keys(finalUpdateOps.$set).length === 0 && !finalUpdateOps.$pull && !(finalUpdateOps.$push && (finalUpdateOps.$push.images || finalUpdateOps.$push.priceHistory))) {
         return { success: true, product: existingProduct, error: "No changes detected." };
     }
     
-    // Always set updatedAt if there are any changes
     finalUpdateOps.$set.updatedAt = new Date();
 
     const updateResult = await db.collection<Product>(PRODUCTS_COLLECTION).findOneAndUpdate(
@@ -458,4 +466,3 @@ export async function updateProduct(
   }
 }
     
-

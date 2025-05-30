@@ -10,6 +10,8 @@ import { AddProductForm } from '@/components/products/AddProductForm';
 import { EditProductForm } from '@/components/products/EditProductForm';
 import { ProductStockInHistoryDialog } from '@/components/products/ProductStockInHistoryDialog';
 import { Button } from "@/components/ui/button";
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Table,
@@ -19,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX, PlusCircle, Loader2, History, Eye as EyeIcon } from "lucide-react";
+import { AlertTriangle, Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX, PlusCircle, Loader2, History, Eye as EyeIcon, Search, Filter, X, ArrowLeft, ArrowRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +44,11 @@ import NextImage from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { format, isBefore, addYears } from 'date-fns';
+
+const ITEMS_PER_PAGE = 10;
+
+type StockStatusFilter = 'all' | 'low' | 'inStock' | 'outOfStock';
+
 
 function DeleteProductButton({ 
   productId, 
@@ -113,6 +120,7 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -122,39 +130,56 @@ export default function ProductsPage() {
   const [isPreviewImageDialogOpen, setIsPreviewImageDialogOpen] = useState(false);
   const [imageToPreview, setImageToPreview] = useState<ProductImage | null>(null);
 
+  // Filters and Pagination State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [appliedCategoryFilter, setAppliedCategoryFilter] = useState('');
+  const [stockStatusFilter, setStockStatusFilter] = useState<StockStatusFilter>('all');
+  const [appliedStockStatusFilter, setAppliedStockStatusFilter] = useState<StockStatusFilter>('all');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (page = 1) => {
     setIsLoading(true);
     try {
-      const fetchedProducts = await getProducts();
-      setProducts(fetchedProducts);
+      const result = await getProducts({
+        searchTerm: appliedSearchTerm,
+        category: appliedCategoryFilter,
+        stockStatus: appliedStockStatusFilter === 'all' ? undefined : appliedStockStatusFilter,
+        page,
+        limit: ITEMS_PER_PAGE,
+      });
+      setProducts(result.products);
+      setTotalPages(result.totalPages);
+      setTotalProducts(result.totalCount);
+      setCurrentPage(result.currentPage);
     } catch (error) {
       console.error("Failed to fetch products:", error);
       toast({ variant: "destructive", title: "Loading Error", description: "Could not load products." });
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, appliedSearchTerm, appliedCategoryFilter, appliedStockStatusFilter]);
 
   useEffect(() => {
     if (!authLoading) { 
-        fetchProducts();
+        fetchProducts(1); // Initial fetch for page 1
     }
-  }, [authLoading, fetchProducts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, appliedSearchTerm, appliedCategoryFilter, appliedStockStatusFilter]); // fetchProducts is memoized
 
-  const handleProductAdded = () => {
-    fetchProducts(); 
+  const handleProductAddedOrUpdated = () => {
+    fetchProducts(currentPage); // Refresh current page
     setIsAddProductDialogOpen(false); 
-  };
-
-  const handleProductUpdated = () => {
-    fetchProducts();
     setIsEditProductDialogOpen(false);
     setEditingProduct(null);
-  }
+  };
   
   const handleProductDeleted = () => {
-    fetchProducts(); 
+    fetchProducts(currentPage > totalPages && totalPages > 0 ? totalPages : currentPage); 
   };
 
   const openEditDialog = (product: Product) => {
@@ -172,7 +197,32 @@ export default function ProductsPage() {
     setIsPreviewImageDialogOpen(true);
   };
 
-  if (authLoading || (isLoading && products.length === 0)) { 
+  const handleSearchAndFilterSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) e.preventDefault();
+    setAppliedSearchTerm(searchTerm);
+    setAppliedCategoryFilter(categoryFilter);
+    setAppliedStockStatusFilter(stockStatusFilter);
+    setCurrentPage(1); // Reset to first page on new search/filter
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setAppliedSearchTerm('');
+    setCategoryFilter('');
+    setAppliedCategoryFilter('');
+    setStockStatusFilter('all');
+    setAppliedStockStatusFilter('all');
+    setCurrentPage(1); 
+  };
+  
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      fetchProducts(newPage);
+    }
+  };
+
+  if (authLoading || (isLoading && products.length === 0 && currentPage === 1)) { 
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -200,10 +250,69 @@ export default function ProductsPage() {
                 Fill in product details, including images, unit, expiry, and stock alerts. Click "Add Product" when you're done.
               </DialogNativeDescription>
             </DialogNativeHeader>
-            {user?._id && <AddProductForm userId={user._id} onProductAdded={handleProductAdded} />}
+            {user?._id && <AddProductForm userId={user._id} onProductAdded={handleProductAddedOrUpdated} />}
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Filter and Search Section */}
+      <Card className="shadow-md">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl">
+            <Filter className="mr-2 h-5 w-5 text-primary" />
+            Filter & Search Products
+          </CardTitle>
+           <CardDescription>
+            Refine your product view using the filters below. {totalProducts} products found.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSearchAndFilterSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+              <div>
+                <label htmlFor="searchTermProducts" className="block text-sm font-medium text-muted-foreground mb-1">Search Term</label>
+                <Input 
+                  id="searchTermProducts"
+                  placeholder="Name, SKU, description..." 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                />
+              </div>
+              <div>
+                <label htmlFor="categoryFilter" className="block text-sm font-medium text-muted-foreground mb-1">Category</label>
+                <Input 
+                  id="categoryFilter"
+                  placeholder="e.g., Electronics" 
+                  value={categoryFilter} 
+                  onChange={(e) => setCategoryFilter(e.target.value)} 
+                />
+              </div>
+              <div>
+                <label htmlFor="stockStatusFilter" className="block text-sm font-medium text-muted-foreground mb-1">Stock Status</label>
+                <Select value={stockStatusFilter} onValueChange={(value) => setStockStatusFilter(value as StockStatusFilter)}>
+                  <SelectTrigger id="stockStatusFilter">
+                    <SelectValue placeholder="All Stock Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="inStock">In Stock</SelectItem>
+                    <SelectItem value="low">Low Stock</SelectItem>
+                    <SelectItem value="outOfStock">Out of Stock</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Search className="mr-2 h-4 w-4" /> Apply
+              </Button>
+              <Button type="button" variant="outline" onClick={handleClearFilters}>
+                <X className="mr-2 h-4 w-4" /> Clear Filters
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
         
       <Card className="shadow-lg">
         <CardHeader>
@@ -211,7 +320,7 @@ export default function ProductsPage() {
           <CardDescription>Your current product catalog. Warnings for low stock & upcoming expiry.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && products.length === 0 ? ( 
+          {isLoading && products.length === 0 && currentPage === 1 ? ( 
              <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
@@ -219,128 +328,157 @@ export default function ProductsPage() {
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageX className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-foreground">No Products Found</h3>
-              <p className="text-muted-foreground">Add your first product using the "Add Product" button.</p>
+              <p className="text-muted-foreground">
+                {appliedSearchTerm || appliedCategoryFilter || appliedStockStatusFilter !== 'all' 
+                  ? "No products match your current filters." 
+                  : "Add your first product using the 'Add Product' button."}
+              </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[60px] sm:w-[80px]">Image</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Cost</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
-                    <TableHead>Expiry (Main)</TableHead>
-                    <TableHead>Alerts</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {products.map((product) => {
-                    const isLowStock = product.lowStockThreshold !== undefined && product.stock < product.lowStockThreshold;
-                    let expiryWarningText = '';
-                    if (product.expiryDate) {
-                      const today = new Date();
-                      const oneYearFromNow = addYears(today, 1);
-                      const expiry = new Date(product.expiryDate);
-                      
-                      if (isBefore(expiry, today)) {
-                        expiryWarningText = 'Expired';
-                      } else if (isBefore(expiry, oneYearFromNow)) {
-                        expiryWarningText = 'Expires <1yr';
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[60px] sm:w-[80px]">Image</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Unit</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-right">Cost</TableHead>
+                      <TableHead className="text-right">Stock</TableHead>
+                      <TableHead>Expiry (Main)</TableHead>
+                      <TableHead>Alerts</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((product) => {
+                      const isLowStock = product.lowStockThreshold !== undefined && product.stock > 0 && product.stock < product.lowStockThreshold;
+                      let expiryWarningText = '';
+                      if (product.expiryDate) {
+                        const today = new Date();
+                        today.setHours(0,0,0,0);
+                        const oneYearFromNow = addYears(today, 1);
+                        const expiry = new Date(product.expiryDate);
+                        
+                        if (isBefore(expiry, today)) {
+                          expiryWarningText = 'Expired';
+                        } else if (isBefore(expiry, oneYearFromNow)) {
+                          expiryWarningText = 'Expires <1yr';
+                        }
                       }
-                    }
-                    const firstImage = product.images && product.images.length > 0 ? product.images[0] : null;
+                      const firstImage = product.images && product.images.length > 0 ? product.images[0] : null;
 
-                    return (
-                      <TableRow key={product._id}>
-                        <TableCell>
-                          {firstImage && firstImage.url ? (
-                            <button 
-                              onClick={() => openImagePreviewDialog(firstImage)} 
-                              className="focus:outline-none focus:ring-2 focus:ring-primary rounded-md"
-                              title={`View image for ${product.name}`}
-                            >
-                              <NextImage 
-                                src={firstImage.url} 
-                                alt={product.name} 
-                                width={48} 
-                                height={48} 
-                                className="rounded-md object-cover aspect-square cursor-pointer hover:opacity-80 transition-opacity"
-                                data-ai-hint="product item"
-                              />
-                            </button>
-                          ) : (
-                            <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center">
-                              <ImageOff className="w-6 h-6 text-muted-foreground" />
+                      return (
+                        <TableRow key={product._id}>
+                          <TableCell>
+                            {firstImage && firstImage.url ? (
+                              <button 
+                                onClick={() => openImagePreviewDialog(firstImage)} 
+                                className="focus:outline-none focus:ring-2 focus:ring-primary rounded-md"
+                                title={`View image for ${product.name}`}
+                              >
+                                <NextImage 
+                                  src={firstImage.url} 
+                                  alt={product.name} 
+                                  width={48} 
+                                  height={48} 
+                                  className="rounded-md object-cover aspect-square cursor-pointer hover:opacity-80 transition-opacity"
+                                  data-ai-hint="product item"
+                                />
+                              </button>
+                            ) : (
+                              <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center">
+                                <ImageOff className="w-6 h-6 text-muted-foreground" />
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium">{product.name}</TableCell>
+                          <TableCell>{product.sku || 'N/A'}</TableCell>
+                          <TableCell>{product.unitOfMeasure || 'N/A'}</TableCell>
+                          <TableCell className="text-right">${product.price.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">${(product.cost ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{product.stock}</TableCell>
+                          <TableCell>
+                            {product.expiryDate ? format(new Date(product.expiryDate), 'dd/MM/yy') : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1 items-start">
+                              {isLowStock && (
+                                <Badge variant="destructive" className="text-xs">
+                                  <AlertCircle className="mr-1 h-3 w-3" /> Low Stock ({product.stock}/{product.lowStockThreshold})
+                                </Badge>
+                              )}
+                              {expiryWarningText && (
+                                <Badge variant={expiryWarningText === 'Expired' ? 'destructive' : 'outline'} className={`text-xs whitespace-nowrap ${expiryWarningText === 'Expired' ? '' : 'border-orange-500 text-orange-600'}`}>
+                                   <CalendarClock className="mr-1 h-3 w-3" /> {expiryWarningText}
+                                </Badge>
+                              )}
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell>{product.sku || 'N/A'}</TableCell>
-                        <TableCell>{product.unitOfMeasure || 'N/A'}</TableCell>
-                        <TableCell className="text-right">${product.price.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${(product.cost ?? 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">{product.stock}</TableCell>
-                        <TableCell>
-                          {product.expiryDate ? format(new Date(product.expiryDate), 'dd/MM/yy') : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1 items-start">
-                            {isLowStock && (
-                              <Badge variant="destructive" className="text-xs">
-                                <AlertCircle className="mr-1 h-3 w-3" /> Low Stock ({product.stock}/{product.lowStockThreshold})
-                              </Badge>
-                            )}
-                            {expiryWarningText && (
-                              <Badge variant={expiryWarningText === 'Expired' ? 'destructive' : 'outline'} className={`text-xs whitespace-nowrap ${expiryWarningText === 'Expired' ? '' : 'border-orange-500 text-orange-600'}`}>
-                                 <CalendarClock className="mr-1 h-3 w-3" /> {expiryWarningText}
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex justify-center items-center space-x-1">
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-muted-foreground hover:text-primary" 
-                                onClick={() => openStockInHistoryDialog(product)} 
-                                title={`View stock-in history for ${product.name}`}
-                                >
-                                <History className="h-4 w-4" />
-                                <span className="sr-only">View stock-in history for {product.name}</span>
-                            </Button>
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-muted-foreground hover:text-primary" 
-                                onClick={() => openEditDialog(product)}
-                                title={`Edit ${product.name}`}
-                                disabled={!user} 
-                                >
-                                <Edit3 className="h-4 w-4" />
-                                <span className="sr-only">Edit ${product.name}</span>
-                            </Button>
-                            {user?.role === 'admin' && ( 
-                              <DeleteProductButton 
-                                productId={product._id} 
-                                productName={product.name} 
-                                userRole={user.role}
-                                onProductDeleted={handleProductDeleted}
-                              />
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center items-center space-x-1">
+                              <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-muted-foreground hover:text-primary" 
+                                  onClick={() => openStockInHistoryDialog(product)} 
+                                  title={`View stock-in history for ${product.name}`}
+                                  >
+                                  <History className="h-4 w-4" />
+                                  <span className="sr-only">View stock-in history for {product.name}</span>
+                              </Button>
+                              <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-muted-foreground hover:text-primary" 
+                                  onClick={() => openEditDialog(product)}
+                                  title={`Edit ${product.name}`}
+                                  disabled={!user} 
+                                  >
+                                  <Edit3 className="h-4 w-4" />
+                                  <span className="sr-only">Edit ${product.name}</span>
+                              </Button>
+                              {user?.role === 'admin' && ( 
+                                <DeleteProductButton 
+                                  productId={product._id} 
+                                  productName={product.name} 
+                                  userRole={user.role}
+                                  onProductDeleted={handleProductDeleted}
+                                />
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => handlePageChange(currentPage - 1)} 
+                    disabled={currentPage === 1 || isLoading}
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => handlePageChange(currentPage + 1)} 
+                    disabled={currentPage === totalPages || isLoading}
+                  >
+                    Next <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -363,7 +501,7 @@ export default function ProductsPage() {
             <EditProductForm
                 product={editingProduct}
                 userId={user._id || ''} 
-                onProductUpdated={handleProductUpdated}
+                onProductUpdated={handleProductAddedOrUpdated}
                 onCancel={() => {
                     setIsEditProductDialogOpen(false);
                     setEditingProduct(null);
@@ -396,7 +534,7 @@ export default function ProductsPage() {
       {imageToPreview && (
         <Dialog open={isPreviewImageDialogOpen} onOpenChange={setIsPreviewImageDialogOpen}>
           <DialogContent className="max-w-xl p-2">
-            <DialogNativeHeader className="sr-only"> {/* Title and Desc for screen readers */}
+            <DialogNativeHeader className="sr-only"> 
               <DialogNativeTitle>Image Preview</DialogNativeTitle>
               <DialogNativeDescription>{imageToPreview.url}</DialogNativeDescription>
             </DialogNativeHeader>
