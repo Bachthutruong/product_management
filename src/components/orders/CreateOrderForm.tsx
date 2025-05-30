@@ -64,12 +64,12 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
     setIsLoadingProducts(true);
     setIsLoadingCustomers(true);
     try {
-      const [fetchedProducts, fetchedCustomers] = await Promise.all([
+      const [fetchedProductsResult, fetchedCustomersResult] = await Promise.all([
         getProducts(),
         getCustomers(),
       ]);
-      setProducts(fetchedProducts);
-      setCustomers(fetchedCustomers);
+      setProducts(fetchedProductsResult.products); // Access .products
+      setCustomers(fetchedCustomersResult); // Assuming getCustomers returns Customer[] directly
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Could not load products or customers." });
     } finally {
@@ -215,7 +215,6 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
-        {/* Removed CardHeader from here, it's now handled by the Dialog in OrdersPage */}
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
           {/* Customer Selection */}
           <FormField

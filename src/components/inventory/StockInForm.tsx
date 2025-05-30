@@ -52,8 +52,8 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
     async function fetchProductsForSelect() {
       setIsLoadingProducts(true);
       try {
-        const fetchedProducts = await getProducts();
-        setProducts(fetchedProducts);
+        const result = await getProducts(); // Changed from fetchedProducts
+        setProducts(result.products); // Access the .products property
       } catch (error) {
         toast({ variant: "destructive", title: "Error", description: "Could not load products for selection." });
       } finally {
