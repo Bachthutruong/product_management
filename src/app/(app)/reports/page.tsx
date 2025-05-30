@@ -4,14 +4,14 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { FileText, AlertTriangle, TrendingUp, Loader2, DollarSign, ShoppingBag, CircleSlash } from "lucide-react";
-import { 
-  getOverallSalesSummary, 
+import {
+  getOverallSalesSummary,
   getReportsPageInventoryAlerts, // Using the specific reports action now
   type SalesSummary,
-  type InventoryAlerts
 } from "./actions";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { InventoryAlerts } from "../dashboard/actions";
 
 export default function ReportsPage() {
   const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
@@ -26,7 +26,7 @@ export default function ReportsPage() {
       try {
         const [summaryData, alertsData] = await Promise.all([
           getOverallSalesSummary(),
-          getReportsPageInventoryAlerts() 
+          getReportsPageInventoryAlerts()
         ]);
         setSalesSummary(summaryData);
         setInventoryAlerts(alertsData);
@@ -43,7 +43,7 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-foreground">Reports & Analysis</h1>
-      
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="shadow-lg">
           <CardHeader>
@@ -73,8 +73,8 @@ export default function ReportsPage() {
                   </div>
                   <span className="font-semibold text-lg text-foreground">${salesSummary.totalRevenueAllTime.toFixed(2)}</span>
                 </div>
-                 <div className="h-32 bg-muted/30 rounded-md flex items-center justify-center text-sm text-muted-foreground mt-4">
-                   Sales Chart Area (Future Enhancement)
+                <div className="h-32 bg-muted/30 rounded-md flex items-center justify-center text-sm text-muted-foreground mt-4">
+                  Sales Chart Area (Future Enhancement)
                 </div>
               </div>
             ) : (
@@ -114,7 +114,7 @@ export default function ReportsPage() {
                 </div>
                 <div>
                   <h4 className="font-medium text-foreground mb-2">Expiring Soon Products (Next 30 Days)</h4>
-                   {inventoryAlerts.expiringSoonProducts.length > 0 ? (
+                  {inventoryAlerts.expiringSoonProducts.length > 0 ? (
                     <ul className="space-y-1 text-sm max-h-40 overflow-y-auto">
                       {inventoryAlerts.expiringSoonProducts.map(product => (
                         <li key={product._id} className="text-orange-600">
@@ -124,7 +124,7 @@ export default function ReportsPage() {
                       ))}
                     </ul>
                   ) : (
-                     <p className="text-sm text-muted-foreground flex items-center"><CircleSlash className="mr-2 h-4 w-4" />No products expiring soon.</p>
+                    <p className="text-sm text-muted-foreground flex items-center"><CircleSlash className="mr-2 h-4 w-4" />No products expiring soon.</p>
                   )}
                 </div>
               </div>
@@ -133,7 +133,7 @@ export default function ReportsPage() {
             )}
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -144,7 +144,7 @@ export default function ReportsPage() {
           <CardContent>
             <p className="text-muted-foreground">Functionality to generate specific reports will be here.</p>
             <div className="mt-4 space-y-2">
-              <Button variant="link" className="p-0 h-auto text-sm text-primary hover:underline" disabled>Download Inventory Report (CSV) - Soon</Button><br/>
+              <Button variant="link" className="p-0 h-auto text-sm text-primary hover:underline" disabled>Download Inventory Report (CSV) - Soon</Button><br />
               <Button variant="link" className="p-0 h-auto text-sm text-primary hover:underline" disabled>Download Sales Report (PDF) - Soon</Button>
             </div>
           </CardContent>

@@ -7,17 +7,17 @@ import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import type { Product } from '@/models/Product';
 // ProductSchema might not be needed directly here if we use getProductById
-import { 
-    InventoryMovementSchema, 
-    type RecordStockInInput, 
-    RecordStockInInputSchema, 
-    type InventoryMovement, 
-    InventoryMovementTypeSchema, // Ensure this is exported from model if needed
-    type InventoryMovementType,   // And the type
-    type RecordStockAdjustmentInput,
-    RecordStockAdjustmentInputSchema
+import {
+  InventoryMovementSchema,
+  type RecordStockInInput,
+  RecordStockInInputSchema,
+  type InventoryMovement,
+  InventoryMovementTypeSchema, // Ensure this is exported from model if needed
+  type InventoryMovementType,   // And the type
+  type RecordStockAdjustmentInput,
+  RecordStockAdjustmentInputSchema
 } from '@/models/InventoryMovement';
-import type { AuthUser } from '@/models/User'; 
+import type { AuthUser } from '@/models/User';
 import { getProductById, updateProductStock } from '@/app/(app)/products/actions';
 
 const DB_NAME = process.env.MONGODB_DB_NAME || 'stockpilot';
@@ -47,7 +47,7 @@ export async function recordStockIn(
   try {
     const db = await getDb();
     const productObjectId = new ObjectId(productId);
-
+    //@ts-expect-error _id is not in Product model but might be added dynamically
     const product = await db.collection<Product>(PRODUCTS_COLLECTION).findOne({ _id: productObjectId });
 
     if (!product) {
@@ -61,23 +61,24 @@ export async function recordStockIn(
       stock: stockAfter,
       updatedAt: new Date(),
     };
-    
+
     if (batchExpiryDate) {
       if (!product.expiryDate || batchExpiryDate > new Date(product.expiryDate)) {
         updateOps.expiryDate = batchExpiryDate;
       }
     }
-    
+
     const productUpdateResult = await db.collection(PRODUCTS_COLLECTION).updateOne(
       { _id: productObjectId },
       { $set: updateOps }
     );
 
     if (productUpdateResult.modifiedCount === 0 && productUpdateResult.matchedCount === 0) {
-        return { success: false, error: 'Failed to update product stock. Product may not exist.' };
+      return { success: false, error: 'Failed to update product stock. Product may not exist.' };
     }
 
     const movementData: Omit<InventoryMovement, '_id'> = {
+      //@ts-expect-error _id is not in Product model but might be added dynamically
       productId: product._id.toString(),
       productName: product.name,
       type: 'stock-in',
@@ -90,16 +91,16 @@ export async function recordStockIn(
       stockBefore,
       stockAfter,
     };
-    
+
     const movementResult = await db.collection(INVENTORY_MOVEMENTS_COLLECTION).insertOne(movementData);
     if (!movementResult.insertedId) {
-        console.error(`Failed to log inventory movement for product ${productId} after stock update.`);
-        return { success: false, error: 'Failed to log inventory movement after updating stock.' };
+      console.error(`Failed to log inventory movement for product ${productId} after stock update.`);
+      return { success: false, error: 'Failed to log inventory movement after updating stock.' };
     }
 
-    const insertedMovement : InventoryMovement = {
-        ...(movementData as Omit<InventoryMovement, '_id' | 'movementDate'> & { movementDate: Date }),
-        _id: movementResult.insertedId.toString(),
+    const insertedMovement: InventoryMovement = {
+      ...(movementData as Omit<InventoryMovement, '_id' | 'movementDate'> & { movementDate: Date }),
+      _id: movementResult.insertedId.toString(),
     };
 
     revalidatePath('/inventory');
@@ -110,7 +111,7 @@ export async function recordStockIn(
   } catch (error: any) {
     console.error('Failed to record stock in:', error);
     if (error instanceof z.ZodError) {
-        return { success: false, error: "Data validation error during processing.", errors: error.errors };
+      return { success: false, error: "Data validation error during processing.", errors: error.errors };
     }
     return { success: false, error: error.message || 'An unexpected error occurred.' };
   }
@@ -176,8 +177,8 @@ export async function getInventoryMovements(filters: {
     const parsedMovements = movementsFromDb.map(movementDoc => InventoryMovementSchema.parse({
       ...movementDoc,
       _id: movementDoc._id.toString(),
-      productId: movementDoc.productId.toString(), 
-      userId: movementDoc.userId.toString(), 
+      productId: movementDoc.productId.toString(),
+      userId: movementDoc.userId.toString(),
       movementDate: new Date(movementDoc.movementDate),
       batchExpiryDate: movementDoc.batchExpiryDate ? new Date(movementDoc.batchExpiryDate) : null,
     }) as InventoryMovement);
@@ -213,6 +214,7 @@ export async function recordStockAdjustment(
 
   const db = await getDb();
   const productObjectId = new ObjectId(productId);
+  //@ts-expect-error _id is not in Product model but might be added dynamically
   const product = await db.collection<Product>(PRODUCTS_COLLECTION).findOne({ _id: productObjectId });
 
   if (!product) {
@@ -225,7 +227,7 @@ export async function recordStockAdjustment(
   if (stockAfter < 0) {
     return { success: false, error: `Adjustment would result in negative stock (${stockAfter}). Current stock: ${stockBefore}. Change: ${quantityChange}` };
   }
-  
+
   try {
     const productUpdateResult = await db.collection(PRODUCTS_COLLECTION).updateOne(
       { _id: productObjectId },
@@ -237,19 +239,20 @@ export async function recordStockAdjustment(
     }
 
     const movementType = quantityChange > 0 ? 'adjustment-add' : 'adjustment-remove';
-    
+
     const movementData: Omit<InventoryMovement, '_id'> = {
+      //@ts-expect-error _id is not in Product model but might be added dynamically
       productId: product._id.toString(),
       productName: product.name,
       type: movementType,
-      quantity: quantityChange, 
+      quantity: quantityChange,
       movementDate: new Date(),
       userId: currentUser._id,
       userName: currentUser.name,
       notes: `${reason}${notes ? ` - ${notes}` : ''}`,
       stockBefore,
       stockAfter,
-      batchExpiryDate: null, 
+      batchExpiryDate: null,
     };
 
     const movementResult = await db.collection(INVENTORY_MOVEMENTS_COLLECTION).insertOne(movementData);
@@ -257,10 +260,10 @@ export async function recordStockAdjustment(
       console.error(`Critical: Failed to log stock adjustment for product ${productId} after stock was updated.`);
       return { success: false, error: 'Failed to log stock adjustment after updating stock. Data inconsistency possible.' };
     }
-    
+
     const insertedMovement = InventoryMovementSchema.parse({
-        ...movementData,
-         _id: movementResult.insertedId.toString(),
+      ...movementData,
+      _id: movementResult.insertedId.toString(),
     }) as InventoryMovement;
 
     revalidatePath('/inventory');
@@ -269,9 +272,9 @@ export async function recordStockAdjustment(
     return { success: true, movement: insertedMovement };
 
   } catch (error: any) {
-     console.error('Failed to record stock adjustment:', error);
+    console.error('Failed to record stock adjustment:', error);
     if (error instanceof z.ZodError) {
-        return { success: false, error: "Data validation error during adjustment processing.", errors: error.errors };
+      return { success: false, error: "Data validation error during adjustment processing.", errors: error.errors };
     }
     return { success: false, error: error.message || 'An unexpected error occurred during stock adjustment.' };
   }

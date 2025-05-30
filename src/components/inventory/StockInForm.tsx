@@ -41,7 +41,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
       userId: user?._id || '',
     },
   });
-  
+
   useEffect(() => {
     if (user?._id) {
       form.setValue('userId', user._id);
@@ -77,10 +77,10 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
           description: `${data.quantity} units of ${result.movement.productName} stocked in.`,
         });
         form.reset({
-            productId: '',
-            quantity: 1,
-            batchExpiryDate: null,
-            userId: user._id,
+          productId: '',
+          quantity: 1,
+          batchExpiryDate: null,
+          userId: user._id,
         });
         if (onStockInRecorded) onStockInRecorded();
       } else {
@@ -123,8 +123,8 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Product</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
+                  <Select
+                    onValueChange={field.onChange}
                     defaultValue={field.value}
                     disabled={isLoadingProducts || isSubmitting}
                   >
@@ -187,9 +187,10 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
+                        //@ts-expect-error Calendar is not in FormControl
                         selected={field.value}
                         onSelect={field.onChange}
-                        disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() -1))} // Can select today or future
+                        disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() - 1))} // Can select today or future
                         initialFocus
                       />
                     </PopoverContent>

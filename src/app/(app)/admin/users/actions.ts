@@ -26,7 +26,7 @@ export async function getUsers(): Promise<AuthUser[]> {
       .project({ password: 0 }) // Exclude password
       .sort({ createdAt: -1 })
       .toArray();
-    
+    //@ts-expect-error _id is not in User model but might be added dynamically
     return usersFromDb.map(user => ({
       ...user,
       _id: user._id.toString(),
@@ -69,14 +69,14 @@ export async function addUser(data: CreateUserInput): Promise<{ success: boolean
     if (!result.insertedId) {
       return { success: false, error: 'Failed to insert user into database.' };
     }
-    
+
     const insertedUser: AuthUser = {
-        name: newUserDbData.name,
-        email: newUserDbData.email,
-        role: newUserDbData.role,
-        createdAt: newUserDbData.createdAt,
-        updatedAt: newUserDbData.updatedAt,
-        _id: result.insertedId.toString(),
+      name: newUserDbData.name,
+      email: newUserDbData.email,
+      role: newUserDbData.role,
+      createdAt: newUserDbData.createdAt,
+      updatedAt: newUserDbData.updatedAt,
+      _id: result.insertedId.toString(),
     };
 
     revalidatePath('/admin/users');

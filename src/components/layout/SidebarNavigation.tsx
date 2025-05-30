@@ -1,9 +1,8 @@
-
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth, type UserRole } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import {
   Sidebar,
@@ -30,8 +29,10 @@ import {
   LogOut,
   PackageSearch,
   Settings,
+  FolderTree,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserRole } from '@/models/User';
 
 interface NavItem {
   href: string;
@@ -44,6 +45,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'employee'], group: 'Overview' },
   { href: '/products', label: 'Products', icon: Package, roles: ['admin', 'employee'], group: 'Management' },
+  { href: '/categories', label: 'Categories', icon: FolderTree, roles: ['admin', 'employee'], group: 'Management' },
   { href: '/inventory', label: 'Inventory', icon: Warehouse, roles: ['admin', 'employee'], group: 'Management' },
   { href: '/orders', label: 'Orders', icon: ShoppingCart, roles: ['admin', 'employee'], group: 'Management' },
   { href: '/customers', label: 'Customers', icon: Users, roles: ['admin', 'employee'], group: 'Management' },
@@ -122,16 +124,16 @@ export function SidebarNavigation() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border mt-auto">
-         <div className="flex items-center gap-3 p-3 group-data-[collapsible=icon]:justify-center">
-            <Avatar className="h-10 w-10 border-2 border-sidebar-accent">
-              <AvatarImage src={`https://placehold.co/100x100.png?text=${getInitials(user.name)}`} alt={user.name} data-ai-hint="avatar profile" />
-              <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">{getInitials(user.name)}</AvatarFallback>
-            </Avatar>
-            <div className="group-data-[collapsible=icon]:hidden">
-              <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>
-              <p className="text-xs text-sidebar-foreground/70">{user.email}</p>
-            </div>
+        <div className="flex items-center gap-3 p-3 group-data-[collapsible=icon]:justify-center">
+          <Avatar className="h-10 w-10 border-2 border-sidebar-accent">
+            <AvatarImage src={`https://placehold.co/100x100.png?text=${getInitials(user.name)}`} alt={user.name} data-ai-hint="avatar profile" />
+            <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">{getInitials(user.name)}</AvatarFallback>
+          </Avatar>
+          <div className="group-data-[collapsible=icon]:hidden">
+            <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>
+            <p className="text-xs text-sidebar-foreground/70">{user.email}</p>
           </div>
+        </div>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton

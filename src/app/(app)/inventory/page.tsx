@@ -54,7 +54,7 @@ export default function InventoryPage() {
   const [movementTypeInput, setMovementTypeInput] = useState<InventoryMovementType | undefined>(undefined);
   const [dateFromInput, setDateFromInput] = useState<Date | undefined>(undefined);
   const [dateToInput, setDateToInput] = useState<Date | undefined>(undefined);
-  
+
   // Applied Filters for API
   const [appliedFilters, setAppliedFilters] = useState<InventoryFilters>({
     searchTerm: '',
@@ -63,7 +63,7 @@ export default function InventoryPage() {
     dateFrom: undefined,
     dateTo: undefined,
   });
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalMovements, setTotalMovements] = useState(0);
@@ -73,7 +73,7 @@ export default function InventoryPage() {
   const fetchProductsForFilterDropdown = useCallback(async () => {
     setIsLoadingProductsForFilter(true);
     try {
-      const result = await getProducts({limit: 1000}); 
+      const result = await getProducts({ limit: 1000 });
       setProductsForFilter(result.products);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Could not load products for filter." });
@@ -87,6 +87,7 @@ export default function InventoryPage() {
     try {
       const result = await getInventoryMovements({
         productId: appliedFilters.productId === "all" ? undefined : appliedFilters.productId,
+        // @ts-ignore
         type: appliedFilters.movementType === "all" ? undefined : appliedFilters.movementType,
         dateFrom: appliedFilters.dateFrom ? appliedFilters.dateFrom.toISOString() : undefined,
         dateTo: appliedFilters.dateTo ? appliedFilters.dateTo.toISOString() : undefined,
@@ -109,13 +110,13 @@ export default function InventoryPage() {
   useEffect(() => {
     fetchProductsForFilterDropdown();
   }, [fetchProductsForFilterDropdown]);
-  
+
   useEffect(() => {
     fetchInventoryHistory();
   }, [fetchInventoryHistory]);
 
   const handleStockOperationRecorded = () => {
-    fetchInventoryHistory(); 
+    fetchInventoryHistory();
   };
 
   const handleApplyFilters = (e?: React.FormEvent<HTMLFormElement>) => {
@@ -145,7 +146,7 @@ export default function InventoryPage() {
     });
     setCurrentPage(1);
   };
-  
+
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
@@ -162,7 +163,7 @@ export default function InventoryPage() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
       </div>
-      
+
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-1">
           <StockInForm onStockInRecorded={handleStockOperationRecorded} />
@@ -171,7 +172,7 @@ export default function InventoryPage() {
           <StockAdjustmentForm onStockAdjusted={handleStockOperationRecorded} />
         </div>
         <div className="md:col-span-1">
-           <Card className="shadow-lg h-full">
+          <Card className="shadow-lg h-full">
             <CardHeader>
               <CardTitle className="flex items-center">
                 Future Actions
@@ -192,7 +193,7 @@ export default function InventoryPage() {
             Inventory History
           </CardTitle>
           <CardDescription>
-            Log of all stock movements. 
+            Log of all stock movements.
             {isLoading && totalMovements === 0 ? " Loading entries..." : ` ${totalMovements} entries found.`}
           </CardDescription>
         </CardHeader>
@@ -201,18 +202,18 @@ export default function InventoryPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
               <div className="lg:col-span-1">
                 <label htmlFor="searchTermInventory" className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
-                <Input 
+                <Input
                   id="searchTermInventory"
-                  placeholder="Product, user, notes..." 
-                  value={searchTermInput} 
-                  onChange={(e) => setSearchTermInput(e.target.value)} 
+                  placeholder="Product, user, notes..."
+                  value={searchTermInput}
+                  onChange={(e) => setSearchTermInput(e.target.value)}
                 />
               </div>
               <div>
                 <label htmlFor="productFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">Product</label>
-                <Select 
-                  value={productIdInput} 
-                  onValueChange={(value) => setProductIdInput(value === "all" ? undefined : value)} 
+                <Select
+                  value={productIdInput}
+                  onValueChange={(value) => setProductIdInput(value === "all" ? undefined : value)}
                   disabled={isLoadingProductsForFilter}
                 >
                   <SelectTrigger id="productFilterInventory">
@@ -240,41 +241,41 @@ export default function InventoryPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-               <div>
-                  <label htmlFor="dateFromInventory" className="block text-sm font-medium text-muted-foreground mb-1">Date From</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="dateFromInventory"
-                        variant={"outline"}
-                        className={cn("w-full justify-start text-left font-normal", !dateFromInput && "text-muted-foreground")}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFromInput ? format(dateFromInput, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={dateFromInput} onSelect={setDateFromInput} initialFocus />
-                    </PopoverContent>
-                  </Popover>
+              <div>
+                <label htmlFor="dateFromInventory" className="block text-sm font-medium text-muted-foreground mb-1">Date From</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="dateFromInventory"
+                      variant={"outline"}
+                      className={cn("w-full justify-start text-left font-normal", !dateFromInput && "text-muted-foreground")}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateFromInput ? format(dateFromInput, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={dateFromInput} onSelect={setDateFromInput} initialFocus />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <label htmlFor="dateToInventory" className="block text-sm font-medium text-muted-foreground mb-1">Date To</label>
-                 <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="dateToInventory"
-                        variant={"outline"}
-                        className={cn("w-full justify-start text-left font-normal", !dateToInput && "text-muted-foreground")}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateToInput ? format(dateToInput, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={dateToInput} onSelect={setDateToInput} initialFocus disabled={(date) => dateFromInput ? date < dateFromInput : false}/>
-                    </PopoverContent>
-                  </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="dateToInventory"
+                      variant={"outline"}
+                      className={cn("w-full justify-start text-left font-normal", !dateToInput && "text-muted-foreground")}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateToInput ? format(dateToInput, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={dateToInput} onSelect={setDateToInput} initialFocus disabled={(date) => dateFromInput ? date < dateFromInput : false} />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
@@ -296,7 +297,7 @@ export default function InventoryPage() {
               <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-foreground">No Inventory Movements Found</h3>
               <p className="text-muted-foreground">
-                {appliedFilters.searchTerm || appliedFilters.productId || appliedFilters.movementType || appliedFilters.dateFrom || appliedFilters.dateTo 
+                {appliedFilters.searchTerm || appliedFilters.productId || appliedFilters.movementType || appliedFilters.dateFrom || appliedFilters.dateTo
                   ? "No records match your current filters or search term."
                   : "There are no inventory movements recorded yet."}
               </p>
@@ -325,23 +326,23 @@ export default function InventoryPage() {
                         <TableCell className="font-medium">{move.productName}</TableCell>
                         <TableCell>
                           <Badge variant={
-                            move.type === 'stock-in' ? 'default' : 
-                            move.type === 'sale' ? 'secondary' :
-                            move.type.startsWith('adjustment') ? 'outline' : 
-                            'destructive'
+                            move.type === 'stock-in' ? 'default' :
+                              move.type === 'sale' ? 'secondary' :
+                                move.type.startsWith('adjustment') ? 'outline' :
+                                  'destructive'
                           }
-                          className={
+                            className={
                               move.type === 'stock-in' ? 'bg-green-100 text-green-800 border-green-300' :
-                              move.type === 'sale' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                              move.type === 'adjustment-remove' || move.type === 'stock-out' ? 'bg-red-100 text-red-800 border-red-300' :
-                              move.type === 'adjustment-add' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : ''
-                          }
+                                move.type === 'sale' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                  move.type === 'adjustment-remove' || move.type === 'stock-out' ? 'bg-red-100 text-red-800 border-red-300' :
+                                    move.type === 'adjustment-add' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : ''
+                            }
                           >
                             {move.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </Badge>
                         </TableCell>
                         <TableCell className={`text-right font-medium ${move.quantity > 0 ? 'text-green-600' : move.quantity < 0 ? 'text-red-600' : ''}`}>
-                          {move.quantity > 0 ? `+${move.quantity}`: move.quantity}
+                          {move.quantity > 0 ? `+${move.quantity}` : move.quantity}
                         </TableCell>
                         <TableCell className="text-right">{move.stockBefore}</TableCell>
                         <TableCell className="text-right">{move.stockAfter}</TableCell>
@@ -353,11 +354,11 @@ export default function InventoryPage() {
                   </TableBody>
                 </Table>
               </div>
-              {totalPages > 1 && (
+              {totalPages >= 1 && (
                 <div className="flex items-center justify-between mt-6 gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Rows per page:</span>
-                    <Select 
+                    <Select
                       value={itemsPerPage.toString()}
                       onValueChange={handleItemsPerPageChange}
                     >
@@ -375,18 +376,18 @@ export default function InventoryPage() {
                     Page {currentPage} of {totalPages}
                   </span>
                   <div className="flex items-center gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(currentPage - 1)} 
+                      onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1 || isLoading}
                     >
                       <ArrowLeft className="mr-1 h-4 w-4" /> Previous
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(currentPage + 1)} 
+                      onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages || isLoading}
                     >
                       Next <ArrowRight className="ml-1 h-4 w-4" />

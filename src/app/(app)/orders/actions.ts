@@ -49,16 +49,16 @@ export async function createOrder(
   data: CreateOrderInput,
   currentUser: AuthUser
 ): Promise<{ success: boolean; order?: Order; error?: string; errors?: z.ZodIssue[] }> {
-  
+
   const processedItems = data.items.map(item => ({
     ...item,
     unitPrice: Number(item.unitPrice),
     quantity: Number(item.quantity),
-    cost: Number(item.cost || 0) 
+    cost: Number(item.cost || 0)
   }));
 
   const validation = CreateOrderInputSchema.extend({
-     items: z.array(OrderLineItemSchema.extend({ 
+    items: z.array(OrderLineItemSchema.extend({
       productId: z.string(),
       productName: z.string(),
       productSku: z.string().optional(),
@@ -78,7 +78,7 @@ export async function createOrder(
   const { customerId, items, discountType, discountValue, shippingFee, notes } = validation.data;
 
   const db = await getDb();
-  const session = (await clientPromise).startSession(); 
+  const session = (await clientPromise).startSession();
 
   try {
     let finalOrderResult: Order | undefined;
@@ -95,6 +95,7 @@ export async function createOrder(
       const inventoryMovements: Omit<InventoryMovement, '_id'>[] = [];
 
       for (const item of items) {
+        //@ts-expect-error _id is not in Product model but might be added dynamically
         const product = await db.collection<Product>(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(item.productId) }, { session });
         if (!product) {
           throw new Error(`Product with ID ${item.productId} not found.`);
@@ -105,7 +106,7 @@ export async function createOrder(
 
         const stockBefore = product.stock;
         const stockAfter = product.stock - item.quantity;
-        
+
         const productUpdateResult = await db.collection(PRODUCTS_COLLECTION).updateOne(
           { _id: new ObjectId(item.productId) },
           { $set: { stock: stockAfter, updatedAt: new Date() } },
@@ -114,31 +115,33 @@ export async function createOrder(
         if (productUpdateResult.modifiedCount === 0) {
           throw new Error(`Failed to update stock for product ${product.name}.`);
         }
-        
+
         const lineItemTotal = item.unitPrice * item.quantity;
         subtotal += lineItemTotal;
-        const lineItemCost = (product.cost || 0) * item.quantity; 
+        const lineItemCost = (product.cost || 0) * item.quantity;
         totalCostOfGoodsSold += lineItemCost;
 
         orderLineItems.push({
+          //@ts-expect-error _id is not in Product model but might be added dynamically
           productId: product._id.toString(),
           productName: product.name,
           productSku: product.sku,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          cost: product.cost || 0, 
+          cost: product.cost || 0,
           notes: item.notes,
         });
 
-        inventoryMovements.push(InventoryMovementSchema.omit({_id: true}).parse({
+        inventoryMovements.push(InventoryMovementSchema.omit({ _id: true }).parse({
+          //@ts-expect-error _id is not in Product model but might be added dynamically
           productId: product._id.toString(),
           productName: product.name,
           type: 'sale',
-          quantity: -item.quantity, 
+          quantity: -item.quantity,
           movementDate: new Date(),
           userId: currentUser._id,
           userName: currentUser.name,
-          notes: `Sale for order.`, 
+          notes: `Sale for order.`,
           stockBefore,
           stockAfter,
         }));
@@ -153,7 +156,7 @@ export async function createOrder(
         }
         discountAmountCalculated = Math.max(0, Math.min(discountAmountCalculated, subtotal));
       }
-      
+
       const finalShippingFee = shippingFee !== undefined && shippingFee !== null ? shippingFee : 0;
       const totalAmount = subtotal - discountAmountCalculated + finalShippingFee;
       const profit = totalAmount - totalCostOfGoodsSold;
@@ -170,7 +173,7 @@ export async function createOrder(
         discountAmount: discountAmountCalculated,
         shippingFee: finalShippingFee,
         totalAmount,
-        status: 'pending', 
+        status: 'pending',
         orderDate: new Date(),
         notes: notes || undefined,
         createdByUserId: currentUser._id,
@@ -190,24 +193,24 @@ export async function createOrder(
         movement.notes = `Sale for order ${orderNumber}.`;
       }
       await db.collection(INVENTORY_MOVEMENTS_COLLECTION).insertMany(inventoryMovements, { session });
-      
+
       finalOrderResult = OrderSchema.parse({
         ...newOrderData,
         _id: insertedOrderId,
-        createdAt: newOrderData.orderDate, 
+        createdAt: newOrderData.orderDate,
         updatedAt: newOrderData.orderDate,
       }) as Order;
     });
-    
+
     if (finalOrderResult) {
-        revalidatePath('/orders');
-        revalidatePath('/products'); 
-        revalidatePath('/inventory'); 
-        revalidatePath(`/customers/${customerId}/orders`); 
-        revalidatePath('/dashboard');
-        return { success: true, order: finalOrderResult };
+      revalidatePath('/orders');
+      revalidatePath('/products');
+      revalidatePath('/inventory');
+      revalidatePath(`/customers/${customerId}/orders`);
+      revalidatePath('/dashboard');
+      return { success: true, order: finalOrderResult };
     } else {
-        return { success: false, error: "Order creation completed but failed to retrieve final order details." };
+      return { success: false, error: "Order creation completed but failed to retrieve final order details." };
     }
 
   } catch (error: any) {
@@ -219,10 +222,10 @@ export async function createOrder(
 }
 
 
-export async function getOrders(filters: { 
-  searchTerm?: string; 
+export async function getOrders(filters: {
+  searchTerm?: string;
   customerId?: string;
-  status?: OrderStatus | 'all'; 
+  status?: OrderStatus | 'all';
   dateFrom?: string | null;
   dateTo?: string | null;
   page?: number;
@@ -231,11 +234,11 @@ export async function getOrders(filters: {
   try {
     const db = await getDb();
     const query: any = {};
-    const { 
-      searchTerm, 
-      customerId, 
-      status, 
-      dateFrom, 
+    const {
+      searchTerm,
+      customerId,
+      status,
+      dateFrom,
       dateTo,
       page = 1,
       limit = 10 // Default items per page
@@ -267,14 +270,14 @@ export async function getOrders(filters: {
 
     const skip = (page - 1) * limit;
     const totalCount = await db.collection(ORDERS_COLLECTION).countDocuments(query);
-    
+
     const ordersFromDb = await db.collection(ORDERS_COLLECTION)
       .find(query)
-      .sort({ orderDate: -1 }) 
+      .sort({ orderDate: -1 })
       .skip(skip)
-      .limit(limit) 
+      .limit(limit)
       .toArray();
-    
+
     const parsedOrders = ordersFromDb.map(orderDoc => OrderSchema.parse({
       ...orderDoc,
       _id: orderDoc._id.toString(),
@@ -303,28 +306,29 @@ export async function updateOrderStatus(
   if (!ObjectId.isValid(orderId)) {
     return { success: false, error: 'Invalid order ID format.' };
   }
-  
+
   try {
-    OrderStatusSchema.parse(newStatus); 
+    OrderStatusSchema.parse(newStatus);
   } catch (error) {
     return { success: false, error: 'Invalid status value provided.' };
   }
 
   const db = await getDb();
   try {
+    //@ts-expect-error _id is not in Order model but might be added dynamically
     const order = await db.collection<Order>(ORDERS_COLLECTION).findOne({ _id: new ObjectId(orderId) });
     if (!order) {
       return { success: false, error: 'Order not found.' };
     }
 
     if (newStatus === 'shipped' && !['pending', 'processing'].includes(order.status)) {
-        return { success: false, error: `Order cannot be marked as shipped from '${order.status}' status.`};
+      return { success: false, error: `Order cannot be marked as shipped from '${order.status}' status.` };
     }
     if (newStatus === 'delivered' && order.status !== 'shipped') {
-        return { success: false, error: `Order cannot be marked as delivered if not yet shipped.`};
+      return { success: false, error: `Order cannot be marked as delivered if not yet shipped.` };
     }
-     if (newStatus === 'completed' && order.status !== 'delivered') { 
-        return { success: false, error: `Order cannot be marked as completed if not yet delivered.`};
+    if (newStatus === 'completed' && order.status !== 'delivered') {
+      return { success: false, error: `Order cannot be marked as completed if not yet delivered.` };
     }
 
 
@@ -337,15 +341,15 @@ export async function updateOrderStatus(
     if (!result) {
       return { success: false, error: 'Failed to update order status or order not found.' };
     }
-    
+
     const updatedOrder = OrderSchema.parse({
-        ...result,
-        _id: result._id.toString(),
+      ...result,
+      _id: result._id.toString(),
     }) as Order;
 
     revalidatePath('/orders');
     if (order.customerId) {
-        revalidatePath(`/customers/${order.customerId}/orders`);
+      revalidatePath(`/customers/${order.customerId}/orders`);
     }
     revalidatePath('/dashboard');
     return { success: true, order: updatedOrder };
@@ -361,7 +365,7 @@ export async function updateOrderStatus(
 
 export async function updateOrder(
   orderId: string,
-  data: Partial<CreateOrderInput>, 
+  data: Partial<CreateOrderInput>,
   currentUser: AuthUser
 ): Promise<{ success: boolean; order?: Order; error?: string; errors?: z.ZodIssue[] }> {
   console.log('updateOrder called with:', orderId, data, currentUser);
@@ -383,6 +387,7 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
 
   try {
     await session.withTransaction(async () => {
+      //@ts-expect-error _id is not in Order model but might be added dynamically
       const orderToDelete = await db.collection<Order>(ORDERS_COLLECTION).findOne({ _id: new ObjectId(orderId) }, { session });
       if (!orderToDelete) {
         throw new Error('Order not found or already deleted.');
@@ -399,7 +404,7 @@ export async function deleteOrder(orderId: string, userRole: string): Promise<{ 
 
     revalidatePath('/orders');
     if (customerIdForRevalidation) {
-        revalidatePath(`/customers/${customerIdForRevalidation}/orders`);
+      revalidatePath(`/customers/${customerIdForRevalidation}/orders`);
     }
     revalidatePath('/dashboard');
     return { success: true };

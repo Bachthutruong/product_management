@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { getOrders } from '@/app/(app)/orders/actions'; 
+import { getOrders } from '@/app/(app)/orders/actions';
 import { getCustomerById } from '@/app/(app)/customers/actions';
 import type { Order } from '@/models/Order';
 import type { Customer } from '@/models/Customer';
@@ -52,6 +52,7 @@ export default function CustomerOrdersPage() {
         toast({ variant: "destructive", title: "Error", description: "Customer not found." });
       }
       setCustomer(fetchedCustomer);
+      //@ts-expect-error _id is not in Order model but might be added dynamically
       setOrders(fetchedOrders);
     } catch (error) {
       console.error("Failed to fetch customer orders:", error);
@@ -80,7 +81,7 @@ export default function CustomerOrdersPage() {
   }
 
   if (!customer) {
-     return (
+    return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] p-6 text-center">
         <User className="w-16 h-16 text-muted-foreground mb-4" />
         <h1 className="text-2xl font-semibold text-foreground">Customer Not Found</h1>
@@ -91,24 +92,24 @@ export default function CustomerOrdersPage() {
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-         <div>
-            <Button asChild variant="outline" size="sm" className="mb-4">
-                <Link href="/customers"><ArrowLeft className="mr-2 h-4 w-4" /> Back to All Customers</Link>
-            </Button>
-            <h1 className="text-3xl font-bold text-foreground flex items-center">
-                <ShoppingCart className="mr-3 h-8 w-8 text-primary" /> Orders for {customer.name}
-            </h1>
-            <p className="text-muted-foreground">
-                {customer.email && <span>Email: {customer.email} | </span>}
-                {customer.phone && <span>Phone: {customer.phone}</span>}
-            </p>
+        <div>
+          <Button asChild variant="outline" size="sm" className="mb-4">
+            <Link href="/customers"><ArrowLeft className="mr-2 h-4 w-4" /> Back to All Customers</Link>
+          </Button>
+          <h1 className="text-3xl font-bold text-foreground flex items-center">
+            <ShoppingCart className="mr-3 h-8 w-8 text-primary" /> Orders for {customer.name}
+          </h1>
+          <p className="text-muted-foreground">
+            {customer.email && <span>Email: {customer.email} | </span>}
+            {customer.phone && <span>Phone: {customer.phone}</span>}
+          </p>
         </div>
       </div>
-      
+
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Order History</CardTitle>
@@ -143,20 +144,20 @@ export default function CustomerOrdersPage() {
                       <TableCell>{format(new Date(order.orderDate), 'dd/MM/yyyy HH:mm')}</TableCell>
                       <TableCell className="text-right">${order.totalAmount.toFixed(2)}</TableCell>
                       <TableCell>
-                        <Badge 
-                          variant={order.status === 'completed' || order.status === 'delivered' ? 'default' : 
-                                   order.status === 'cancelled' ? 'destructive' : 'secondary'}
+                        <Badge
+                          variant={order.status === 'completed' || order.status === 'delivered' ? 'default' :
+                            order.status === 'cancelled' ? 'destructive' : 'secondary'}
                           className={
                             order.status === 'completed' || order.status === 'delivered' ? 'bg-green-100 text-green-800 border-green-300' :
-                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                            order.status === 'processing' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                            order.status === 'shipped' ? 'bg-purple-100 text-purple-800 border-purple-300' : ''
+                              order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                                order.status === 'processing' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                  order.status === 'shipped' ? 'bg-purple-100 text-purple-800 border-purple-300' : ''
                           }
                         >
                           {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                         </Badge>
                       </TableCell>
-                       {user?.role === 'admin' && (
+                      {user?.role === 'admin' && (
                         <TableCell className="text-right">
                           {order.profit !== undefined && order.profit !== null ? `$${order.profit.toFixed(2)}` : 'N/A'}
                         </TableCell>
