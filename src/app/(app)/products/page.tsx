@@ -167,10 +167,6 @@ export default function ProductsPage() {
       setProducts(result.products);
       setTotalPages(result.totalPages);
       setTotalProducts(result.totalCount);
-      // Ensure currentPage is updated from backend if it adjusts (e.g. if requested page > totalPages)
-      // However, getProducts current return type might not return the adjusted current page.
-      // For now, we assume the requested currentPage is valid or backend handles it.
-      // If backend adjusts, we'd need to set `setCurrentPage(result.currentPage)`
     } catch (error) {
       console.error("Failed to fetch products:", error);
       toast({ variant: "destructive", title: "Loading Error", description: "Could not load products." });
@@ -271,7 +267,7 @@ export default function ProductsPage() {
                 Add New Product
               </DialogNativeTitle>
               <DialogNativeDescription>
-                Fill in product details, including images, unit, expiry, and stock alerts. Click "Add Product" when you're done.
+                Fill in product details. Click "Add Product" when you're done.
               </DialogNativeDescription>
             </DialogNativeHeader>
             {user?._id && <AddProductForm userId={user._id} onProductAdded={handleProductAddedOrUpdated} />}
