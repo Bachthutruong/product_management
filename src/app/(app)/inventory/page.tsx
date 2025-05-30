@@ -55,8 +55,8 @@ export default function InventoryPage() {
   const fetchProductsForFilter = useCallback(async () => {
     setIsLoadingProducts(true);
     try {
-      const fetchedProducts = await getProducts();
-      setProducts(fetchedProducts);
+      const result = await getProducts(); // getProducts now returns an object
+      setProducts(result.products); // Correctly access the products array
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Could not load products for filter." });
     } finally {
@@ -68,7 +68,7 @@ export default function InventoryPage() {
     setIsLoadingHistory(true);
     try {
       const result = await getInventoryMovements({
-        productId: selectedProductId,
+        productId: selectedProductId === "all" ? undefined : selectedProductId, // Handle "all" case
         type: selectedMovementType,
         dateFrom: dateFrom ? dateFrom.toISOString() : undefined,
         dateTo: dateTo ? dateTo.toISOString() : undefined,
@@ -90,8 +90,8 @@ export default function InventoryPage() {
 
   useEffect(() => {
     fetchProductsForFilter();
-    fetchHistory(1); // Initial fetch for page 1
-  }, [fetchProductsForFilter, fetchHistory]);
+    // fetchHistory(1); // Initial fetch for page 1 - This is now handled by the second useEffect
+  }, [fetchProductsForFilter]);
   
   // Re-fetch when appliedSearchTerm or filters change, resetting to page 1
   useEffect(() => {
@@ -177,7 +177,11 @@ export default function InventoryPage() {
               </div>
               <div>
                 <label htmlFor="productFilter" className="block text-sm font-medium text-muted-foreground mb-1">Product</label>
-                <Select value={selectedProductId} onValueChange={setSelectedProductId} disabled={isLoadingProducts}>
+                <Select 
+                  value={selectedProductId} 
+                  onValueChange={(value) => setSelectedProductId(value === "all" ? undefined : value)} 
+                  disabled={isLoadingProducts}
+                >
                   <SelectTrigger id="productFilter">
                     <SelectValue placeholder={isLoadingProducts ? "Loading products..." : "All Products"} />
                   </SelectTrigger>
