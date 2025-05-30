@@ -31,49 +31,65 @@ import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 10;
 
+interface InventoryFilters {
+  searchTerm: string;
+  productId: string | undefined;
+  movementType: InventoryMovementType | undefined;
+  dateFrom: Date | undefined;
+  dateTo: Date | undefined;
+}
+
 export default function InventoryPage() {
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productsForFilter, setProductsForFilter] = useState<Product[]>([]);
+  const [isLoadingProductsForFilter, setIsLoadingProductsForFilter] = useState(true);
 
-  // Filters and Pagination State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
-  const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
-  const [selectedMovementType, setSelectedMovementType] = useState<InventoryMovementType | undefined>(undefined);
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
-  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  // Filter Inputs
+  const [searchTermInput, setSearchTermInput] = useState('');
+  const [productIdInput, setProductIdInput] = useState<string | undefined>(undefined);
+  const [movementTypeInput, setMovementTypeInput] = useState<InventoryMovementType | undefined>(undefined);
+  const [dateFromInput, setDateFromInput] = useState<Date | undefined>(undefined);
+  const [dateToInput, setDateToInput] = useState<Date | undefined>(undefined);
+  
+  // Applied Filters for API
+  const [appliedFilters, setAppliedFilters] = useState<InventoryFilters>({
+    searchTerm: '',
+    productId: undefined,
+    movementType: undefined,
+    dateFrom: undefined,
+    dateTo: undefined,
+  });
   
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalMovements, setTotalMovements] = useState(0);
 
 
-  const fetchProductsForFilter = useCallback(async () => {
-    setIsLoadingProducts(true);
+  const fetchProductsForFilterDropdown = useCallback(async () => {
+    setIsLoadingProductsForFilter(true);
     try {
-      const result = await getProducts({limit: 1000}); // Fetch a large number for filter dropdown
-      setProducts(result.products);
+      const result = await getProducts({limit: 1000}); 
+      setProductsForFilter(result.products);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Could not load products for filter." });
     } finally {
-      setIsLoadingProducts(false);
+      setIsLoadingProductsForFilter(false);
     }
   }, [toast]);
 
-  const fetchHistory = useCallback(async (page = 1) => {
-    setIsLoadingHistory(true);
+  const fetchInventoryHistory = useCallback(async () => {
+    setIsLoading(true);
     try {
       const result = await getInventoryMovements({
-        productId: selectedProductId === "all" ? undefined : selectedProductId,
-        type: selectedMovementType === "all" ? undefined : selectedMovementType,
-        dateFrom: dateFrom ? dateFrom.toISOString() : undefined,
-        dateTo: dateTo ? dateTo.toISOString() : undefined,
-        searchTerm: appliedSearchTerm,
-        page,
+        productId: appliedFilters.productId === "all" ? undefined : appliedFilters.productId,
+        type: appliedFilters.movementType === "all" ? undefined : appliedFilters.movementType,
+        dateFrom: appliedFilters.dateFrom ? appliedFilters.dateFrom.toISOString() : undefined,
+        dateTo: appliedFilters.dateTo ? appliedFilters.dateTo.toISOString() : undefined,
+        searchTerm: appliedFilters.searchTerm,
+        page: currentPage,
         limit: ITEMS_PER_PAGE,
       });
       setMovements(result.movements);
@@ -84,46 +100,53 @@ export default function InventoryPage() {
       console.error("Failed to fetch inventory history:", error);
       toast({ variant: "destructive", title: "Loading Error", description: "Could not load inventory history." });
     } finally {
-      setIsLoadingHistory(false);
+      setIsLoading(false);
     }
-  }, [toast, selectedProductId, selectedMovementType, dateFrom, dateTo, appliedSearchTerm]);
+  }, [toast, appliedFilters, currentPage]);
 
   useEffect(() => {
-    fetchProductsForFilter();
-  }, [fetchProductsForFilter]);
+    fetchProductsForFilterDropdown();
+  }, [fetchProductsForFilterDropdown]);
   
   useEffect(() => {
-    fetchHistory(currentPage); // Fetch based on currentPage
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedSearchTerm, selectedProductId, selectedMovementType, dateFrom, dateTo]); // fetchHistory is memoized
+    fetchInventoryHistory();
+  }, [fetchInventoryHistory]);
 
   const handleStockOperationRecorded = () => {
-    // Refetch the current page if filters haven't changed, or page 1 if they might have
-    fetchHistory(currentPage); 
+    fetchInventoryHistory(); 
   };
 
-  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setAppliedSearchTerm(searchTerm);
-    setCurrentPage(1); // Reset to first page on new search/filter
-    fetchHistory(1); // Explicitly fetch page 1
+  const handleApplyFilters = (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) e.preventDefault();
+    setAppliedFilters({
+      searchTerm: searchTermInput,
+      productId: productIdInput,
+      movementType: movementTypeInput,
+      dateFrom: dateFromInput,
+      dateTo: dateToInput,
+    });
+    setCurrentPage(1);
   };
 
   const handleClearFilters = () => {
-    setSearchTerm('');
-    setAppliedSearchTerm('');
-    setSelectedProductId(undefined);
-    setSelectedMovementType(undefined);
-    setDateFrom(undefined);
-    setDateTo(undefined);
-    setCurrentPage(1); // Reset to first page
-    fetchHistory(1); // Explicitly fetch page 1 with cleared filters
+    setSearchTermInput('');
+    setProductIdInput(undefined);
+    setMovementTypeInput(undefined);
+    setDateFromInput(undefined);
+    setDateToInput(undefined);
+    setAppliedFilters({
+      searchTerm: '',
+      productId: undefined,
+      movementType: undefined,
+      dateFrom: undefined,
+      dateTo: undefined,
+    });
+    setCurrentPage(1);
   };
   
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
-      fetchHistory(newPage);
     }
   };
 
@@ -163,41 +186,40 @@ export default function InventoryPage() {
           </CardTitle>
           <CardDescription>
             Log of all stock movements. 
-            {isLoadingHistory && totalMovements === 0 ? " Loading entries..." : ` ${totalMovements} entries found.`}
+            {isLoading && totalMovements === 0 ? " Loading entries..." : ` ${totalMovements} entries found.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Filter and Search Section */}
-          <form onSubmit={handleSearchSubmit} className="mb-6 space-y-4 p-4 border rounded-lg shadow-sm bg-card">
+          <form onSubmit={handleApplyFilters} className="mb-6 space-y-4 p-4 border rounded-lg shadow-sm bg-card">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
               <div className="lg:col-span-1">
                 <label htmlFor="searchTermInventory" className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
                 <Input 
                   id="searchTermInventory"
                   placeholder="Product, user, notes..." 
-                  value={searchTerm} 
-                  onChange={(e) => setSearchTerm(e.target.value)} 
+                  value={searchTermInput} 
+                  onChange={(e) => setSearchTermInput(e.target.value)} 
                 />
               </div>
               <div>
                 <label htmlFor="productFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">Product</label>
                 <Select 
-                  value={selectedProductId} 
-                  onValueChange={(value) => setSelectedProductId(value === "all" ? undefined : value)} 
-                  disabled={isLoadingProducts}
+                  value={productIdInput} 
+                  onValueChange={(value) => setProductIdInput(value === "all" ? undefined : value)} 
+                  disabled={isLoadingProductsForFilter}
                 >
                   <SelectTrigger id="productFilterInventory">
-                    <SelectValue placeholder={isLoadingProducts ? "Loading products..." : "All Products"} />
+                    <SelectValue placeholder={isLoadingProductsForFilter ? "Loading products..." : "All Products"} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Products</SelectItem>
-                    {products.map(p => <SelectItem key={p._id} value={p._id}>{p.name} (SKU: {p.sku || 'N/A'})</SelectItem>)}
+                    {productsForFilter.map(p => <SelectItem key={p._id} value={p._id}>{p.name} (SKU: {p.sku || 'N/A'})</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <label htmlFor="typeFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">Movement Type</label>
-                <Select value={selectedMovementType} onValueChange={(value) => setSelectedMovementType(value === "all" ? undefined : value as InventoryMovementType)}>
+                <Select value={movementTypeInput} onValueChange={(value) => setMovementTypeInput(value === "all" ? undefined : value as InventoryMovementType)}>
                   <SelectTrigger id="typeFilterInventory">
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
@@ -218,14 +240,14 @@ export default function InventoryPage() {
                       <Button
                         id="dateFromInventory"
                         variant={"outline"}
-                        className={cn("w-full justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}
+                        className={cn("w-full justify-start text-left font-normal", !dateFromInput && "text-muted-foreground")}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFrom ? format(dateFrom, "PPP") : <span>Pick a date</span>}
+                        {dateFromInput ? format(dateFromInput, "PPP") : <span>Pick a date</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus />
+                      <Calendar mode="single" selected={dateFromInput} onSelect={setDateFromInput} initialFocus />
                     </PopoverContent>
                   </Popover>
               </div>
@@ -236,38 +258,38 @@ export default function InventoryPage() {
                       <Button
                         id="dateToInventory"
                         variant={"outline"}
-                        className={cn("w-full justify-start text-left font-normal", !dateTo && "text-muted-foreground")}
+                        className={cn("w-full justify-start text-left font-normal", !dateToInput && "text-muted-foreground")}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateTo ? format(dateTo, "PPP") : <span>Pick a date</span>}
+                        {dateToInput ? format(dateToInput, "PPP") : <span>Pick a date</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus disabled={(date) => dateFrom ? date < dateFrom : false}/>
+                      <Calendar mode="single" selected={dateToInput} onSelect={setDateToInput} initialFocus disabled={(date) => dateFromInput ? date < dateFromInput : false}/>
                     </PopoverContent>
                   </Popover>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
                 <Search className="mr-2 h-4 w-4" /> Apply Search & Filters
               </Button>
-              <Button type="button" variant="outline" onClick={handleClearFilters}>
+              <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isLoading}>
                 <X className="mr-2 h-4 w-4" /> Clear All
               </Button>
             </div>
           </form>
 
-          {isLoadingHistory && movements.length === 0 ? (
+          {isLoading && movements.length === 0 ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : movements.length === 0 ? (
+          ) : !isLoading && movements.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-foreground">No Inventory Movements Found</h3>
               <p className="text-muted-foreground">
-                {appliedSearchTerm || selectedProductId || selectedMovementType || dateFrom || dateTo 
+                {appliedFilters.searchTerm || appliedFilters.productId || appliedFilters.movementType || appliedFilters.dateFrom || appliedFilters.dateTo 
                   ? "No records match your current filters or search term."
                   : "There are no inventory movements recorded yet."}
               </p>
@@ -324,13 +346,12 @@ export default function InventoryPage() {
                   </TableBody>
                 </Table>
               </div>
-              {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6">
                   <Button 
                     variant="outline" 
                     onClick={() => handlePageChange(currentPage - 1)} 
-                    disabled={currentPage === 1 || isLoadingHistory}
+                    disabled={currentPage === 1 || isLoading}
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" /> Previous
                   </Button>
@@ -340,7 +361,7 @@ export default function InventoryPage() {
                   <Button 
                     variant="outline" 
                     onClick={() => handlePageChange(currentPage + 1)} 
-                    disabled={currentPage === totalPages || isLoadingHistory}
+                    disabled={currentPage === totalPages || isLoading}
                   >
                     Next <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -353,4 +374,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-

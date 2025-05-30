@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { getOrders, deleteOrder, updateOrderStatus } from '@/app/(app)/orders/actions'; 
 import type { Order, OrderStatus } from '@/models/Order';
-import { OrderStatusSchema } from '@/models/Order'; // Import for status options
+import { OrderStatusSchema, AllOrderStatusOptions } from '@/models/Order';
 import { CreateOrderForm } from '@/components/orders/CreateOrderForm';
 
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,13 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 10;
+
+interface OrderFilters {
+  searchTerm: string;
+  status: OrderStatus | 'all';
+  dateFrom: Date | undefined;
+  dateTo: Date | undefined;
+}
 
 interface OrderStatusActionButtonProps {
   order: Order;
@@ -247,32 +254,37 @@ export default function OrdersPage() {
   const { toast } = useToast();
 
   const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [isCreateOrderDialogOpen, setIsCreateOrderDialogOpen] = useState(false);
 
-  // Filters and Pagination State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'all'>('all');
-  const [appliedStatus, setAppliedStatus] = useState<OrderStatus | 'all'>('all');
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
-  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
-  const [appliedDateFrom, setAppliedDateFrom] = useState<Date | undefined>(undefined);
-  const [appliedDateTo, setAppliedDateTo] = useState<Date | undefined>(undefined);
+  // Filter Inputs
+  const [searchTermInput, setSearchTermInput] = useState('');
+  const [statusInput, setStatusInput] = useState<OrderStatus | 'all'>('all');
+  const [dateFromInput, setDateFromInput] = useState<Date | undefined>(undefined);
+  const [dateToInput, setDateToInput] = useState<Date | undefined>(undefined);
+
+  // Applied Filters for API call
+  const [appliedFilters, setAppliedFilters] = useState<OrderFilters>({
+    searchTerm: '',
+    status: 'all',
+    dateFrom: undefined,
+    dateTo: undefined,
+  });
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
 
-  const fetchOrders = useCallback(async (page = 1) => {
-    setIsLoadingOrders(true);
+  const fetchOrders = useCallback(async () => {
+    if (authLoading) return;
+    setIsLoading(true);
     try {
       const result = await getOrders({ 
-        searchTerm: appliedSearchTerm,
-        status: appliedStatus === 'all' ? undefined : appliedStatus,
-        dateFrom: appliedDateFrom ? appliedDateFrom.toISOString() : null,
-        dateTo: appliedDateTo ? appliedDateTo.toISOString() : null,
-        page,
+        searchTerm: appliedFilters.searchTerm,
+        status: appliedFilters.status === 'all' ? undefined : appliedFilters.status,
+        dateFrom: appliedFilters.dateFrom ? appliedFilters.dateFrom.toISOString() : undefined,
+        dateTo: appliedFilters.dateTo ? appliedFilters.dateTo.toISOString() : undefined,
+        page: currentPage,
         limit: ITEMS_PER_PAGE,
       });
       setOrders(result.orders);
@@ -287,51 +299,59 @@ export default function OrdersPage() {
         description: "Could not load order data. Please try again later.",
       });
     } finally {
-      setIsLoadingOrders(false);
+      setIsLoading(false);
     }
-  }, [toast, appliedSearchTerm, appliedStatus, appliedDateFrom, appliedDateTo]);
+  }, [toast, authLoading, appliedFilters, currentPage]);
 
   useEffect(() => {
-    if (!authLoading) {
-      fetchOrders(1); // Initial fetch for page 1
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, appliedSearchTerm, appliedStatus, appliedDateFrom, appliedDateTo]); // fetchOrders is memoized
+    fetchOrders();
+  }, [fetchOrders]);
 
   const handleOrderCreatedOrUpdated = () => {
-    fetchOrders(currentPage); 
+    fetchOrders(); 
     setIsCreateOrderDialogOpen(false); 
   };
+  
+  const handleOrderDeleted = () => {
+     if (orders.length === 1 && currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    } else {
+      fetchOrders();
+    }
+  }
 
-  const handleSearchAndFilterSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
+  const handleApplyFilters = (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
-    setAppliedSearchTerm(searchTerm);
-    setAppliedStatus(selectedStatus);
-    setAppliedDateFrom(dateFrom);
-    setAppliedDateTo(dateTo);
-    setCurrentPage(1); // Reset to first page on new search/filter
+    setAppliedFilters({
+      searchTerm: searchTermInput,
+      status: statusInput,
+      dateFrom: dateFromInput,
+      dateTo: dateToInput,
+    });
+    setCurrentPage(1); 
   };
 
   const handleClearFilters = () => {
-    setSearchTerm('');
-    setAppliedSearchTerm('');
-    setSelectedStatus('all');
-    setAppliedStatus('all');
-    setDateFrom(undefined);
-    setAppliedDateFrom(undefined);
-    setDateTo(undefined);
-    setAppliedDateTo(undefined);
+    setSearchTermInput('');
+    setStatusInput('all');
+    setDateFromInput(undefined);
+    setDateToInput(undefined);
+    setAppliedFilters({
+      searchTerm: '',
+      status: 'all',
+      dateFrom: undefined,
+      dateTo: undefined,
+    });
     setCurrentPage(1);
   };
 
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
-      fetchOrders(newPage);
     }
   };
 
-  if (authLoading || (isLoadingOrders && orders.length === 0 && currentPage === 1)) {
+  if (authLoading && isLoading) {
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -366,7 +386,6 @@ export default function OrdersPage() {
           </Dialog>
       </div>
 
-      {/* Filter and Search Section */}
       <Card className="shadow-md">
         <CardHeader>
            <CardTitle className="flex items-center text-xl">
@@ -374,30 +393,30 @@ export default function OrdersPage() {
             Filter & Search Orders
           </CardTitle>
            <CardDescription>
-            Refine your order view. {totalOrders} orders found.
+            Refine your order view. {isLoading ? "Loading..." : `${totalOrders} orders found.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSearchAndFilterSubmit} className="space-y-4">
+          <form onSubmit={handleApplyFilters} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
               <div className="lg:col-span-1">
                 <label htmlFor="searchTermOrders" className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
                 <Input 
                   id="searchTermOrders"
                   placeholder="Order #, Customer Name..." 
-                  value={searchTerm} 
-                  onChange={(e) => setSearchTerm(e.target.value)} 
+                  value={searchTermInput} 
+                  onChange={(e) => setSearchTermInput(e.target.value)} 
                 />
               </div>
               <div>
                 <label htmlFor="statusFilterOrders" className="block text-sm font-medium text-muted-foreground mb-1">Status</label>
-                <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as OrderStatus | 'all')}>
+                <Select value={statusInput} onValueChange={(value) => setStatusInput(value as OrderStatus | 'all')}>
                   <SelectTrigger id="statusFilterOrders">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    {OrderStatusSchema.options.map(statusValue => (
+                    {AllOrderStatusOptions.map(statusValue => (
                       <SelectItem key={statusValue} value={statusValue}>
                         {statusValue.charAt(0).toUpperCase() + statusValue.slice(1)}
                       </SelectItem>
@@ -412,14 +431,14 @@ export default function OrdersPage() {
                       <Button
                         id="dateFromOrders"
                         variant={"outline"}
-                        className={cn("w-full justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}
+                        className={cn("w-full justify-start text-left font-normal", !dateFromInput && "text-muted-foreground")}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFrom ? format(dateFrom, "PPP") : <span>Pick a date</span>}
+                        {dateFromInput ? format(dateFromInput, "PPP") : <span>Pick a date</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus />
+                      <Calendar mode="single" selected={dateFromInput} onSelect={setDateFromInput} initialFocus />
                     </PopoverContent>
                   </Popover>
               </div>
@@ -430,23 +449,23 @@ export default function OrdersPage() {
                       <Button
                         id="dateToOrders"
                         variant={"outline"}
-                        className={cn("w-full justify-start text-left font-normal", !dateTo && "text-muted-foreground")}
+                        className={cn("w-full justify-start text-left font-normal", !dateToInput && "text-muted-foreground")}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateTo ? format(dateTo, "PPP") : <span>Pick a date</span>}
+                        {dateToInput ? format(dateToInput, "PPP") : <span>Pick a date</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus disabled={(date) => dateFrom ? date < dateFrom : false}/>
+                      <Calendar mode="single" selected={dateToInput} onSelect={setDateToInput} initialFocus disabled={(date) => dateFromInput ? date < dateFromInput : false}/>
                     </PopoverContent>
                   </Popover>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
                 <Search className="mr-2 h-4 w-4" /> Apply
               </Button>
-              <Button type="button" variant="outline" onClick={handleClearFilters}>
+              <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isLoading}>
                 <X className="mr-2 h-4 w-4" /> Clear Filters
               </Button>
             </div>
@@ -460,16 +479,16 @@ export default function OrdersPage() {
           <CardDescription>Manage and track all customer orders.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoadingOrders && orders.length === 0 && currentPage === 1 ? (
+          {isLoading && orders.length === 0 ? (
              <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
-          ) : orders.length === 0 ? (
+          ) : !isLoading && orders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-foreground">No Orders Found</h3>
               <p className="text-muted-foreground">
-                {appliedSearchTerm || appliedStatus !== 'all' || appliedDateFrom || appliedDateTo 
+                {appliedFilters.searchTerm || appliedFilters.status !== 'all' || appliedFilters.dateFrom || appliedFilters.dateTo 
                   ? "No orders match your current filters." 
                   : "There are no orders yet. Create one to get started."}
               </p>
@@ -542,7 +561,7 @@ export default function OrdersPage() {
                                   <span className="sr-only">Edit order {order.orderNumber}</span>
                               </Button>
                               {user?.role === 'admin' && (
-                                  <DeleteOrderButton orderId={order._id} orderNumber={order.orderNumber} onOrderDeleted={handleOrderCreatedOrUpdated} />
+                                  <DeleteOrderButton orderId={order._id} orderNumber={order.orderNumber} onOrderDeleted={handleOrderDeleted} />
                               )}
                                <Button 
                                   variant="ghost" 
@@ -562,13 +581,12 @@ export default function OrdersPage() {
                   </TableBody>
                 </Table>
               </div>
-              {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6">
                   <Button 
                     variant="outline" 
                     onClick={() => handlePageChange(currentPage - 1)} 
-                    disabled={currentPage === 1 || isLoadingOrders}
+                    disabled={currentPage === 1 || isLoading}
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" /> Previous
                   </Button>
@@ -578,7 +596,7 @@ export default function OrdersPage() {
                   <Button 
                     variant="outline" 
                     onClick={() => handlePageChange(currentPage + 1)} 
-                    disabled={currentPage === totalPages || isLoadingOrders}
+                    disabled={currentPage === totalPages || isLoading}
                   >
                     Next <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -591,4 +609,3 @@ export default function OrdersPage() {
     </div>
   );
 }
-

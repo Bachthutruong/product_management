@@ -37,7 +37,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle, 
+  AlertDialogTitle as AlertDialogNativeTitle, // Renamed to avoid conflict
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import NextImage from 'next/image'; 
@@ -49,6 +49,11 @@ const ITEMS_PER_PAGE = 10;
 
 type StockStatusFilter = 'all' | 'low' | 'inStock' | 'outOfStock';
 
+interface ProductFilters {
+  searchTerm: string;
+  category: string;
+  stockStatus: StockStatusFilter;
+}
 
 function DeleteProductButton({ 
   productId, 
@@ -97,7 +102,7 @@ function DeleteProductButton({
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure you want to delete "{productName}"?</AlertDialogTitle>
+          <AlertDialogNativeTitle>Are you sure you want to delete "{productName}"?</AlertDialogNativeTitle>
           <AlertDialogDescription>
             This action cannot be undone. This will permanently delete the product and its images.
           </AlertDialogDescription>
@@ -130,56 +135,62 @@ export default function ProductsPage() {
   const [isPreviewImageDialogOpen, setIsPreviewImageDialogOpen] = useState(false);
   const [imageToPreview, setImageToPreview] = useState<ProductImage | null>(null);
 
-  // Filters and Pagination State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [appliedCategoryFilter, setAppliedCategoryFilter] = useState('');
-  const [stockStatusFilter, setStockStatusFilter] = useState<StockStatusFilter>('all');
-  const [appliedStockStatusFilter, setAppliedStockStatusFilter] = useState<StockStatusFilter>('all');
+  // Filter and Pagination State
+  const [searchTermInput, setSearchTermInput] = useState('');
+  const [categoryFilterInput, setCategoryFilterInput] = useState('');
+  const [stockStatusFilterInput, setStockStatusFilterInput] = useState<StockStatusFilter>('all');
+  
+  const [appliedFilters, setAppliedFilters] = useState<ProductFilters>({
+    searchTerm: '',
+    category: '',
+    stockStatus: 'all',
+  });
   
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
 
-  const fetchProducts = useCallback(async (page = 1) => {
+  const fetchProducts = useCallback(async () => {
+    if (authLoading) return;
     setIsLoading(true);
     try {
       const result = await getProducts({
-        searchTerm: appliedSearchTerm,
-        category: appliedCategoryFilter,
-        stockStatus: appliedStockStatusFilter === 'all' ? undefined : appliedStockStatusFilter,
-        page,
+        searchTerm: appliedFilters.searchTerm,
+        category: appliedFilters.category,
+        stockStatus: appliedFilters.stockStatus === 'all' ? undefined : appliedFilters.stockStatus,
+        page: currentPage,
         limit: ITEMS_PER_PAGE,
       });
       setProducts(result.products);
       setTotalPages(result.totalPages);
       setTotalProducts(result.totalCount);
-      setCurrentPage(result.currentPage);
+      setCurrentPage(result.currentPage); // Ensure currentPage is updated from backend result
     } catch (error) {
       console.error("Failed to fetch products:", error);
       toast({ variant: "destructive", title: "Loading Error", description: "Could not load products." });
     } finally {
       setIsLoading(false);
     }
-  }, [toast, appliedSearchTerm, appliedCategoryFilter, appliedStockStatusFilter]);
+  }, [toast, authLoading, appliedFilters, currentPage]);
 
   useEffect(() => {
-    if (!authLoading) { 
-        fetchProducts(1); // Initial fetch for page 1
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, appliedSearchTerm, appliedCategoryFilter, appliedStockStatusFilter]); // fetchProducts is memoized
+    fetchProducts();
+  }, [fetchProducts]); 
 
   const handleProductAddedOrUpdated = () => {
-    fetchProducts(currentPage); // Refresh current page
+    fetchProducts(); // Refresh current page or page 1 if preferred
     setIsAddProductDialogOpen(false); 
     setIsEditProductDialogOpen(false);
     setEditingProduct(null);
   };
   
   const handleProductDeleted = () => {
-    fetchProducts(currentPage > totalPages && totalPages > 0 ? totalPages : currentPage); 
+    // If current page becomes empty after deletion, try to go to previous page or page 1
+    if (products.length === 1 && currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    } else {
+      fetchProducts();
+    }
   };
 
   const openEditDialog = (product: Product) => {
@@ -197,32 +208,35 @@ export default function ProductsPage() {
     setIsPreviewImageDialogOpen(true);
   };
 
-  const handleSearchAndFilterSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
+  const handleApplyFilters = (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
-    setAppliedSearchTerm(searchTerm);
-    setAppliedCategoryFilter(categoryFilter);
-    setAppliedStockStatusFilter(stockStatusFilter);
-    setCurrentPage(1); // Reset to first page on new search/filter
+    setAppliedFilters({
+      searchTerm: searchTermInput,
+      category: categoryFilterInput,
+      stockStatus: stockStatusFilterInput,
+    });
+    setCurrentPage(1); 
   };
 
   const handleClearFilters = () => {
-    setSearchTerm('');
-    setAppliedSearchTerm('');
-    setCategoryFilter('');
-    setAppliedCategoryFilter('');
-    setStockStatusFilter('all');
-    setAppliedStockStatusFilter('all');
+    setSearchTermInput('');
+    setCategoryFilterInput('');
+    setStockStatusFilterInput('all');
+    setAppliedFilters({
+      searchTerm: '',
+      category: '',
+      stockStatus: 'all',
+    });
     setCurrentPage(1); 
   };
   
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
-      fetchProducts(newPage);
     }
   };
 
-  if (authLoading || (isLoading && products.length === 0 && currentPage === 1)) { 
+  if (authLoading && isLoading) { 
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -255,7 +269,6 @@ export default function ProductsPage() {
         </Dialog>
       </div>
 
-      {/* Filter and Search Section */}
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center text-xl">
@@ -263,19 +276,19 @@ export default function ProductsPage() {
             Filter & Search Products
           </CardTitle>
            <CardDescription>
-            Refine your product view using the filters below. {totalProducts} products found.
+            Refine your product view. {isLoading ? "Loading..." : `${totalProducts} products found.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSearchAndFilterSubmit} className="space-y-4">
+          <form onSubmit={handleApplyFilters} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
               <div>
                 <label htmlFor="searchTermProducts" className="block text-sm font-medium text-muted-foreground mb-1">Search Term</label>
                 <Input 
                   id="searchTermProducts"
                   placeholder="Name, SKU, description..." 
-                  value={searchTerm} 
-                  onChange={(e) => setSearchTerm(e.target.value)} 
+                  value={searchTermInput} 
+                  onChange={(e) => setSearchTermInput(e.target.value)} 
                 />
               </div>
               <div>
@@ -283,13 +296,13 @@ export default function ProductsPage() {
                 <Input 
                   id="categoryFilter"
                   placeholder="e.g., Electronics" 
-                  value={categoryFilter} 
-                  onChange={(e) => setCategoryFilter(e.target.value)} 
+                  value={categoryFilterInput} 
+                  onChange={(e) => setCategoryFilterInput(e.target.value)} 
                 />
               </div>
               <div>
                 <label htmlFor="stockStatusFilter" className="block text-sm font-medium text-muted-foreground mb-1">Stock Status</label>
-                <Select value={stockStatusFilter} onValueChange={(value) => setStockStatusFilter(value as StockStatusFilter)}>
+                <Select value={stockStatusFilterInput} onValueChange={(value) => setStockStatusFilterInput(value as StockStatusFilter)}>
                   <SelectTrigger id="stockStatusFilter">
                     <SelectValue placeholder="All Stock Statuses" />
                   </SelectTrigger>
@@ -303,10 +316,10 @@ export default function ProductsPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
                 <Search className="mr-2 h-4 w-4" /> Apply
               </Button>
-              <Button type="button" variant="outline" onClick={handleClearFilters}>
+              <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isLoading}>
                 <X className="mr-2 h-4 w-4" /> Clear Filters
               </Button>
             </div>
@@ -320,16 +333,16 @@ export default function ProductsPage() {
           <CardDescription>Your current product catalog. Warnings for low stock & upcoming expiry.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && products.length === 0 && currentPage === 1 ? ( 
+          {isLoading && products.length === 0 ? ( 
              <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
-          ) : products.length === 0 ? (
+          ) : !isLoading && products.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageX className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-foreground">No Products Found</h3>
               <p className="text-muted-foreground">
-                {appliedSearchTerm || appliedCategoryFilter || appliedStockStatusFilter !== 'all' 
+                {appliedFilters.searchTerm || appliedFilters.category || appliedFilters.stockStatus !== 'all' 
                   ? "No products match your current filters." 
                   : "Add your first product using the 'Add Product' button."}
               </p>
@@ -435,7 +448,7 @@ export default function ProductsPage() {
                                   className="text-muted-foreground hover:text-primary" 
                                   onClick={() => openEditDialog(product)}
                                   title={`Edit ${product.name}`}
-                                  disabled={!user} 
+                                  disabled={!user || user.role !== 'admin'} // Temporarily restrict to admin for safety during refactor
                                   >
                                   <Edit3 className="h-4 w-4" />
                                   <span className="sr-only">Edit ${product.name}</span>
@@ -456,7 +469,6 @@ export default function ProductsPage() {
                   </TableBody>
                 </Table>
               </div>
-              {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6">
                   <Button 
@@ -552,5 +564,4 @@ export default function ProductsPage() {
     </div>
   );
 }
-
     
