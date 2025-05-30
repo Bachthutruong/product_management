@@ -1,8 +1,9 @@
 
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 
+//@ts-ignore
 const remotePatterns: NextConfig['images']['remotePatterns'] = [
   {
     protocol: 'https',

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
@@ -30,11 +29,12 @@ export function ProductStockInHistoryDialog({ productId }: ProductStockInHistory
   const fetchStockInHistory = useCallback(async () => {
     setIsLoading(true);
     try {
-      const fetchedMovements = await getInventoryMovements({ productId, type: 'stock-in' });
-      setMovements(fetchedMovements);
+      const result = await getInventoryMovements({ productId, type: 'stock-in' });
+      setMovements(result.movements);
     } catch (error) {
       console.error("Failed to fetch stock-in history:", error);
       toast({ variant: "destructive", title: "Loading Error", description: "Could not load stock-in history for this product." });
+      setMovements([]);
     } finally {
       setIsLoading(false);
     }

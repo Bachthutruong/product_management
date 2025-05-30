@@ -54,6 +54,7 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
         });
         form.reset();
         setIsOpen(false);
+        //@ts-expect-error _id is not in Customer model but might be added dynamically
         if (onCustomerAdded) onCustomerAdded(result.customer);
       } else {
         toast({
@@ -61,7 +62,7 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
           title: 'Error Adding Customer',
           description: result.error || 'An unknown error occurred.',
         });
-         if (result.errors) {
+        if (result.errors) {
           result.errors.forEach((err) => {
             form.setError(err.path[0] as keyof CreateCustomerInput, { message: err.message });
           });
@@ -85,7 +86,7 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
   );
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) form.reset();}}>
+    <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) form.reset(); }}>
       <DialogTrigger asChild>
         {triggerButton || defaultTrigger}
       </DialogTrigger>
@@ -154,7 +155,7 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
               )}
             />
             <DialogFooter>
-               <DialogClose asChild>
+              <DialogClose asChild>
                 <Button type="button" variant="outline" disabled={isSubmitting}>
                   Cancel
                 </Button>

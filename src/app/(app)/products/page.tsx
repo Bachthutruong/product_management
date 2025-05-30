@@ -1,9 +1,10 @@
-
-'use client'; 
+'use client';
 
 import { useEffect, useState, useCallback } from 'react';
 import { getProducts, deleteProduct } from '@/app/(app)/products/actions';
+import { getCategories } from '@/app/(app)/categories/actions';
 import type { Product, ProductImage } from '@/models/Product';
+import type { Category } from '@/models/Category';
 import type { UserRole } from '@/models/User';
 import { useAuth } from '@/hooks/useAuth';
 import { AddProductForm } from '@/components/products/AddProductForm';
@@ -21,13 +22,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX, PlusCircle, Loader2, History, Eye as EyeIcon, Search, Filter, X, ArrowLeft, ArrowRight } from "lucide-react";
+import { Trash2, ImageOff, CalendarClock, AlertCircle, Edit3, PackageX, PlusCircle, Loader2, History, Eye as EyeIcon, Search, Filter, X, ArrowLeft, ArrowRight, FolderTree } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription as DialogNativeDescription, 
-  DialogHeader as DialogNativeHeader,       
-  DialogTitle as DialogNativeTitle,         
+  DialogDescription as DialogNativeDescription,
+  DialogHeader as DialogNativeHeader,
+  DialogTitle as DialogNativeTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
@@ -40,52 +41,52 @@ import {
   AlertDialogTitle as AlertDialogNativeTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import NextImage from 'next/image'; 
+import NextImage from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { format, isBefore, addYears } from 'date-fns';
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
-const DEFAULT_ITEMS_PER_PAGE = ITEMS_PER_PAGE_OPTIONS[1]; // Default to 10
+const DEFAULT_ITEMS_PER_PAGE = ITEMS_PER_PAGE_OPTIONS[1];
 
 type StockStatusFilter = 'all' | 'low' | 'inStock' | 'outOfStock';
 
 interface ProductFilters {
   searchTerm: string;
-  category: string;
+  categoryId: string;
   stockStatus: StockStatusFilter;
 }
 
-function DeleteProductButton({ 
-  productId, 
-  productName, 
+function DeleteProductButton({
+  productId,
+  productName,
   userRole,
-  onProductDeleted 
-}: { 
-  productId: string, 
-  productName: string, 
+  onProductDeleted
+}: {
+  productId: string,
+  productName: string,
   userRole: UserRole | undefined,
-  onProductDeleted: () => void 
+  onProductDeleted: () => void
 }) {
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
 
   if (userRole !== 'admin') {
-    return null; 
+    return null;
   }
 
   const handleDelete = async () => {
     if (userRole !== 'admin') {
-        toast({ variant: "destructive", title: "Permission Denied", description: "Only admins can delete products." });
-        setIsAlertOpen(false);
-        return;
+      toast({ variant: "destructive", title: "Permission Denied", description: "Only admins can delete products." });
+      setIsAlertOpen(false);
+      return;
     }
     setIsDeleting(true);
     const result = await deleteProduct(productId, userRole);
     if (result.success) {
       toast({ title: "Product Deleted", description: `${productName} has been successfully deleted.` });
-      onProductDeleted(); 
+      onProductDeleted();
     } else {
       toast({ variant: "destructive", title: "Error Deleting Product", description: result.error });
     }
@@ -97,7 +98,7 @@ function DeleteProductButton({
     <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
       <AlertDialogTrigger asChild>
         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting} title={`Delete ${productName}`}>
-           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           <span className="sr-only">Delete {productName}</span>
         </Button>
       </AlertDialogTrigger>
@@ -120,38 +121,55 @@ function DeleteProductButton({
   );
 }
 
-
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  
+
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isStockInHistoryDialogOpen, setIsStockInHistoryDialogOpen] = useState(false);
   const [viewingHistoryForProduct, setViewingHistoryForProduct] = useState<Product | null>(null);
-  
+
   const [isPreviewImageDialogOpen, setIsPreviewImageDialogOpen] = useState(false);
-  const [imageToPreview, setImageToPreview] = useState<ProductImage | null>(null);
+  const [imagesForPreview, setImagesForPreview] = useState<ProductImage[] | null>(null);
+  const [currentPreviewImageIndex, setCurrentPreviewImageIndex] = useState<number>(0);
 
   // Filter and Pagination State
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+
   const [searchTermInput, setSearchTermInput] = useState('');
-  const [categoryFilterInput, setCategoryFilterInput] = useState('');
+  const [categoryFilterInput, setCategoryFilterInput] = useState('all');
   const [stockStatusFilterInput, setStockStatusFilterInput] = useState<StockStatusFilter>('all');
-  
+
   const [appliedFilters, setAppliedFilters] = useState<ProductFilters>({
     searchTerm: '',
-    category: '',
+    categoryId: '',
     stockStatus: 'all',
   });
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
 
+  useEffect(() => {
+    async function fetchFilterCategories() {
+      setIsLoadingCategories(true);
+      try {
+        const result = await getCategories({ limit: 500 });
+        setAllCategories(result.categories);
+      } catch (error) {
+        console.error("Failed to fetch categories for product filter:", error);
+        toast({ variant: "destructive", title: "Filter Error", description: "Could not load categories for filtering." });
+      }
+      setIsLoadingCategories(false);
+    }
+    fetchFilterCategories();
+  }, [toast]);
 
   const fetchProducts = useCallback(async () => {
     if (authLoading) return;
@@ -159,7 +177,7 @@ export default function ProductsPage() {
     try {
       const result = await getProducts({
         searchTerm: appliedFilters.searchTerm,
-        category: appliedFilters.category,
+        categoryId: appliedFilters.categoryId === 'all' ? undefined : appliedFilters.categoryId,
         stockStatus: appliedFilters.stockStatus === 'all' ? undefined : appliedFilters.stockStatus,
         page: currentPage,
         limit: itemsPerPage,
@@ -176,16 +194,22 @@ export default function ProductsPage() {
   }, [toast, authLoading, appliedFilters, currentPage, itemsPerPage]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]); 
+    if (!authLoading) {
+      fetchProducts();
+    }
+  }, [fetchProducts, authLoading]);
 
-  const handleProductAddedOrUpdated = () => {
-    fetchProducts(); 
-    setIsAddProductDialogOpen(false); 
+  const handleProductAddedOrUpdated = (newOrUpdatedProduct?: Product) => {
+    if (newOrUpdatedProduct) {
+      fetchProducts();
+    } else {
+      fetchProducts();
+    }
+    setIsAddProductDialogOpen(false);
     setIsEditProductDialogOpen(false);
     setEditingProduct(null);
   };
-  
+
   const handleProductDeleted = () => {
     if (products.length === 1 && currentPage > 1) {
       setCurrentPage(prev => prev - 1);
@@ -199,38 +223,41 @@ export default function ProductsPage() {
     setIsEditProductDialogOpen(true);
   };
 
-  const openStockInHistoryDialog = (product: Product) => { 
+  const openStockInHistoryDialog = (product: Product) => {
     setViewingHistoryForProduct(product);
     setIsStockInHistoryDialogOpen(true);
   };
-  
-  const openImagePreviewDialog = (image: ProductImage) => {
-    setImageToPreview(image);
-    setIsPreviewImageDialogOpen(true);
+
+  const openImagePreviewDialog = (productImages: ProductImage[], startIndex: number = 0) => {
+    if (productImages && productImages.length > 0) {
+      setImagesForPreview(productImages);
+      setCurrentPreviewImageIndex(startIndex);
+      setIsPreviewImageDialogOpen(true);
+    }
   };
 
   const handleApplyFilters = (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
     setAppliedFilters({
       searchTerm: searchTermInput,
-      category: categoryFilterInput,
+      categoryId: categoryFilterInput,
       stockStatus: stockStatusFilterInput,
     });
-    setCurrentPage(1); 
+    setCurrentPage(1);
   };
 
   const handleClearFilters = () => {
     setSearchTermInput('');
-    setCategoryFilterInput('');
+    setCategoryFilterInput('all');
     setStockStatusFilterInput('all');
     setAppliedFilters({
       searchTerm: '',
-      category: '',
+      categoryId: '',
       stockStatus: 'all',
     });
-    setCurrentPage(1); 
+    setCurrentPage(1);
   };
-  
+
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
@@ -242,7 +269,25 @@ export default function ProductsPage() {
     setCurrentPage(1);
   };
 
-  if (authLoading && isLoading && products.length === 0) { 
+  const handleCloseImagePreview = () => {
+    setIsPreviewImageDialogOpen(false);
+    setImagesForPreview(null);
+    setCurrentPreviewImageIndex(0);
+  };
+
+  const goToNextPreviewImage = () => {
+    if (imagesForPreview && currentPreviewImageIndex < imagesForPreview.length - 1) {
+      setCurrentPreviewImageIndex(prev => prev + 1);
+    }
+  };
+
+  const goToPreviousPreviewImage = () => {
+    if (imagesForPreview && currentPreviewImageIndex > 0) {
+      setCurrentPreviewImageIndex(prev => prev - 1);
+    }
+  };
+
+  if (authLoading && isLoading && products.length === 0) {
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -281,7 +326,7 @@ export default function ProductsPage() {
             <Filter className="mr-2 h-5 w-5 text-primary" />
             Filter & Search Products
           </CardTitle>
-           <CardDescription>
+          <CardDescription>
             Refine your product view. {isLoading && totalProducts === 0 ? "Loading..." : `${totalProducts} products found.`}
           </CardDescription>
         </CardHeader>
@@ -290,21 +335,33 @@ export default function ProductsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
               <div>
                 <label htmlFor="searchTermProducts" className="block text-sm font-medium text-muted-foreground mb-1">Search Term</label>
-                <Input 
+                <Input
                   id="searchTermProducts"
-                  placeholder="Name, SKU, description..." 
-                  value={searchTermInput} 
-                  onChange={(e) => setSearchTermInput(e.target.value)} 
+                  placeholder="Name, SKU, description..."
+                  value={searchTermInput}
+                  onChange={(e) => setSearchTermInput(e.target.value)}
                 />
               </div>
               <div>
-                <label htmlFor="categoryFilter" className="block text-sm font-medium text-muted-foreground mb-1">Category</label>
-                <Input 
-                  id="categoryFilter"
-                  placeholder="e.g., Electronics" 
-                  value={categoryFilterInput} 
-                  onChange={(e) => setCategoryFilterInput(e.target.value)} 
-                />
+                <label htmlFor="categoryFilterProducts" className="block text-sm font-medium text-muted-foreground mb-1">Category</label>
+                <Select
+                  value={categoryFilterInput}
+                  onValueChange={(value) => setCategoryFilterInput(value)}
+                  disabled={isLoadingCategories}
+                >
+                  <SelectTrigger id="categoryFilterProducts">
+                    <SelectValue placeholder={isLoadingCategories ? "Loading..." : "All Categories"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {allCategories.filter(cat => typeof cat._id === 'string' && cat._id !== '').map(cat => (
+                      <SelectItem key={cat._id} value={cat._id}>{cat.name}</SelectItem>
+                    ))}
+                    {!isLoadingCategories && allCategories.length === 0 && (
+                      <SelectItem value="no-cat" disabled>No categories available</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label htmlFor="stockStatusFilter" className="block text-sm font-medium text-muted-foreground mb-1">Stock Status</label>
@@ -322,34 +379,34 @@ export default function ProductsPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading || isLoadingCategories}>
                 <Search className="mr-2 h-4 w-4" /> Apply
               </Button>
-              <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isLoading}>
+              <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isLoading || isLoadingCategories}>
                 <X className="mr-2 h-4 w-4" /> Clear Filters
               </Button>
             </div>
           </form>
         </CardContent>
       </Card>
-        
+
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Product List</CardTitle>
           <CardDescription>Your current product catalog. Warnings for low stock & upcoming expiry.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && products.length === 0 && totalProducts === 0 ? ( 
-             <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-             </div>
+          {isLoading && products.length === 0 && totalProducts === 0 ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
           ) : !isLoading && products.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageX className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-foreground">No Products Found</h3>
               <p className="text-muted-foreground">
-                {appliedFilters.searchTerm || appliedFilters.category || appliedFilters.stockStatus !== 'all' 
-                  ? "No products match your current filters." 
+                {appliedFilters.searchTerm || appliedFilters.categoryId || appliedFilters.stockStatus !== 'all'
+                  ? "No products match your current filters."
                   : "Add your first product using the 'Add Product' button."}
               </p>
             </div>
@@ -361,6 +418,7 @@ export default function ProductsPage() {
                     <TableRow>
                       <TableHead className="w-[60px] sm:w-[80px]">Image</TableHead>
                       <TableHead>Name</TableHead>
+                      <TableHead>Category</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Unit</TableHead>
                       <TableHead className="text-right">Price</TableHead>
@@ -377,10 +435,10 @@ export default function ProductsPage() {
                       let expiryWarningText = '';
                       if (product.expiryDate) {
                         const today = new Date();
-                        today.setHours(0,0,0,0);
+                        today.setHours(0, 0, 0, 0);
                         const oneYearFromNow = addYears(today, 1);
                         const expiry = new Date(product.expiryDate);
-                        
+
                         if (isBefore(expiry, today)) {
                           expiryWarningText = 'Expired';
                         } else if (isBefore(expiry, oneYearFromNow)) {
@@ -393,18 +451,17 @@ export default function ProductsPage() {
                         <TableRow key={product._id}>
                           <TableCell>
                             {firstImage && firstImage.url ? (
-                              <button 
-                                onClick={() => openImagePreviewDialog(firstImage)} 
+                              <button
+                                onClick={() => openImagePreviewDialog(product.images || [], 0)}
                                 className="focus:outline-none focus:ring-2 focus:ring-primary rounded-md"
                                 title={`View image for ${product.name}`}
                               >
-                                <NextImage 
-                                  src={firstImage.url} 
-                                  alt={product.name} 
-                                  width={48} 
-                                  height={48} 
+                                <NextImage
+                                  src={firstImage.url}
+                                  alt={product.name}
+                                  width={48}
+                                  height={48}
                                   className="rounded-md object-cover aspect-square cursor-pointer hover:opacity-80 transition-opacity"
-                                  data-ai-hint="product item"
                                 />
                               </button>
                             ) : (
@@ -414,6 +471,7 @@ export default function ProductsPage() {
                             )}
                           </TableCell>
                           <TableCell className="font-medium">{product.name}</TableCell>
+                          <TableCell>{product.categoryName || 'N/A'}</TableCell>
                           <TableCell>{product.sku || 'N/A'}</TableCell>
                           <TableCell>{product.unitOfMeasure || 'N/A'}</TableCell>
                           <TableCell className="text-right">${product.price.toFixed(2)}</TableCell>
@@ -431,38 +489,38 @@ export default function ProductsPage() {
                               )}
                               {expiryWarningText && (
                                 <Badge variant={expiryWarningText === 'Expired' ? 'destructive' : 'outline'} className={`text-xs whitespace-nowrap ${expiryWarningText === 'Expired' ? '' : 'border-orange-500 text-orange-600'}`}>
-                                   <CalendarClock className="mr-1 h-3 w-3" /> {expiryWarningText}
+                                  <CalendarClock className="mr-1 h-3 w-3" /> {expiryWarningText}
                                 </Badge>
                               )}
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
                             <div className="flex justify-center items-center space-x-1">
-                              <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="text-muted-foreground hover:text-primary" 
-                                  onClick={() => openStockInHistoryDialog(product)} 
-                                  title={`View stock-in history for ${product.name}`}
-                                  >
-                                  <History className="h-4 w-4" />
-                                  <span className="sr-only">View stock-in history for {product.name}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-primary"
+                                onClick={() => openStockInHistoryDialog(product)}
+                                title={`View stock-in history for ${product.name}`}
+                              >
+                                <History className="h-4 w-4" />
+                                <span className="sr-only">View stock-in history for {product.name}</span>
                               </Button>
-                              <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="text-muted-foreground hover:text-primary" 
-                                  onClick={() => openEditDialog(product)}
-                                  title={`Edit ${product.name}`}
-                                  disabled={!user} 
-                                  >
-                                  <Edit3 className="h-4 w-4" />
-                                  <span className="sr-only">Edit ${product.name}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-primary"
+                                onClick={() => openEditDialog(product)}
+                                title={`Edit ${product.name}`}
+                                disabled={!user}
+                              >
+                                <Edit3 className="h-4 w-4" />
+                                <span className="sr-only">Edit ${product.name}</span>
                               </Button>
-                              {user?.role === 'admin' && ( 
-                                <DeleteProductButton 
-                                  productId={product._id} 
-                                  productName={product.name} 
+                              {user?.role === 'admin' && (
+                                <DeleteProductButton
+                                  productId={product._id}
+                                  productName={product.name}
                                   userRole={user.role}
                                   onProductDeleted={handleProductDeleted}
                                 />
@@ -475,16 +533,16 @@ export default function ProductsPage() {
                   </TableBody>
                 </Table>
               </div>
-              {totalPages > 1 && (
+              {totalPages >= 1 && (
                 <div className="flex items-center justify-between mt-6 gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Rows per page:</span>
-                    <Select 
+                    <Select
                       value={itemsPerPage.toString()}
                       onValueChange={handleItemsPerPageChange}
                     >
                       <SelectTrigger className="h-8 w-[70px]">
-                        <SelectValue placeholder={itemsPerPage} />
+                        <SelectValue placeholder={itemsPerPage.toString()} />
                       </SelectTrigger>
                       <SelectContent>
                         {ITEMS_PER_PAGE_OPTIONS.map(size => (
@@ -497,18 +555,18 @@ export default function ProductsPage() {
                     Page {currentPage} of {totalPages}
                   </span>
                   <div className="flex items-center gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(currentPage - 1)} 
+                      onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1 || isLoading}
                     >
                       <ArrowLeft className="mr-1 h-4 w-4" /> Previous
                     </Button>
-                    <Button 
-                      variant="outline" 
-                       size="sm"
-                      onClick={() => handlePageChange(currentPage + 1)} 
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages || isLoading}
                     >
                       Next <ArrowRight className="ml-1 h-4 w-4" />
@@ -537,19 +595,19 @@ export default function ProductsPage() {
               </DialogNativeDescription>
             </DialogNativeHeader>
             <EditProductForm
-                product={editingProduct}
-                userId={user._id || ''} 
-                onProductUpdated={handleProductAddedOrUpdated}
-                onCancel={() => {
-                    setIsEditProductDialogOpen(false);
-                    setEditingProduct(null);
-                }}
+              product={editingProduct}
+              userId={user._id || ''}
+              onProductUpdated={handleProductAddedOrUpdated}
+              onCancel={() => {
+                setIsEditProductDialogOpen(false);
+                setEditingProduct(null);
+              }}
             />
           </DialogContent>
         </Dialog>
       )}
 
-      {viewingHistoryForProduct && ( 
+      {viewingHistoryForProduct && (
         <Dialog open={isStockInHistoryDialogOpen} onOpenChange={(isOpen) => {
           setIsStockInHistoryDialogOpen(isOpen);
           if (!isOpen) setViewingHistoryForProduct(null);
@@ -569,25 +627,59 @@ export default function ProductsPage() {
         </Dialog>
       )}
 
-      {imageToPreview && (
-        <Dialog open={isPreviewImageDialogOpen} onOpenChange={setIsPreviewImageDialogOpen}>
-          <DialogContent className="max-w-xl p-2">
-            <DialogNativeHeader className="sr-only"> 
-              <DialogNativeTitle>Image Preview</DialogNativeTitle>
-              <DialogNativeDescription>{imageToPreview.url}</DialogNativeDescription>
+      {imagesForPreview && imagesForPreview.length > 0 && (
+        <Dialog open={isPreviewImageDialogOpen} onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            handleCloseImagePreview();
+          } else {
+            setIsPreviewImageDialogOpen(true);
+          }
+        }}>
+          <DialogContent className="max-w-2xl p-4 sm:p-6 md:max-w-3xl lg:max-w-4xl">
+            <DialogNativeHeader className="mb-4">
+              <DialogNativeTitle className="text-xl sm:text-2xl">Image Preview</DialogNativeTitle>
+              <DialogNativeDescription className="text-sm text-muted-foreground">
+                Viewing image {currentPreviewImageIndex + 1} of {imagesForPreview.length}
+              </DialogNativeDescription>
             </DialogNativeHeader>
-            <NextImage
-              src={imageToPreview.url}
-              alt="Product image preview"
-              width={800}
-              height={600}
-              className="rounded-md object-contain max-h-[80vh] w-full"
-              data-ai-hint="product image large"
-            />
+            <div className="relative aspect-[4/3]">
+              <NextImage
+                src={imagesForPreview[currentPreviewImageIndex].url}
+                alt={`Product image ${currentPreviewImageIndex + 1}`}
+                fill
+                className="rounded-md object-contain"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              />
+            </div>
+            {imagesForPreview.length > 1 && (
+              <div className="mt-4 flex items-center justify-between">
+                <Button
+                  onClick={goToPreviousPreviewImage}
+                  disabled={currentPreviewImageIndex === 0}
+                  variant="outline"
+                  size="icon"
+                  aria-label="Previous image"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  {currentPreviewImageIndex + 1} / {imagesForPreview.length}
+                </p>
+                <Button
+                  onClick={goToNextPreviewImage}
+                  disabled={currentPreviewImageIndex === imagesForPreview.length - 1}
+                  variant="outline"
+                  size="icon"
+                  aria-label="Next image"
+                >
+                  <ArrowRight className="h-5 w-5" />
+                </Button>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       )}
     </div>
   );
 }
-    
+

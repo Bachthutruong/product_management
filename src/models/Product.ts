@@ -1,9 +1,9 @@
-
 import { z } from 'zod';
 
 export const ProductImageSchema = z.object({
   url: z.string().url({ message: "Invalid image URL" }),
   publicId: z.string(),
+  isPrimary: z.boolean().optional().default(false),
 });
 export type ProductImage = z.infer<typeof ProductImageSchema>;
 
@@ -14,11 +14,23 @@ export const PriceHistoryEntrySchema = z.object({
 });
 export type PriceHistoryEntry = z.infer<typeof PriceHistoryEntrySchema>;
 
+// Schema for Stock-In History entries
+export const StockInEntrySchema = z.object({
+  quantityAdded: z.number().int().positive(),
+  batchExpiryDate: z.date().optional().nullable(),
+  stockedAt: z.date(),
+  stockedByUserId: z.string(), // User ID of who stocked it
+  supplier: z.string().optional(),
+  costAtTime: z.number().optional(), // Cost per unit at the time of stock-in
+});
+export type StockInEntry = z.infer<typeof StockInEntrySchema>;
+
 export const ProductSchema = z.object({
   _id: z.any().optional(), // MongoDB ObjectId will be here
   name: z.string().min(1, { message: "Product name is required" }),
   sku: z.string().min(1, { message: "SKU is required" }).optional(),
-  category: z.string().optional(),
+  categoryId: z.string().optional(),
+  categoryName: z.string().optional(),
   unitOfMeasure: z.string().optional(),
   price: z.coerce.number().min(0, { message: "Price must be a positive number" }),
   cost: z.coerce.number().min(0, { message: "Cost must be a non-negative number" }).optional().default(0), // Cost of the product
@@ -28,6 +40,7 @@ export const ProductSchema = z.object({
   expiryDate: z.date().optional().nullable(),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
   priceHistory: z.array(PriceHistoryEntrySchema).optional().default([]),
+  stockInHistory: z.array(StockInEntrySchema).optional().default([]),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
 });
@@ -36,12 +49,13 @@ export type Product = z.infer<typeof ProductSchema> & { _id: string };
 
 // Schema for validating form input (non-file fields) for both add and edit.
 // The actual FileList for 'images' is handled by FormData processing.
-export const ProductFormInputSchema = ProductSchema.omit({ 
-  _id: true, 
-  createdAt: true, 
-  updatedAt: true, 
+export const ProductFormInputSchema = ProductSchema.omit({
+  _id: true,
+  createdAt: true,
+  updatedAt: true,
   images: true, // images field in schema is for stored image data, not FileList
-  priceHistory: true, 
+  priceHistory: true,
+  stockInHistory: true,
 });
 export type ProductFormInput = z.infer<typeof ProductFormInputSchema>;
 
@@ -49,10 +63,10 @@ export type ProductFormInput = z.infer<typeof ProductFormInputSchema>;
 // This type is primarily for the AddProductForm. EditProductForm might manage FileList slightly differently.
 export type AddProductFormValues = Omit<ProductFormInput, 'expiryDate' | 'lowStockThreshold' | 'price' | 'cost' | 'stock'> & {
   images?: FileList | null; // For new image uploads
-  expiryDate?: Date | null; 
-  lowStockThreshold?: number | string; 
-  price?: number | string; 
-  cost?: number | string; 
+  expiryDate?: Date | null;
+  lowStockThreshold?: number | string;
+  price?: number | string;
+  cost?: number | string;
   stock?: number | string;
 };
 

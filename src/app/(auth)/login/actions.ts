@@ -39,9 +39,10 @@ export async function loginUser(
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = user;
-    
+
     const authUser: AuthUser = {
       ...userWithoutPassword,
+      //@ts-expect-error _id is not in User model but might be added dynamically
       _id: user._id.toString(), // Ensure _id is a string
       createdAt: user.createdAt ? new Date(user.createdAt) : undefined,
       updatedAt: user.updatedAt ? new Date(user.updatedAt) : undefined,

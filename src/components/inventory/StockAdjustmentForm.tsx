@@ -38,7 +38,7 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
       notes: '',
     },
   });
-  
+
   useEffect(() => {
     async function fetchProductsForSelect() {
       setIsLoadingProducts(true);
@@ -74,10 +74,10 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
           description: `${absQuantity} units of ${result.movement.productName} ${adjustmentType} due to ${data.reason}.`,
         });
         form.reset({
-            productId: '',
-            quantityChange: 0,
-            reason: '',
-            notes: '',
+          productId: '',
+          quantityChange: 0,
+          reason: '',
+          notes: '',
         });
         if (onStockAdjusted) onStockAdjusted();
       } else {
@@ -120,8 +120,8 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Product</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
+                  <Select
+                    onValueChange={field.onChange}
                     defaultValue={field.value}
                     disabled={isLoadingProducts || isSubmitting}
                   >
@@ -149,13 +149,13 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
                 <FormItem>
                   <FormLabel>Quantity Change</FormLabel>
                   <FormControl>
-                    <Input 
-                        type="number" 
-                        placeholder="e.g., -5 or 10" 
-                        {...field} 
-                        disabled={isSubmitting}
-                        onChange={e => field.onChange(e.target.value === '' ? 0 : parseInt(e.target.value, 10))}
-                     />
+                    <Input
+                      type="number"
+                      placeholder="e.g., -5 or 10"
+                      {...field}
+                      disabled={isSubmitting}
+                      onChange={e => field.onChange(e.target.value === '' ? 0 : parseInt(e.target.value, 10))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -181,6 +181,7 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
                 <FormItem>
                   <FormLabel>Additional Notes (Optional)</FormLabel>
                   <FormControl>
+                    {/* @ts-expect-error Textarea is not in FormControl */}
                     <Textarea placeholder="Any extra details about this adjustment..." {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
