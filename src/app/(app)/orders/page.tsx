@@ -2,17 +2,20 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 import { getOrders, deleteOrder, updateOrderStatus } from '@/app/(app)/orders/actions';
 import type { Order, OrderStatus } from '@/models/Order';
 import { OrderStatusSchema, AllOrderStatusOptions } from '@/models/Order';
 import { CreateOrderForm } from '@/components/orders/CreateOrderForm';
+import { EditOrderForm } from '@/components/orders/EditOrderForm';
+import Link from 'next/link';
 
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { DatePickerCalendar } from '@/components/ui/enhanced-calendar';
 import {
   Table,
   TableBody,
@@ -35,14 +38,17 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogHeader as DialogNativeHeader,
-  DialogTitle as DialogNativeTitle,
-  DialogDescription as DialogNativeDescription,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Loader2, Search, PlusCircle, ShoppingCart, PackageSearch, Edit3, Trash2, Printer, CheckCircle, Truck, ThumbsUp, Filter, X, CalendarIcon, ArrowLeft, ArrowRight } from "lucide-react";
+import { Loader2, Search, PlusCircle, ShoppingCart, PackageSearch, Edit3, Trash2, Printer, CheckCircle, Truck, ThumbsUp, Filter, X, CalendarIcon, ArrowLeft, ArrowRight, Eye, Package } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { format, isValid } from 'date-fns';
+import { formatToYYYYMMDDWithTime, formatToYYYYMMDD, formatForCalendarDisplay } from '@/lib/date-utils';
+import { formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -184,74 +190,268 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
   );
 }
 
-
 function DeleteOrderButton({ orderId, orderNumber, onOrderDeleted }: { orderId: string, orderNumber: string, onOrderDeleted: () => void }) {
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isAlertOpen, setIsAlertOpen] = useState(false);
 
   const handleDelete = async () => {
-    if (!user || user.role !== 'admin') {
-      toast({ variant: "destructive", title: "Permission Denied", description: "Only admins can delete orders." });
-      setIsAlertOpen(false);
-      return;
-    }
+    if (!user) return;
     setIsDeleting(true);
-    const result = await deleteOrder(orderId, user.role);
-    if (result.success) {
-      toast({
-        title: "Order Deleted",
-        description: `Order ${orderNumber} has been successfully deleted. Stock levels NOT automatically restocked.`,
-      });
-      onOrderDeleted();
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Error Deleting Order",
-        description: result.error || "An unexpected error occurred.",
-      });
+    try {
+      const result = await deleteOrder(orderId, user.role, user);
+      if (result.success) {
+        toast({
+          title: "Order Deleted",
+          description: `Order ${orderNumber} has been successfully deleted.`,
+        });
+        onOrderDeleted();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error Deleting Order",
+          description: result.error || "An unexpected error occurred.",
+        });
+      }
+    } finally {
+      setIsDeleting(false);
     }
-    setIsDeleting(false);
-    setIsAlertOpen(false);
   };
 
-  if (!user || user.role !== 'admin') {
-    return null;
-  }
-
   return (
-    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+    <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting}>
-          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" title={`Delete order ${orderNumber}`}>
+          <Trash2 className="h-4 w-4" />
           <span className="sr-only">Delete order {orderNumber}</span>
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure you want to delete order "{orderNumber}"?</AlertDialogTitle>
+          <AlertDialogTitle>Delete Order</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the order.
-            Stock levels for items in this order will NOT be automatically restocked by this action.
+            Are you sure you want to delete order <strong>{orderNumber}</strong>? This action cannot be undone and will permanently remove the order from the system.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setIsAlertOpen(false)} disabled={isDeleting}>Cancel</AlertDialogCancel>
-          <Button onClick={handleDelete} variant="destructive" disabled={isDeleting}>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
             Delete Order
-          </Button>
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
 }
 
+function OrderDetailsDialog({ order }: { order: Order }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const isExpired = (date: Date) => {
+    return new Date(date) < new Date();
+  };
+
+  const isNearExpiry = (date: Date) => {
+    const today = new Date();
+    const daysUntilExpiry = Math.ceil((new Date(date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-primary"
+          title={`View order details ${order.orderNumber}`}
+        >
+          <Eye className="h-4 w-4" />
+          <span className="sr-only">View order details {order.orderNumber}</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Order Details - {order.orderNumber}</DialogTitle>
+          <DialogDescription>
+            Order placed on {formatToYYYYMMDDWithTime(order.orderDate)} by {order.customerName}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-6">
+          {/* Order Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Status</label>
+              <Badge
+                variant={
+                  order.status === 'completed' ? 'default' :
+                    order.status === 'delivered' ? 'default' :
+                      order.status === 'shipped' ? 'default' :
+                        order.status === 'cancelled' ? 'destructive' :
+                          'secondary'
+                }
+                className={
+                  order.status === 'completed' ? 'bg-green-600 text-white border-green-700' :
+                    order.status === 'delivered' ? 'bg-emerald-500 text-white border-emerald-600' :
+                      order.status === 'pending' ? 'bg-yellow-400 text-yellow-900 border-yellow-500' :
+                        order.status === 'processing' ? 'bg-blue-400 text-blue-900 border-blue-500' :
+                          order.status === 'shipped' ? 'bg-purple-500 text-white border-purple-600' :
+                            order.status === 'cancelled' ? 'bg-red-500 text-white border-red-600' : ''
+                }
+              >
+                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+              </Badge>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">Subtotal</h4>
+              <p className="font-medium">{formatCurrency(order.subtotal)}</p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">Total</h4>
+              <p className="font-medium text-lg">{formatCurrency(order.totalAmount)}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Created By</label>
+              <p className="font-medium">{order.createdByName || 'N/A'}</p>
+            </div>
+          </div>
+
+          {/* Order Items with Batch Information */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3">Order Items & Batch Information</h3>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Unit Price</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Batch Info</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {order.items.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{item.productName}</p>
+                        {item.productSku && <p className="text-sm text-muted-foreground">SKU: {item.productSku}</p>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">{item.quantity}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(item.quantity * item.unitPrice)}</TableCell>
+                    <TableCell>
+                      {item.batchesUsed && item.batchesUsed.length > 0 ? (
+                        <div className="space-y-1">
+                          {item.batchesUsed.map((batch, batchIndex) => (
+                            <div key={batchIndex} className="text-xs border rounded p-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">Batch: {batch.batchId}</span>
+                                <span>Qty: {batch.quantityUsed}</span>
+                              </div>
+                              <div className="flex items-center justify-between mt-1">
+                                <span>Expiry: {formatToYYYYMMDD(batch.expiryDate)}</span>
+                                <Badge
+                                  variant={
+                                    isExpired(batch.expiryDate) ? 'destructive' :
+                                      isNearExpiry(batch.expiryDate) ? 'secondary' : 'default'
+                                  }
+                                  className="text-xs"
+                                >
+                                  {isExpired(batch.expiryDate) ? 'Expired' :
+                                    isNearExpiry(batch.expiryDate) ? 'Near Expiry' : 'Active'}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">
+                          <Package className="w-3 h-3 mr-1" />
+                          No batch info
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Additional Information */}
+          {(order.discountAmount && order.discountAmount > 0) && (
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">Discount</h4>
+              <p>{formatCurrency(order.discountAmount)} ({order.discountType === 'percentage' ? `${order.discountValue}%` : 'Fixed amount'})</p>
+            </div>
+          )}
+
+          {(order.shippingFee && order.shippingFee > 0) && (
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">Shipping Fee</h4>
+              <p>{formatCurrency(order.shippingFee)}</p>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsOpen(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+
+  const handleOrderUpdated = (orderId: string) => {
+    onOrderUpdated();
+    setOpen(false);
+  };
+
+  const isEmployee = user?.role === 'employee';
+  const canEmployeeEdit = isEmployee && (order.status === 'pending' || order.status === 'processing');
+  const isEditDisabledForEmployee = isEmployee && !canEmployeeEdit;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-primary"
+          disabled={isEditDisabledForEmployee}
+          title={isEditDisabledForEmployee ? `Cannot edit order in '${order.status}' status` : `Edit order ${order.orderNumber}`}
+        >
+          <Edit3 className="h-4 w-4" />
+          <span className="sr-only">Edit order {order.orderNumber}</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Order - {order.orderNumber}</DialogTitle>
+        </DialogHeader>
+        <EditOrderForm
+          order={order}
+          onOrderUpdated={handleOrderUpdated}
+          closeDialog={() => setOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function OrdersPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -413,7 +613,7 @@ export default function OrdersPage() {
       printWindow.document.write('<h3>Order Invoice</h3>');
       printWindow.document.write('<div class="details-grid">');
       printWindow.document.write('<strong>Order #:</strong><span>' + order.orderNumber + '</span>');
-      printWindow.document.write('<strong>Order Date:</strong><span>' + (isValid(new Date(order.orderDate)) ? format(new Date(order.orderDate), 'PPP p') : 'Invalid Date') + '</span>');
+      printWindow.document.write('<strong>Order Date:</strong><span>' + (isValid(new Date(order.orderDate)) ? formatToYYYYMMDDWithTime(order.orderDate) : 'Invalid Date') + '</span>');
       printWindow.document.write('<strong>Status:</strong><span>' + (order.status.charAt(0).toUpperCase() + order.status.slice(1)) + '</span>');
       printWindow.document.write('</div>');
       printWindow.document.write('</div>');
@@ -448,9 +648,9 @@ export default function OrdersPage() {
           '<tr>' +
           '<td>' + (index + 1) + '</td>' +
           '<td>' + item.productName + '</td>' +
-          '<td class="number-cell">' + item.quantity + '</td>' +
-          '<td class="number-cell">$' + item.unitPrice.toFixed(2) + '</td>' +
-          '<td class="number-cell">$' + (item.quantity * item.unitPrice).toFixed(2) + '</td>' +
+          '<td>' + item.quantity + '</td>' +
+          '<td class="number-cell">' + formatCurrency(item.unitPrice) + '</td>' +
+          '<td class="number-cell">' + formatCurrency(item.quantity * item.unitPrice) + '</td>' +
           '</tr>'
         );
       });
@@ -458,18 +658,17 @@ export default function OrdersPage() {
 
       // Totals
       printWindow.document.write('<div class="totals"><table>');
-      printWindow.document.write('<tr><td>Subtotal:</td><td>$' + order.subtotal.toFixed(2) + '</td></tr>');
+      printWindow.document.write('<tr><td>Subtotal:</td><td>' + formatCurrency(order.subtotal) + '</td></tr>');
       if (order.discountAmount && order.discountAmount > 0) {
-        printWindow.document.write('<tr><td>Discount:</td><td>-$' + order.discountAmount.toFixed(2) + '</td></tr>');
+        printWindow.document.write('<tr><td>Discount:</td><td>-' + formatCurrency(order.discountAmount) + '</td></tr>');
       }
       if (order.shippingFee && order.shippingFee > 0) {
-        printWindow.document.write('<tr><td>Shipping:</td><td>$' + order.shippingFee.toFixed(2) + '</td></tr>');
+        printWindow.document.write('<tr><td>Shipping:</td><td>' + formatCurrency(order.shippingFee) + '</td></tr>');
       }
-      // Tax amount is not in the current Order schema, so it's removed for now.
       // if (order.taxAmount && order.taxAmount > 0) {
-      //   printWindow.document.write('<tr><td>Tax:</td><td>$' + order.taxAmount.toFixed(2) + '</td></tr>');
+      //   printWindow.document.write('<tr><td>Tax:</td><td>' + formatCurrency(order.taxAmount) + '</td></tr>');
       // }
-      printWindow.document.write('<tr><td style="font-size: 1.1em;"><strong>Grand Total:</strong></td><td style="font-size: 1.1em;"><strong>$' + order.totalAmount.toFixed(2) + '</strong></td></tr>');
+      printWindow.document.write('<tr style="border-top: 1px solid #ccc; font-weight: bold; font-size: 1.1em;"><td><strong>Total:</strong></td><td><strong>' + formatCurrency(order.totalAmount) + '</strong></td></tr>');
       printWindow.document.write('</table></div><div style="clear:both;"></div>');
 
 
@@ -519,25 +718,37 @@ export default function OrdersPage() {
         <h1 className="text-3xl font-bold text-foreground flex items-center">
           <ShoppingCart className="mr-3 h-8 w-8 text-primary" /> Order Management
         </h1>
-        <Dialog open={isCreateOrderDialogOpen} onOpenChange={setIsCreateOrderDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0">
-              <PlusCircle className="mr-2 h-5 w-5" /> Create Order
+        <div className="flex items-center gap-2">
+          {user?.role === 'admin' && (
+            <Button 
+              variant="outline" 
+              onClick={() => router.push('/admin/deleted-orders')}
+              className="shrink-0"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              View Deleted Orders
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-y-auto">
-            <DialogNativeHeader>
-              <DialogNativeTitle className="flex items-center text-2xl">
-                <ShoppingCart className="mr-3 h-7 w-7 text-primary" />
-                Create New Order
-              </DialogNativeTitle>
-              <DialogNativeDescription>
-                Select customer, add products, and specify discounts or shipping.
-              </DialogNativeDescription>
-            </DialogNativeHeader>
-            <CreateOrderForm onOrderCreated={handleOrderCreatedOrUpdated} closeDialog={() => setIsCreateOrderDialogOpen(false)} />
-          </DialogContent>
-        </Dialog>
+          )}
+          <Dialog open={isCreateOrderDialogOpen} onOpenChange={setIsCreateOrderDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0">
+                <PlusCircle className="mr-2 h-5 w-5" /> Create Order
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center text-2xl">
+                  <ShoppingCart className="mr-3 h-7 w-7 text-primary" />
+                  Create New Order
+                </DialogTitle>
+                <DialogDescription>
+                  Select customer, add products, and specify discounts or shipping.
+                </DialogDescription>
+              </DialogHeader>
+              <CreateOrderForm onOrderCreated={handleOrderCreatedOrUpdated} closeDialog={() => setIsCreateOrderDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card className="shadow-md">
@@ -588,11 +799,11 @@ export default function OrdersPage() {
                       className={cn("w-full justify-start text-left font-normal", !dateFromInput && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateFromInput ? format(dateFromInput, "PPP") : <span>Pick a date</span>}
+                      {dateFromInput ? formatForCalendarDisplay(dateFromInput) : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={dateFromInput} onSelect={setDateFromInput} initialFocus />
+                    <DatePickerCalendar selected={dateFromInput} onSelect={setDateFromInput} />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -606,11 +817,15 @@ export default function OrdersPage() {
                       className={cn("w-full justify-start text-left font-normal", !dateToInput && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateToInput ? format(dateToInput, "PPP") : <span>Pick a date</span>}
+                      {dateToInput ? formatForCalendarDisplay(dateToInput) : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={dateToInput} onSelect={setDateToInput} initialFocus disabled={(date) => dateFromInput ? date < dateFromInput : false} />
+                    <DatePickerCalendar 
+                      selected={dateToInput} 
+                      onSelect={setDateToInput} 
+                      disabled={(date) => dateFromInput ? date < dateFromInput : false} 
+                    />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -656,6 +871,7 @@ export default function OrdersPage() {
                       <TableHead>Order #</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Date</TableHead>
+                      <TableHead>Created By</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead>Status</TableHead>
                       {user?.role === 'admin' && <TableHead className="text-right">Profit</TableHead>}
@@ -670,10 +886,18 @@ export default function OrdersPage() {
 
                       return (
                         <TableRow key={order._id}>
-                          <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                          <TableCell className="font-medium">
+                            <Link 
+                              href={`/orders/${order._id}`}
+                              className="text-primary hover:text-primary/80 hover:underline transition-colors"
+                            >
+                              {order.orderNumber}
+                            </Link>
+                          </TableCell>
                           <TableCell>{order.customerName}</TableCell>
-                          <TableCell>{isValid(new Date(order.orderDate)) ? format(new Date(order.orderDate), 'dd/MM/yyyy HH:mm') : 'Invalid Date'}</TableCell>
-                          <TableCell className="text-right">${order.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell>{isValid(new Date(order.orderDate)) ? formatToYYYYMMDDWithTime(order.orderDate) : 'Invalid Date'}</TableCell>
+                          <TableCell>{order.createdByName || 'N/A'}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(order.totalAmount)}</TableCell>
                           <TableCell>
                             <Badge
                               variant={
@@ -697,23 +921,14 @@ export default function OrdersPage() {
                           </TableCell>
                           {user?.role === 'admin' && (
                             <TableCell className="text-right">
-                              {order.profit !== undefined && order.profit !== null ? `$${order.profit.toFixed(2)}` : 'N/A'}
+                              {order.profit !== undefined && order.profit !== null ? formatCurrency(order.profit) : 'N/A'}
                             </TableCell>
                           )}
                           <TableCell className="text-center">
                             <div className="flex flex-col sm:flex-row justify-center items-center space-y-1 sm:space-y-0 sm:space-x-1">
+                              <OrderDetailsDialog order={order} />
                               <OrderStatusActionButton order={order} onStatusUpdated={handleOrderCreatedOrUpdated} />
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-muted-foreground hover:text-primary"
-                                onClick={() => alert(`Edit order functionality is complex (involving stock reconciliation, COGS recalculation, etc.) and will be implemented in a future update.`)}
-                                disabled={isEditDisabledForEmployee}
-                                title={isEditDisabledForEmployee ? `Cannot edit order in '${order.status}' status` : `Edit order ${order.orderNumber}`}
-                              >
-                                <Edit3 className="h-4 w-4" />
-                                <span className="sr-only">Edit order {order.orderNumber}</span>
-                              </Button>
+                              <EditOrderDialog order={order} onOrderUpdated={handleOrderCreatedOrUpdated} />
                               {user?.role === 'admin' && order._id && order.orderNumber && (
                                 <DeleteOrderButton orderId={order._id} orderNumber={order.orderNumber} onOrderDeleted={handleOrderDeleted} />
                               )}

@@ -1,4 +1,3 @@
-
 'use server';
 
 import clientPromise from '@/lib/mongodb';
@@ -136,7 +135,7 @@ export async function getDashboardInventoryAlerts(): Promise<InventoryAlerts> {
 
     const expiringSoonProductsData = await db.collection<Product>(PRODUCTS_COLLECTION)
       .find({
-        expiryDate: { $ne: null, $gte: today, $lte: thirtyDaysFromNow },
+        expiryDate: { $exists: true, $gte: today, $lte: thirtyDaysFromNow },
       })
       .limit(5)
       .project({ name: 1, expiryDate: 1 })

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -33,7 +32,7 @@ import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { EditCustomerDialog } from "@/components/customers/EditCustomerDialog";
 import { Loader2, Search, Trash2, UserPlus, UserX, Edit3, ListOrdered } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { formatToYYYYMMDD } from '@/lib/date-utils';
 
 function DeleteCustomerButton({ customerId, customerName, onCustomerDeleted }: { customerId: string, customerName: string, onCustomerDeleted: () => void }) {
   const { toast } = useToast();
@@ -213,7 +212,7 @@ export default function CustomersPage() {
                       <TableCell>{cust.email || 'N/A'}</TableCell>
                       <TableCell>{cust.phone || 'N/A'}</TableCell>
                       <TableCell className="max-w-xs truncate">{cust.address || 'N/A'}</TableCell>
-                      <TableCell>{cust.createdAt ? format(new Date(cust.createdAt), 'dd/MM/yyyy') : 'N/A'}</TableCell>
+                      <TableCell>{cust.createdAt ? formatToYYYYMMDD(cust.createdAt) : 'N/A'}</TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center items-center space-x-1">
                             {/* Edit button is now available to all logged-in users */}

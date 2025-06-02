@@ -1,7 +1,13 @@
-
 import { z } from 'zod';
 import { ProductSchema } from './Product'; 
 import { CustomerSchema } from './Customer'; 
+
+export const OrderBatchUsageSchema = z.object({
+  batchId: z.string(),
+  expiryDate: z.date(),
+  quantityUsed: z.number().int().positive(),
+});
+export type OrderBatchUsage = z.infer<typeof OrderBatchUsageSchema>;
 
 export const OrderLineItemSchema = z.object({
   _id: z.any().optional(), 
@@ -12,6 +18,7 @@ export const OrderLineItemSchema = z.object({
   unitPrice: z.coerce.number().min(0), 
   cost: z.coerce.number().min(0).optional().default(0), 
   notes: z.string().optional().nullable(),
+  batchesUsed: z.array(OrderBatchUsageSchema).optional().default([]),
 });
 export type OrderLineItem = z.infer<typeof OrderLineItemSchema>;
 
@@ -41,7 +48,12 @@ export const OrderSchema = z.object({
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
   costOfGoodsSold: z.coerce.number().min(0).optional().nullable(), 
-  profit: z.coerce.number().optional().nullable(), 
+  profit: z.coerce.number().optional().nullable(),
+  // Soft delete fields
+  isDeleted: z.boolean().optional().default(false),
+  deletedAt: z.date().optional().nullable(),
+  deletedByUserId: z.string().optional().nullable(),
+  deletedByName: z.string().optional().nullable(),
 });
 
 export type Order = z.infer<typeof OrderSchema> & { _id: string };

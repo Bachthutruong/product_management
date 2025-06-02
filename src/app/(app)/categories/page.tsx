@@ -43,6 +43,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { formatToYYYYMMDDWithTime } from '@/lib/date-utils';
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 const DEFAULT_ITEMS_PER_PAGE = ITEMS_PER_PAGE_OPTIONS[1];
@@ -279,7 +280,7 @@ export default function CategoriesPage() {
                                             <TableRow key={category._id}>
                                                 <TableCell className="font-medium">{category.name}</TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">{category.description || 'N/A'}</TableCell>
-                                                <TableCell>{format(new Date(category.createdAt!), 'dd/MM/yy HH:mm')}</TableCell>
+                                                <TableCell>{formatToYYYYMMDDWithTime(category.createdAt!)}</TableCell>
                                                 <TableCell className="text-center">
                                                     <div className="flex justify-center items-center space-x-1">
                                                         <Button

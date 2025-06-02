@@ -18,16 +18,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, XCircle, CalendarIcon, UploadCloud, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { DatePickerCalendar } from '@/components/ui/enhanced-calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { formatForCalendarDisplay } from '@/lib/date-utils';
 
 const EditProductFormResolverSchema = ProductFormInputSchema.extend({
   price: z.coerce.number().min(0, { message: "Price must be a positive number" }),
   cost: z.coerce.number().min(0, { message: "Cost must be non-negative" }).optional().default(0),
   stock: z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" }),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
-  expiryDate: z.date().optional().nullable(),
+  expiryDate: z.date({ message: "Expiry date is required" }),
   categoryId: z.string().optional(),
   categoryName: z.string().optional(),
 });
@@ -66,7 +67,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
       cost: product.cost ?? undefined,
       stock: product.stock ?? undefined,
       description: product.description || '',
-      expiryDate: product.expiryDate ? new Date(product.expiryDate) : null,
+      expiryDate: product.expiryDate ? new Date(product.expiryDate) : undefined,
       lowStockThreshold: product.lowStockThreshold ?? undefined,
     },
   });
@@ -97,7 +98,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
       cost: product.cost ?? undefined,
       stock: product.stock ?? undefined,
       description: product.description || '',
-      expiryDate: product.expiryDate ? new Date(product.expiryDate) : null,
+      expiryDate: product.expiryDate ? new Date(product.expiryDate) : undefined,
       lowStockThreshold: product.lowStockThreshold ?? undefined,
     });
     setExistingImages(product.images || []);
@@ -370,7 +371,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
             name="expiryDate"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel>Expiry Date (Optional)</FormLabel>
+                <FormLabel>Expiry Date (Required)</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
@@ -382,7 +383,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                         )}
                       >
                         {field.value ? (
-                          format(new Date(field.value), "PPP")
+                          formatForCalendarDisplay(new Date(field.value))
                         ) : (
                           <span>Pick a date</span>
                         )}
@@ -391,14 +392,12 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                     </FormControl>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
+                    <DatePickerCalendar
                       selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={(date) => field.onChange(date || null)}
+                      onSelect={(date) => field.onChange(date || undefined)}
                       disabled={(date) =>
                         date < new Date(new Date().setHours(0, 0, 0, 0))
                       }
-                      initialFocus
                     />
                   </PopoverContent>
                 </Popover>

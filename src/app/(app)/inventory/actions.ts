@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -44,6 +43,10 @@ export async function recordStockIn(
     return { success: false, error: "User ID mismatch. Action denied." };
   }
 
+  if (!batchExpiryDate) {
+    return { success: false, error: "Batch expiry date is required for stock-in operations." };
+  }
+
   try {
     const db = await getDb();
     const productObjectId = new ObjectId(productId);
@@ -57,15 +60,31 @@ export async function recordStockIn(
     const stockBefore = product.stock;
     const stockAfter = stockBefore + quantity;
 
-    const updateOps: Partial<Product> & { $set?: any, $unset?: any } = {
+    // Create new batch for this stock-in
+    const newBatch = {
+      batchId: `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      expiryDate: batchExpiryDate,
+      initialQuantity: quantity,
+      remainingQuantity: quantity,
+      costPerUnit: product.cost || 0,
+      createdAt: new Date(),
+      supplier: undefined,
+      notes: `Stock-in by ${currentUser.name}`,
+    };
+
+    // Get existing batches and add the new one
+    const existingBatches = product.batches || [];
+    const updatedBatches = [...existingBatches, newBatch];
+
+    const updateOps: any = {
       stock: stockAfter,
+      batches: updatedBatches,
       updatedAt: new Date(),
     };
 
-    if (batchExpiryDate) {
-      if (!product.expiryDate || batchExpiryDate > new Date(product.expiryDate)) {
-        updateOps.expiryDate = batchExpiryDate;
-      }
+    // Update product expiry date if this batch expires later
+    if (!product.expiryDate || batchExpiryDate > new Date(product.expiryDate)) {
+      updateOps.expiryDate = batchExpiryDate;
     }
 
     const productUpdateResult = await db.collection(PRODUCTS_COLLECTION).updateOne(
@@ -87,7 +106,7 @@ export async function recordStockIn(
       userId: currentUser._id,
       userName: currentUser.name,
       batchExpiryDate: batchExpiryDate,
-      notes: `Stocked in ${quantity} units.`,
+      notes: `Stocked in ${quantity} units. Batch: ${newBatch.batchId}`,
       stockBefore,
       stockAfter,
     };

@@ -17,9 +17,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, XCircle, CalendarIcon, UploadCloud } from 'lucide-react';
 import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { DatePickerCalendar } from '@/components/ui/enhanced-calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { formatForCalendarDisplay } from '@/lib/date-utils';
 
 // Define the Zod schema for form values including coercions
 const AddProductFormResolverSchema = ProductFormInputSchema.extend({
@@ -27,7 +28,7 @@ const AddProductFormResolverSchema = ProductFormInputSchema.extend({
   cost: z.coerce.number().min(0, { message: "Cost must be non-negative" }).optional().default(0),
   stock: z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" }),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
-  expiryDate: z.date().optional().nullable(),
+  expiryDate: z.date({ message: "Expiry date is required" }),
   categoryId: z.string().optional(),
   categoryName: z.string().optional(),
 });
@@ -69,7 +70,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
       cost: 0,
       stock: 0,
       description: '',
-      expiryDate: null,
+      expiryDate: undefined,
       lowStockThreshold: 0,
     },
   });
@@ -337,7 +338,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
             name="expiryDate"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel>Expiry Date (Optional)</FormLabel>
+                <FormLabel>Expiry Date (Required)</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
@@ -349,7 +350,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                         )}
                       >
                         {field.value ? (
-                          format(field.value, "PPP")
+                          formatForCalendarDisplay(field.value)
                         ) : (
                           <span>Pick a date</span>
                         )}
@@ -358,14 +359,12 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                     </FormControl>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
+                    <DatePickerCalendar
                       selected={field.value || undefined}
                       onSelect={(date) => field.onChange(date || null)}
                       disabled={(date) =>
                         date < new Date(new Date().setHours(0, 0, 0, 0))
                       }
-                      initialFocus
                     />
                   </PopoverContent>
                 </Popover>

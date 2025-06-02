@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
@@ -24,6 +23,8 @@ import { Loader2, ShoppingCart, PackageSearch, ArrowLeft, User } from "lucide-re
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { formatToYYYYMMDDWithTime } from '@/lib/date-utils';
+import { formatCurrency } from '@/lib/utils';
 
 export default function CustomerOrdersPage() {
   const { user, loading: authLoading } = useAuth();
@@ -131,6 +132,7 @@ export default function CustomerOrdersPage() {
                   <TableRow>
                     <TableHead>Order #</TableHead>
                     <TableHead>Date</TableHead>
+                    <TableHead>Created By</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead>Status</TableHead>
                     {user?.role === 'admin' && <TableHead className="text-right">Profit</TableHead>}
@@ -141,8 +143,9 @@ export default function CustomerOrdersPage() {
                   {orders.map((order) => (
                     <TableRow key={order._id}>
                       <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                      <TableCell>{format(new Date(order.orderDate), 'dd/MM/yyyy HH:mm')}</TableCell>
-                      <TableCell className="text-right">${order.totalAmount.toFixed(2)}</TableCell>
+                      <TableCell>{formatToYYYYMMDDWithTime(order.orderDate)}</TableCell>
+                      <TableCell>{order.createdByName || 'N/A'}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(order.totalAmount)}</TableCell>
                       <TableCell>
                         <Badge
                           variant={order.status === 'completed' || order.status === 'delivered' ? 'default' :
@@ -159,7 +162,7 @@ export default function CustomerOrdersPage() {
                       </TableCell>
                       {user?.role === 'admin' && (
                         <TableCell className="text-right">
-                          {order.profit !== undefined && order.profit !== null ? `$${order.profit.toFixed(2)}` : 'N/A'}
+                          {order.profit !== undefined && order.profit !== null ? formatCurrency(order.profit) : 'N/A'}
                         </TableCell>
                       )}
                     </TableRow>

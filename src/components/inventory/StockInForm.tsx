@@ -1,9 +1,9 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { RecordStockInInputSchema, type RecordStockInInput } from '@/models/InventoryMovement';
 import type { Product } from '@/models/Product';
 import { getProducts } from '@/app/(app)/products/actions';
@@ -15,11 +15,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { DatePickerCalendar } from '@/components/ui/enhanced-calendar';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowDownToLine, CalendarIcon } from 'lucide-react';
+import { Loader2, ArrowDownToLine, CalendarIcon, CheckIcon, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { formatForCalendarDisplay } from '@/lib/date-utils';
+
+// Create a modified schema that requires batchExpiryDate
+const StockInFormSchema = RecordStockInInputSchema.extend({
+  batchExpiryDate: z.date({ message: "Batch expiry date is required" }),
+});
+
+type StockInFormInput = z.infer<typeof StockInFormSchema>;
 
 interface StockInFormProps {
   onStockInRecorded?: () => void;
@@ -30,14 +39,16 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [openProductPopover, setOpenProductPopover] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<RecordStockInInput>({
-    resolver: zodResolver(RecordStockInInputSchema),
+  const form = useForm<StockInFormInput>({
+    resolver: zodResolver(StockInFormSchema),
     defaultValues: {
       productId: '',
       quantity: 1,
-      batchExpiryDate: null,
+      batchExpiryDate: undefined,
       userId: user?._id || '',
     },
   });
@@ -63,7 +74,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
     fetchProductsForSelect();
   }, [toast]);
 
-  async function onSubmit(data: RecordStockInInput) {
+  async function onSubmit(data: StockInFormInput) {
     if (!user) {
       toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in." });
       return;
@@ -79,7 +90,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
         form.reset({
           productId: '',
           quantity: 1,
-          batchExpiryDate: null,
+          batchExpiryDate: undefined,
           userId: user._id,
         });
         if (onStockInRecorded) onStockInRecorded();
@@ -112,7 +123,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
           <ArrowDownToLine className="mr-2 h-6 w-6 text-green-500" />
           Stock In (Receive Products)
         </CardTitle>
-        <CardDescription>Record new stock arrivals. Select product, enter quantity, and optional batch expiry.</CardDescription>
+        <CardDescription>Record new stock arrivals. Select product, enter quantity, and batch expiry date.</CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -121,26 +132,72 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
               control={form.control}
               name="productId"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Product</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    disabled={isLoadingProducts || isSubmitting}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={isLoadingProducts ? "Loading products..." : "Select a product"} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product._id} value={product._id}>
-                          {product.name} (SKU: {product.sku || 'N/A'}) - Current Stock: {product.stock}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={openProductPopover} onOpenChange={setOpenProductPopover}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          disabled={isLoadingProducts || isSubmitting}
+                        >
+                          {field.value
+                            ? products.find(p => p._id === field.value)?.name || "Select a product"
+                            : (isLoadingProducts ? "Loading products..." : "Select a product")}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0">
+                      <Command>
+                        <CommandInput
+                          placeholder="Search product..."
+                          value={productSearch}
+                          onValueChange={setProductSearch}
+                        />
+                        <CommandList>
+                          <CommandEmpty>No product found.</CommandEmpty>
+                          <CommandGroup>
+                            {products
+                              .filter(p => 
+                                p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                                (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))
+                              )
+                              .map((product) => (
+                                <CommandItem
+                                  key={product._id}
+                                  value={product.name}
+                                  onSelect={() => {
+                                    field.onChange(product._id);
+                                    setOpenProductPopover(false);
+                                  }}
+                                >
+                                  <CheckIcon
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      product._id === field.value
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span>{product.name} (SKU: {product.sku || 'N/A'})</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      Current Stock: {product.stock}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}
@@ -163,7 +220,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
               name="batchExpiryDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Batch Expiry Date (Optional)</FormLabel>
+                  <FormLabel>Batch Expiry Date (Required)</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -176,7 +233,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
                           disabled={isSubmitting}
                         >
                           {field.value ? (
-                            format(field.value, "PPP")
+                            formatForCalendarDisplay(field.value)
                           ) : (
                             <span>Pick a date</span>
                           )}
@@ -185,13 +242,10 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
                       </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        //@ts-expect-error Calendar is not in FormControl
-                        selected={field.value}
+                      <DatePickerCalendar
+                        selected={field.value || undefined}
                         onSelect={field.onChange}
                         disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() - 1))} // Can select today or future
-                        initialFocus
                       />
                     </PopoverContent>
                   </Popover>

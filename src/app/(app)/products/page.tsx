@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { getProducts, deleteProduct } from '@/app/(app)/products/actions';
 import { getCategories } from '@/app/(app)/categories/actions';
 import type { Product, ProductImage } from '@/models/Product';
@@ -45,6 +46,9 @@ import NextImage from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { format, isBefore, addYears } from 'date-fns';
+import { formatToYYYYMMDD } from '@/lib/date-utils';
+import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 const DEFAULT_ITEMS_PER_PAGE = ITEMS_PER_PAGE_OPTIONS[1];
@@ -470,15 +474,22 @@ export default function ProductsPage() {
                               </div>
                             )}
                           </TableCell>
-                          <TableCell className="font-medium">{product.name}</TableCell>
+                          <TableCell className="font-medium">
+                            <Link 
+                              href={`/products/${product._id}`}
+                              className="text-primary hover:text-primary/80 hover:underline transition-colors"
+                            >
+                              {product.name}
+                            </Link>
+                          </TableCell>
                           <TableCell>{product.categoryName || 'N/A'}</TableCell>
                           <TableCell>{product.sku || 'N/A'}</TableCell>
                           <TableCell>{product.unitOfMeasure || 'N/A'}</TableCell>
-                          <TableCell className="text-right">${product.price.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">${(product.cost ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(product.cost ?? 0)}</TableCell>
                           <TableCell className="text-right">{product.stock}</TableCell>
                           <TableCell>
-                            {product.expiryDate ? format(new Date(product.expiryDate), 'dd/MM/yy') : 'N/A'}
+                            {product.expiryDate ? formatToYYYYMMDD(product.expiryDate) : 'N/A'}
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1 items-start">

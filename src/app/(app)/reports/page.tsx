@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -12,6 +11,8 @@ import {
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { InventoryAlerts } from "../dashboard/actions";
+import { formatToYYYYMMDD } from '@/lib/date-utils';
+import { formatCurrency } from '@/lib/utils';
 
 export default function ReportsPage() {
   const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
@@ -71,7 +72,7 @@ export default function ReportsPage() {
                     <DollarSign className="mr-2 h-5 w-5" />
                     <span>Total Revenue (All Time):</span>
                   </div>
-                  <span className="font-semibold text-lg text-foreground">${salesSummary.totalRevenueAllTime.toFixed(2)}</span>
+                  <span className="font-semibold text-lg text-foreground">{formatCurrency(salesSummary.totalRevenueAllTime)}</span>
                 </div>
                 <div className="h-32 bg-muted/30 rounded-md flex items-center justify-center text-sm text-muted-foreground mt-4">
                   Sales Chart Area (Future Enhancement)
@@ -119,7 +120,7 @@ export default function ReportsPage() {
                       {inventoryAlerts.expiringSoonProducts.map(product => (
                         <li key={product._id} className="text-orange-600">
                           <AlertTriangle className="inline h-4 w-4 mr-1" />
-                          <span className="font-semibold">{product.name}</span> expires on {product.expiryDate ? format(new Date(product.expiryDate), "dd/MM/yyyy") : "N/A"}
+                          <span className="font-semibold">{product.name}</span> expires on {product.expiryDate ? formatToYYYYMMDD(product.expiryDate) : "N/A"}
                         </li>
                       ))}
                     </ul>

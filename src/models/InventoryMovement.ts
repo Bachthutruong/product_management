@@ -1,4 +1,3 @@
-
 import { z } from 'zod';
 
 export const InventoryMovementTypeSchema = z.enum(['stock-in', 'stock-out', 'adjustment-add', 'adjustment-remove', 'sale']);
@@ -25,7 +24,7 @@ export type InventoryMovement = z.infer<typeof InventoryMovementSchema> & { _id:
 export const RecordStockInInputSchema = z.object({
   productId: z.string().min(1, "Product selection is required"),
   quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
-  batchExpiryDate: z.date().optional().nullable(),
+  batchExpiryDate: z.date({ message: "Batch expiry date is required" }),
   userId: z.string(), // Will be passed from the authenticated user session
 });
 export type RecordStockInInput = z.infer<typeof RecordStockInInputSchema>;

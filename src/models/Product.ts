@@ -25,6 +25,19 @@ export const StockInEntrySchema = z.object({
 });
 export type StockInEntry = z.infer<typeof StockInEntrySchema>;
 
+// Schema for Batch tracking - each batch has its own expiry date and remaining stock
+export const ProductBatchSchema = z.object({
+  batchId: z.string(), // Unique identifier for this batch
+  expiryDate: z.date(), // Required for new batches
+  initialQuantity: z.number().int().positive(), // Original quantity when batch was created
+  remainingQuantity: z.number().int().min(0), // Current remaining quantity
+  costPerUnit: z.number().min(0).optional(),
+  createdAt: z.date(),
+  supplier: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type ProductBatch = z.infer<typeof ProductBatchSchema>;
+
 export const ProductSchema = z.object({
   _id: z.any().optional(), // MongoDB ObjectId will be here
   name: z.string().min(1, { message: "Product name is required" }),
@@ -37,10 +50,11 @@ export const ProductSchema = z.object({
   stock: z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" }),
   description: z.string().optional(),
   images: z.array(ProductImageSchema).optional().default([]),
-  expiryDate: z.date().optional().nullable(),
+  expiryDate: z.date({ message: "Expiry date is required" }), // Make expiry date required
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
   priceHistory: z.array(PriceHistoryEntrySchema).optional().default([]),
   stockInHistory: z.array(StockInEntrySchema).optional().default([]),
+  batches: z.array(ProductBatchSchema).optional().default([]), // Track individual batches
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
 });
@@ -56,6 +70,7 @@ export const ProductFormInputSchema = ProductSchema.omit({
   images: true, // images field in schema is for stored image data, not FileList
   priceHistory: true,
   stockInHistory: true,
+  batches: true, // batches managed separately
 });
 export type ProductFormInput = z.infer<typeof ProductFormInputSchema>;
 
@@ -63,7 +78,7 @@ export type ProductFormInput = z.infer<typeof ProductFormInputSchema>;
 // This type is primarily for the AddProductForm. EditProductForm might manage FileList slightly differently.
 export type AddProductFormValues = Omit<ProductFormInput, 'expiryDate' | 'lowStockThreshold' | 'price' | 'cost' | 'stock'> & {
   images?: FileList | null; // For new image uploads
-  expiryDate?: Date | null;
+  expiryDate?: Date | null; // Still optional in form but will be required by validation
   lowStockThreshold?: number | string;
   price?: number | string;
   cost?: number | string;
