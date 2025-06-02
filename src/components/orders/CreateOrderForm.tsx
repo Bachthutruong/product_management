@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -24,8 +23,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Trash2, ShoppingCart, Users, Percent, DollarSign, Truck, CheckIcon, ChevronsUpDown } from 'lucide-react';
 import { AddCustomerDialog } from '@/components/customers/AddCustomerDialog';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 
-interface CreateOrderFormProps {
+export interface CreateOrderFormProps {
   onOrderCreated?: (orderId: string) => void;
   closeDialog?: () => void;
 }
@@ -41,7 +41,8 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
 
   const [customerSearch, setCustomerSearch] = useState('');
   const [openCustomerPopover, setOpenCustomerPopover] = useState(false);
-
+  const [productSearches, setProductSearches] = useState<{[key: number]: string}>({});
+  const [openProductPopovers, setOpenProductPopovers] = useState<{[key: number]: boolean}>({});
 
   const form = useForm<CreateOrderFormValues>({
     resolver: zodResolver(CreateOrderFormSchema),
@@ -156,6 +157,7 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
 
     const orderInput: CreateOrderInput = {
       customerId: data.customerId,
+      //@ts-expect-error batchesUsed is not in CreateOrderInput
       items: data.items.map(item => ({
         productId: item.productId,
         productName: item.productName,
@@ -301,29 +303,80 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                     control={form.control}
                     name={`items.${index}.productId`}
                     render={({ field: productField }) => (
-                      <FormItem>
+                      <FormItem className="flex flex-col">
                         <FormLabel className="sr-only">Product</FormLabel>
-                        <Select
-                          onValueChange={(value) => {
-                            productField.onChange(value);
-                            handleProductSelect(index, value);
-                          }}
-                          defaultValue={productField.value}
+                        <Popover 
+                          open={openProductPopovers[index] || false} 
+                          onOpenChange={(open) => setOpenProductPopovers(prev => ({...prev, [index]: open}))}
                         >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {products.map((p) => (
-                              <SelectItem key={p._id} value={p._id} disabled={p.stock <= 0}>
-                                {p.name} (SKU: {p.sku || 'N/A'}) - Stock: {p.stock} - Price: ${p.price.toFixed(2)}
-                                {p.stock <= 0 && " (Out of stock)"}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                  "w-full justify-between",
+                                  !productField.value && "text-muted-foreground"
+                                )}
+                              >
+                                {productField.value
+                                  ? products.find(p => p._id === productField.value)?.name || "Select product"
+                                  : "Select product"}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[400px] p-0">
+                            <Command>
+                              <CommandInput
+                                placeholder="Search product..."
+                                value={productSearches[index] || ''}
+                                onValueChange={(value) => setProductSearches(prev => ({...prev, [index]: value}))}
+                              />
+                              <CommandList>
+                                <CommandEmpty>No product found.</CommandEmpty>
+                                <CommandGroup>
+                                  {products
+                                    .filter(p => 
+                                      p.name.toLowerCase().includes((productSearches[index] || '').toLowerCase()) ||
+                                      (p.sku && p.sku.toLowerCase().includes((productSearches[index] || '').toLowerCase()))
+                                    )
+                                    .map((product) => (
+                                      <CommandItem
+                                        key={product._id}
+                                        value={product.name}
+                                        onSelect={() => {
+                                          productField.onChange(product._id);
+                                          handleProductSelect(index, product._id);
+                                          setOpenProductPopovers(prev => ({...prev, [index]: false}));
+                                        }}
+                                        disabled={product.stock <= 0}
+                                        className={cn(
+                                          product.stock <= 0 && "opacity-50"
+                                        )}
+                                      >
+                                        <CheckIcon
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            product._id === productField.value
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        <div className="flex flex-col">
+                                          <span>{product.name} (SKU: {product.sku || 'N/A'})</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            Stock: {product.stock} - Price: {formatCurrency(product.price)}
+                                            {product.stock <= 0 && " (Out of stock)"}
+                                          </span>
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -336,11 +389,33 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                         <FormLabel className="sr-only">Quantity</FormLabel>
                         <FormControl>
                           <Input
-                            type="number"
-                            placeholder="Qty" {...quantityField}
-                            min="1"
-                            max={products.find(p => p._id === form.getValues(`items.${index}.productId`))?.stock || undefined}
-                            onChange={(e) => quantityField.onChange(parseInt(e.target.value, 10) || 1)}
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Qty"
+                            value={quantityField.value || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              // Allow empty string for easier editing
+                              if (value === '') {
+                                quantityField.onChange('');
+                              } else {
+                                // Only allow positive integers
+                                const numValue = parseInt(value, 10);
+                                if (!isNaN(numValue) && numValue > 0) {
+                                  quantityField.onChange(numValue);
+                                }
+                              }
+                            }}
+                            onBlur={(e) => {
+                              // Ensure we have a valid number on blur
+                              const value = e.target.value;
+                              if (value === '' || isNaN(parseInt(value, 10))) {
+                                quantityField.onChange(1); // Default to 1 if invalid
+                              }
+                              quantityField.onBlur();
+                            }}
+                            name={quantityField.name}
+                            ref={quantityField.ref}
                           />
                         </FormControl>
                         <FormMessage />
@@ -463,18 +538,18 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
             <CardTitle>Order Summary</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>Subtotal:</span> <span>${subtotal.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span>Subtotal:</span> <span>{formatCurrency(subtotal)}</span></div>
             {discountAmount > 0 && (
               <div className="flex justify-between text-destructive">
                 <span>Discount:</span>
-                <span>-${discountAmount.toFixed(2)}</span>
+                <span>-{formatCurrency(discountAmount)}</span>
               </div>
             )}
             {parseFloat(watchedShippingFeeInput || '0') > 0 && (
-              <div className="flex justify-between"><span>Shipping:</span> <span>+${parseFloat(watchedShippingFeeInput || '0').toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Shipping:</span> <span>+{formatCurrency(parseFloat(watchedShippingFeeInput || '0'))}</span></div>
             )}
             <hr className="my-2" />
-            <div className="flex justify-between font-bold text-lg text-primary"><span>Total Amount:</span> <span>${totalAmount.toFixed(2)}</span></div>
+            <div className="flex justify-between font-bold text-lg text-primary"><span>Total Amount:</span> <span>{formatCurrency(totalAmount)}</span></div>
           </CardContent>
         </Card>
 

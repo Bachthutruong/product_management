@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
@@ -14,7 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { DatePickerCalendar } from '@/components/ui/enhanced-calendar';
 import {
   Table,
   TableBody,
@@ -24,8 +24,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { History, Loader2, PackageSearch, Search, Filter, X, CalendarIcon, ArrowLeft, ArrowRight } from "lucide-react";
+import { History, Loader2, PackageSearch, Search, Filter, X, CalendarIcon, ArrowLeft, ArrowRight, CheckIcon, ChevronsUpDown } from "lucide-react";
 import { format, isValid } from 'date-fns';
+import { formatToYYYYMMDDWithTime, formatToYYYYMMDD, formatForCalendarDisplay } from '@/lib/date-utils';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -47,6 +48,8 @@ export default function InventoryPage() {
 
   const [productsForFilter, setProductsForFilter] = useState<Product[]>([]);
   const [isLoadingProductsForFilter, setIsLoadingProductsForFilter] = useState(true);
+  const [productFilterSearch, setProductFilterSearch] = useState('');
+  const [openProductFilterPopover, setOpenProductFilterPopover] = useState(false);
 
   // Filter Inputs
   const [searchTermInput, setSearchTermInput] = useState('');
@@ -211,19 +214,81 @@ export default function InventoryPage() {
               </div>
               <div>
                 <label htmlFor="productFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">Product</label>
-                <Select
-                  value={productIdInput}
-                  onValueChange={(value) => setProductIdInput(value === "all" ? undefined : value)}
-                  disabled={isLoadingProductsForFilter}
-                >
-                  <SelectTrigger id="productFilterInventory">
-                    <SelectValue placeholder={isLoadingProductsForFilter ? "Loading products..." : "All Products"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Products</SelectItem>
-                    {productsForFilter.map(p => <SelectItem key={p._id} value={p._id}>{p.name} (SKU: {p.sku || 'N/A'})</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Popover open={openProductFilterPopover} onOpenChange={setOpenProductFilterPopover}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="productFilterInventory"
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between",
+                        !productIdInput && "text-muted-foreground"
+                      )}
+                      disabled={isLoadingProductsForFilter}
+                    >
+                      {productIdInput && productIdInput !== "all"
+                        ? productsForFilter.find(p => p._id === productIdInput)?.name || "All Products"
+                        : "All Products"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0">
+                    <Command>
+                      <CommandInput
+                        placeholder="Search product..."
+                        value={productFilterSearch}
+                        onValueChange={setProductFilterSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>No product found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="all"
+                            onSelect={() => {
+                              setProductIdInput(undefined);
+                              setOpenProductFilterPopover(false);
+                            }}
+                          >
+                            <CheckIcon
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                !productIdInput || productIdInput === "all"
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            All Products
+                          </CommandItem>
+                          {productsForFilter
+                            .filter(p => 
+                              p.name.toLowerCase().includes(productFilterSearch.toLowerCase()) ||
+                              (p.sku && p.sku.toLowerCase().includes(productFilterSearch.toLowerCase()))
+                            )
+                            .map((product) => (
+                              <CommandItem
+                                key={product._id}
+                                value={product.name}
+                                onSelect={() => {
+                                  setProductIdInput(product._id);
+                                  setOpenProductFilterPopover(false);
+                                }}
+                              >
+                                <CheckIcon
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    product._id === productIdInput
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                {product.name} (SKU: {product.sku || 'N/A'})
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <label htmlFor="typeFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">Movement Type</label>
@@ -251,11 +316,11 @@ export default function InventoryPage() {
                       className={cn("w-full justify-start text-left font-normal", !dateFromInput && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateFromInput ? format(dateFromInput, "PPP") : <span>Pick a date</span>}
+                      {dateFromInput ? formatForCalendarDisplay(dateFromInput) : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={dateFromInput} onSelect={setDateFromInput} initialFocus />
+                    <DatePickerCalendar selected={dateFromInput} onSelect={setDateFromInput} />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -269,11 +334,15 @@ export default function InventoryPage() {
                       className={cn("w-full justify-start text-left font-normal", !dateToInput && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateToInput ? format(dateToInput, "PPP") : <span>Pick a date</span>}
+                      {dateToInput ? formatForCalendarDisplay(dateToInput) : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={dateToInput} onSelect={setDateToInput} initialFocus disabled={(date) => dateFromInput ? date < dateFromInput : false} />
+                    <DatePickerCalendar 
+                      selected={dateToInput} 
+                      onSelect={setDateToInput} 
+                      disabled={(date) => dateFromInput ? date < dateFromInput : false} 
+                    />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -322,7 +391,7 @@ export default function InventoryPage() {
                   <TableBody>
                     {movements.map((move) => (
                       <TableRow key={move._id}>
-                        <TableCell>{isValid(new Date(move.movementDate)) ? format(new Date(move.movementDate), 'dd/MM/yy HH:mm') : 'Invalid Date'}</TableCell>
+                        <TableCell>{isValid(new Date(move.movementDate)) ? formatToYYYYMMDDWithTime(move.movementDate) : 'Invalid Date'}</TableCell>
                         <TableCell className="font-medium">{move.productName}</TableCell>
                         <TableCell>
                           <Badge variant={
@@ -346,7 +415,7 @@ export default function InventoryPage() {
                         </TableCell>
                         <TableCell className="text-right">{move.stockBefore}</TableCell>
                         <TableCell className="text-right">{move.stockAfter}</TableCell>
-                        <TableCell>{move.batchExpiryDate && isValid(new Date(move.batchExpiryDate)) ? format(new Date(move.batchExpiryDate), 'dd/MM/yy') : 'N/A'}</TableCell>
+                        <TableCell>{move.batchExpiryDate && isValid(new Date(move.batchExpiryDate)) ? formatToYYYYMMDD(move.batchExpiryDate) : 'N/A'}</TableCell>
                         <TableCell>{move.userName}</TableCell>
                         <TableCell className="text-xs max-w-xs truncate">{move.notes || 'N/A'}</TableCell>
                       </TableRow>

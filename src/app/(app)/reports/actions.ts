@@ -69,7 +69,7 @@ export async function getReportsPageInventoryAlerts(): Promise<InventoryAlerts> 
 
         const expiringSoonProductsData = await db.collection<Product>(PRODUCTS_COLLECTION)
         .find({
-            expiryDate: { $ne: null, $gte: today, $lte: thirtyDaysFromNow },
+            expiryDate: { $exists: true, $gte: today, $lte: thirtyDaysFromNow },
         })
         .project({ name: 1, expiryDate: 1, _id: 1 })
         .limit(10) // Potentially show more

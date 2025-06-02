@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -15,8 +14,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Edit, AlertTriangle } from 'lucide-react';
+import { Loader2, Edit, AlertTriangle, CheckIcon, ChevronsUpDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface StockAdjustmentFormProps {
   onStockAdjusted?: () => void;
@@ -27,6 +29,8 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [openProductPopover, setOpenProductPopover] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<RecordStockAdjustmentInput>({
@@ -118,26 +122,72 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
               control={form.control}
               name="productId"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Product</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    disabled={isLoadingProducts || isSubmitting}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={isLoadingProducts ? "Loading products..." : "Select a product"} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product._id} value={product._id}>
-                          {product.name} (SKU: {product.sku || 'N/A'}) - Current Stock: {product.stock}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={openProductPopover} onOpenChange={setOpenProductPopover}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          disabled={isLoadingProducts || isSubmitting}
+                        >
+                          {field.value
+                            ? products.find(p => p._id === field.value)?.name || "Select a product"
+                            : (isLoadingProducts ? "Loading products..." : "Select a product")}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0">
+                      <Command>
+                        <CommandInput
+                          placeholder="Search product..."
+                          value={productSearch}
+                          onValueChange={setProductSearch}
+                        />
+                        <CommandList>
+                          <CommandEmpty>No product found.</CommandEmpty>
+                          <CommandGroup>
+                            {products
+                              .filter(p => 
+                                p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                                (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))
+                              )
+                              .map((product) => (
+                                <CommandItem
+                                  key={product._id}
+                                  value={product.name}
+                                  onSelect={() => {
+                                    field.onChange(product._id);
+                                    setOpenProductPopover(false);
+                                  }}
+                                >
+                                  <CheckIcon
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      product._id === field.value
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span>{product.name} (SKU: {product.sku || 'N/A'})</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      Current Stock: {product.stock}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}

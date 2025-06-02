@@ -30,6 +30,7 @@ import {
   PackageSearch,
   Settings,
   FolderTree,
+  Trash2,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserRole } from '@/models/User';
@@ -52,6 +53,7 @@ const navItems: NavItem[] = [
   { href: '/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'employee'], group: 'Analysis' },
   { href: '/ai-reorder', label: 'AI Reorder', icon: Lightbulb, roles: ['admin', 'employee'], group: 'Analysis' },
   { href: '/admin/users', label: 'User Management', icon: UserCog, roles: ['admin'], group: 'Administration' },
+  { href: '/admin/deleted-orders', label: 'Deleted Orders', icon: Trash2, roles: ['admin'], group: 'Administration' },
 ];
 
 export function SidebarNavigation() {

@@ -68,12 +68,27 @@ export async function getProducts(filters: {
       .toArray();
 
     const parsedProducts = productsFromDb.map(productDoc => {
+      // Handle legacy products that might have null expiryDate
+      const expiryDate = productDoc.expiryDate 
+        ? new Date(productDoc.expiryDate) 
+        : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // Default to 1 year from now
+
+      // Clean up batches data to handle null values
+      const cleanedBatches = (productDoc.batches || []).map((batch: any) => ({
+        ...batch,
+        supplier: batch.supplier || undefined, // Convert null to undefined
+        notes: batch.notes || undefined, // Convert null to undefined
+        expiryDate: batch.expiryDate ? new Date(batch.expiryDate) : new Date(),
+        createdAt: batch.createdAt ? new Date(batch.createdAt) : new Date(),
+      }));
+
       return ProductSchema.parse({
         ...productDoc,
         _id: productDoc._id.toString(),
         images: productDoc.images || [],
         priceHistory: productDoc.priceHistory || [],
-        expiryDate: productDoc.expiryDate ? new Date(productDoc.expiryDate) : null,
+        batches: cleanedBatches,
+        expiryDate: expiryDate,
         createdAt: productDoc.createdAt ? new Date(productDoc.createdAt) : undefined,
         updatedAt: productDoc.updatedAt ? new Date(productDoc.updatedAt) : undefined,
         lowStockThreshold: productDoc.lowStockThreshold ?? 0,
@@ -104,12 +119,28 @@ export async function getProductById(id: string): Promise<Product | null> {
     if (!productDoc) {
       return null;
     }
+
+    // Handle legacy products that might have null expiryDate
+    const expiryDate = productDoc.expiryDate 
+      ? new Date(productDoc.expiryDate) 
+      : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // Default to 1 year from now
+
+    // Clean up batches data to handle null values
+    const cleanedBatches = (productDoc.batches || []).map((batch: any) => ({
+      ...batch,
+      supplier: batch.supplier || undefined, // Convert null to undefined
+      notes: batch.notes || undefined, // Convert null to undefined
+      expiryDate: batch.expiryDate ? new Date(batch.expiryDate) : new Date(),
+      createdAt: batch.createdAt ? new Date(batch.createdAt) : new Date(),
+    }));
+
     return ProductSchema.parse({
       ...productDoc,
       _id: productDoc._id.toString(),
       images: productDoc.images || [],
       priceHistory: productDoc.priceHistory || [],
-      expiryDate: productDoc.expiryDate ? new Date(productDoc.expiryDate) : null,
+      batches: cleanedBatches,
+      expiryDate: expiryDate,
       createdAt: productDoc.createdAt ? new Date(productDoc.createdAt) : undefined,
       updatedAt: productDoc.updatedAt ? new Date(productDoc.updatedAt) : undefined,
       lowStockThreshold: productDoc.lowStockThreshold ?? 0,
@@ -121,13 +152,13 @@ export async function getProductById(id: string): Promise<Product | null> {
   }
 }
 
-const AddProductServerSchema = ProductFormInputSchemaValidation.extend({
+const AddProductServerSchema = ProductFormInputSchemaValidation.omit({ expiryDate: true }).extend({
   changedByUserId: z.string().min(1),
   price: z.coerce.number().min(0, "Price must be a positive number"),
   cost: z.coerce.number().min(0, "Cost must be non-negative").optional().default(0),
   stock: z.coerce.number().int("Stock must be an integer").min(0, "Stock must be non-negative"),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
-  expiryDate: z.coerce.date().optional().nullable(),
+  expiryDate: z.coerce.date({ message: "Expiry date is required" }),
 });
 
 
@@ -174,7 +205,7 @@ export async function addProduct(
     if (files && files.length > 0) {
       console.log(`Processing ${files.length} files for upload.`);
       for (const file of files) {
-        if (file instanceof File && file.size > 0) {
+        if (file && typeof file === 'object' && 'size' in file && 'arrayBuffer' in file && file.size > 0) {
           const arrayBuffer = await file.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
           const cloudinaryUploadResult = await uploadImageToCloudinary(buffer, CLOUDINARY_PRODUCT_IMAGE_FOLDER);
@@ -193,7 +224,7 @@ export async function addProduct(
             console.error("Original Cloudinary data that failed parsing:", cloudinaryUploadResult);
           }
         } else {
-          console.log("Skipping file as it's not a valid File object or is empty:", file.name);
+          console.log("Skipping file as it's not a valid File object or is empty:", file);
         }
       }
     }
@@ -208,11 +239,28 @@ export async function addProduct(
       changedBy: changedByUserId,
     });
 
+    // Create initial batch if stock > 0
+    const initialBatches = [];
+    if (validatedData.stock > 0) {
+      const initialBatch = {
+        batchId: `BATCH-${Date.now()}`, // Generate unique batch ID
+        expiryDate: new Date(validatedData.expiryDate), // Required expiry date
+        initialQuantity: validatedData.stock,
+        remainingQuantity: validatedData.stock,
+        costPerUnit: validatedData.cost || 0,
+        createdAt: new Date(),
+        supplier: undefined,
+        notes: 'Initial stock entry',
+      };
+      initialBatches.push(initialBatch);
+    }
+
     const newProductDataForDb = {
       ...validatedData,
       images: uploadedImages,
       priceHistory: [initialPriceHistoryEntry],
-      expiryDate: validatedData.expiryDate ? new Date(validatedData.expiryDate) : null,
+      batches: initialBatches, // Add initial batch
+      expiryDate: new Date(validatedData.expiryDate), // Ensure it's a Date object
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -322,14 +370,108 @@ export async function updateProductStock(
   return { success: true };
 }
 
+export async function updateProductStockWithBatches(
+  productId: string,
+  quantityToReduce: number,
+  session?: any
+): Promise<{ success: boolean; error?: string; usedBatches?: Array<{ batchId: string; expiryDate: Date; quantityUsed: number }> }> {
+  if (!ObjectId.isValid(productId)) {
+    return { success: false, error: 'Invalid product ID.' };
+  }
+  
+  const db = await getDb();
+  const productDoc = await db.collection(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(productId) }, { session });
 
-const UpdateProductServerSchema = ProductFormInputSchemaValidation.extend({
+  if (!productDoc) {
+    return { success: false, error: 'Product not found for stock update.' };
+  }
+
+  // Clean up batches data to handle null values
+  const cleanedBatches = (productDoc.batches || []).map((batch: any) => ({
+    ...batch,
+    supplier: batch.supplier || undefined, // Convert null to undefined
+    notes: batch.notes || undefined, // Convert null to undefined
+    expiryDate: batch.expiryDate ? new Date(batch.expiryDate) : new Date(),
+    createdAt: batch.createdAt ? new Date(batch.createdAt) : new Date(),
+  }));
+
+  const product = ProductSchema.parse({ 
+    ...productDoc, 
+    _id: productDoc._id.toString(),
+    batches: cleanedBatches,
+    images: productDoc.images || [],
+    priceHistory: productDoc.priceHistory || [],
+    expiryDate: productDoc.expiryDate ? new Date(productDoc.expiryDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    createdAt: productDoc.createdAt ? new Date(productDoc.createdAt) : undefined,
+    updatedAt: productDoc.updatedAt ? new Date(productDoc.updatedAt) : undefined,
+    lowStockThreshold: productDoc.lowStockThreshold ?? 0,
+    cost: productDoc.cost ?? 0,
+  }) as Product;
+
+  // Check if we have enough total stock
+  const totalAvailableStock = product.batches?.reduce((sum, batch) => sum + batch.remainingQuantity, 0) || 0;
+  if (totalAvailableStock < quantityToReduce) {
+    return { 
+      success: false, 
+      error: `Insufficient stock. Available: ${totalAvailableStock}, Requested: ${quantityToReduce}` 
+    };
+  }
+
+  // Sort batches by expiry date (FIFO - First to expire, first out)
+  const sortedBatches = [...(product.batches || [])].sort((a, b) => 
+    new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()
+  );
+
+  const usedBatches: Array<{ batchId: string; expiryDate: Date; quantityUsed: number }> = [];
+  let remainingToReduce = quantityToReduce;
+  const updatedBatches = [...sortedBatches];
+
+  // Reduce stock from batches using FIFO
+  for (let i = 0; i < updatedBatches.length && remainingToReduce > 0; i++) {
+    const batch = updatedBatches[i];
+    if (batch.remainingQuantity > 0) {
+      const quantityFromThisBatch = Math.min(batch.remainingQuantity, remainingToReduce);
+      
+      usedBatches.push({
+        batchId: batch.batchId,
+        expiryDate: batch.expiryDate,
+        quantityUsed: quantityFromThisBatch
+      });
+
+      batch.remainingQuantity -= quantityFromThisBatch;
+      remainingToReduce -= quantityFromThisBatch;
+    }
+  }
+
+  // Update the product with new batch quantities and total stock
+  const newTotalStock = product.stock - quantityToReduce;
+  
+  const result = await db.collection(PRODUCTS_COLLECTION).updateOne(
+    { _id: new ObjectId(productId) },
+    { 
+      $set: { 
+        stock: newTotalStock, 
+        batches: updatedBatches,
+        updatedAt: new Date() 
+      } 
+    },
+    { session }
+  );
+
+  if (result.modifiedCount === 0) {
+    return { success: false, error: 'Failed to update product stock.' };
+  }
+
+  return { success: true, usedBatches };
+}
+
+const UpdateProductServerSchema = ProductFormInputSchemaValidation.omit({ expiryDate: true }).extend({
   changedByUserId: z.string().min(1),
   price: z.coerce.number().min(0, "Price must be a positive number"),
   cost: z.coerce.number().min(0, "Cost must be non-negative").optional().default(0),
   stock: z.coerce.number().int("Stock must be an integer").min(0, "Stock must be non-negative"),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
-  expiryDate: z.coerce.date().optional().nullable(),
+  expiryDate: z.coerce.date({ message: "Expiry date is required" }),
   imagesToDelete: z.array(z.string()).optional(), // Array of public_ids for images to delete
 });
 
@@ -348,7 +490,33 @@ export async function updateProduct(
   if (!existingProductDoc) {
     return { success: false, error: 'Product not found.' };
   }
-  const existingProduct = ProductSchema.parse({ ...existingProductDoc, _id: existingProductDoc._id.toString() }) as Product;
+  
+  // Handle legacy products that might have null expiryDate
+  const expiryDate = existingProductDoc.expiryDate 
+    ? new Date(existingProductDoc.expiryDate) 
+    : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // Default to 1 year from now
+
+  // Clean up batches data to handle null values
+  const cleanedBatches = (existingProductDoc.batches || []).map((batch: any) => ({
+    ...batch,
+    supplier: batch.supplier || undefined, // Convert null to undefined
+    notes: batch.notes || undefined, // Convert null to undefined
+    expiryDate: batch.expiryDate ? new Date(batch.expiryDate) : new Date(),
+    createdAt: batch.createdAt ? new Date(batch.createdAt) : new Date(),
+  }));
+
+  const existingProduct = ProductSchema.parse({ 
+    ...existingProductDoc, 
+    _id: existingProductDoc._id.toString(),
+    images: existingProductDoc.images || [],
+    priceHistory: existingProductDoc.priceHistory || [],
+    batches: cleanedBatches,
+    expiryDate: expiryDate,
+    createdAt: existingProductDoc.createdAt ? new Date(existingProductDoc.createdAt) : undefined,
+    updatedAt: existingProductDoc.updatedAt ? new Date(existingProductDoc.updatedAt) : undefined,
+    lowStockThreshold: existingProductDoc.lowStockThreshold ?? 0,
+    cost: existingProductDoc.cost ?? 0,
+  }) as Product;
 
 
   const rawFormData: Record<string, any> = { changedByUserId: currentUser._id };
@@ -427,7 +595,7 @@ export async function updateProduct(
     const files = formData.getAll('images') as File[];
     if (files && files.length > 0) {
       for (const file of files) {
-        if (file instanceof File && file.size > 0) {
+        if (file && typeof file === 'object' && 'size' in file && 'arrayBuffer' in file && file.size > 0) {
           const arrayBuffer = await file.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
           const result = await uploadImageToCloudinary(buffer, CLOUDINARY_PRODUCT_IMAGE_FOLDER);
@@ -484,9 +652,31 @@ export async function updateProduct(
     // updateResult is the updated document from the DB, _id is ObjectId
     const updatedProductFromDb: WithId<Document> = updateResult;
 
+    // Handle legacy products that might have null expiryDate
+    const updatedExpiryDate = updatedProductFromDb.expiryDate 
+      ? new Date(updatedProductFromDb.expiryDate) 
+      : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // Default to 1 year from now
+
+    // Clean up batches data to handle null values
+    const cleanedUpdatedBatches = (updatedProductFromDb.batches || []).map((batch: any) => ({
+      ...batch,
+      supplier: batch.supplier || undefined, // Convert null to undefined
+      notes: batch.notes || undefined, // Convert null to undefined
+      expiryDate: batch.expiryDate ? new Date(batch.expiryDate) : new Date(),
+      createdAt: batch.createdAt ? new Date(batch.createdAt) : new Date(),
+    }));
+
     const updatedProduct = ProductSchema.parse({
       ...updatedProductFromDb,
-      _id: updatedProductFromDb._id.toString() // Now _id is ObjectId, so toString() is valid
+      _id: updatedProductFromDb._id.toString(), // Now _id is ObjectId, so toString() is valid
+      images: updatedProductFromDb.images || [],
+      priceHistory: updatedProductFromDb.priceHistory || [],
+      batches: cleanedUpdatedBatches,
+      expiryDate: updatedExpiryDate,
+      createdAt: updatedProductFromDb.createdAt ? new Date(updatedProductFromDb.createdAt) : undefined,
+      updatedAt: updatedProductFromDb.updatedAt ? new Date(updatedProductFromDb.updatedAt) : undefined,
+      lowStockThreshold: updatedProductFromDb.lowStockThreshold ?? 0,
+      cost: updatedProductFromDb.cost ?? 0,
     }) as Product;
 
     revalidatePath('/products');

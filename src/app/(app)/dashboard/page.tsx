@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BarChart3, Package, Users, ShoppingCart, Loader2, AlertTriangle, History, ListChecks, CircleSlash } from "lucide-react";
 import { 
@@ -11,7 +12,8 @@ import {
   type RecentActivity,
   type InventoryAlerts
 } from "./actions";
-import { format } from "date-fns";
+import { formatToYYYYMMDDWithTime, formatToYYYYMMDD } from '@/lib/date-utils';
+import { formatCurrency } from '@/lib/utils';
 
 interface StatCardProps {
   title: string;
@@ -80,7 +82,7 @@ export default function DashboardPage() {
     { title: "Total Products", value: stats?.totalProducts ?? "N/A", icon: Package, color: "text-primary", loading: loadingStats },
     { title: "Active Orders", value: stats?.activeOrders ?? "N/A", icon: ShoppingCart, color: "text-accent", loading: loadingStats },
     { title: "Total Customers", value: stats?.totalCustomers ?? "N/A", icon: Users, color: "text-green-500", loading: loadingStats },
-    { title: "Revenue (This Month)", value: `$${(stats?.currentMonthRevenue ?? 0).toFixed(2)}`, icon: BarChart3, color: "text-blue-500", loading: loadingStats },
+    { title: "Revenue (This Month)", value: formatCurrency(stats?.currentMonthRevenue ?? 0), icon: BarChart3, color: "text-blue-500", loading: loadingStats },
   ];
 
   return (
@@ -112,8 +114,15 @@ export default function DashboardPage() {
                     <ul className="space-y-2">
                       {recentActivity.recentOrders.map(order => (
                         <li key={order._id} className="text-sm text-foreground border-b border-border pb-1 last:border-b-0">
-                          Order <span className="font-semibold text-primary">{order.orderNumber}</span> for {order.customerName} (${order.totalAmount.toFixed(2)})
-                          <span className="text-xs text-muted-foreground ml-2">({format(new Date(order.orderDate), "dd/MM/yy HH:mm")})</span>
+                          Order{' '}
+                          <Link 
+                            href={`/orders/${order._id}`}
+                            className="font-semibold text-primary hover:text-primary/80 hover:underline transition-colors"
+                          >
+                            {order.orderNumber}
+                          </Link>
+                          {' '}for {order.customerName} ({formatCurrency(order.totalAmount)})
+                          <span className="text-xs text-muted-foreground ml-2">({formatToYYYYMMDDWithTime(order.orderDate)})</span>
                         </li>
                       ))}
                     </ul>
@@ -128,7 +137,7 @@ export default function DashboardPage() {
                       {recentActivity.recentMovements.map(move => (
                         <li key={move._id} className="text-sm text-foreground border-b border-border pb-1 last:border-b-0">
                            {move.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} of <span className="font-semibold text-primary">{move.productName}</span> (Qty: {move.quantity})
-                           <span className="text-xs text-muted-foreground ml-2">({format(new Date(move.movementDate), "dd/MM/yy HH:mm")})</span>
+                           <span className="text-xs text-muted-foreground ml-2">({formatToYYYYMMDDWithTime(move.movementDate)})</span>
                         </li>
                       ))}
                     </ul>
@@ -174,7 +183,7 @@ export default function DashboardPage() {
                       {inventoryAlerts.expiringSoonProducts.map(product => (
                         <li key={product._id} className="text-sm text-orange-600">
                            <AlertTriangle className="inline h-4 w-4 mr-1" />
-                           <span className="font-semibold">{product.name}</span> expires on {product.expiryDate ? format(new Date(product.expiryDate), "dd/MM/yyyy") : "N/A"}.
+                           <span className="font-semibold">{product.name}</span> expires on {product.expiryDate ? formatToYYYYMMDD(product.expiryDate) : "N/A"}.
                         </li>
                       ))}
                     </ul>
