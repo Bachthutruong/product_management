@@ -79,7 +79,7 @@ export default function InventoryPage() {
       const result = await getProducts({ limit: 1000 });
       setProductsForFilter(result.products);
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Could not load products for filter." });
+      toast({ variant: "destructive", title: "錯誤", description: "無法載入商品過濾器。" });
     } finally {
       setIsLoadingProductsForFilter(false);
     }
@@ -104,7 +104,7 @@ export default function InventoryPage() {
       // setCurrentPage(result.currentPage); // Backend might adjust page
     } catch (error) {
       console.error("Failed to fetch inventory history:", error);
-      toast({ variant: "destructive", title: "Loading Error", description: "Could not load inventory history." });
+      toast({ variant: "destructive", title: "載入錯誤", description: "無法載入庫存歷史。" });
     } finally {
       setIsLoading(false);
     }
@@ -164,7 +164,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
+        <h1 className="text-3xl font-bold text-foreground">庫存管理</h1>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
@@ -178,12 +178,12 @@ export default function InventoryPage() {
           <Card className="shadow-lg h-full">
             <CardHeader>
               <CardTitle className="flex items-center">
-                Future Actions
+                未來動作
               </CardTitle>
-              <CardDescription>Other inventory actions like transfers might go here.</CardDescription>
+              <CardDescription>其他庫存操作可能會放在這裡。</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">This space is reserved for additional inventory operations.</p>
+              <p className="text-muted-foreground">這個空間保留給其他庫存操作。</p>
             </CardContent>
           </Card>
         </div>
@@ -193,27 +193,27 @@ export default function InventoryPage() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <History className="mr-2 h-6 w-6 text-primary" />
-            Inventory History
+            庫存歷史
           </CardTitle>
           <CardDescription>
-            Log of all stock movements.
-            {isLoading && totalMovements === 0 ? " Loading entries..." : ` ${totalMovements} entries found.`}
+            所有庫存移動的記錄。
+            {isLoading && totalMovements === 0 ? " 載入中..." : ` 找到 ${totalMovements} 筆記錄。`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleApplyFilters} className="mb-6 space-y-4 p-4 border rounded-lg shadow-sm bg-card">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
               <div className="lg:col-span-1">
-                <label htmlFor="searchTermInventory" className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
+                <label htmlFor="searchTermInventory" className="block text-sm font-medium text-muted-foreground mb-1">搜尋</label>
                 <Input
                   id="searchTermInventory"
-                  placeholder="Product, user, notes..."
+                  placeholder="商品, 用戶, 備註..."
                   value={searchTermInput}
                   onChange={(e) => setSearchTermInput(e.target.value)}
                 />
               </div>
               <div>
-                <label htmlFor="productFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">Product</label>
+                <label htmlFor="productFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">商品</label>
                 <Popover open={openProductFilterPopover} onOpenChange={setOpenProductFilterPopover}>
                   <PopoverTrigger asChild>
                     <Button
@@ -227,20 +227,20 @@ export default function InventoryPage() {
                       disabled={isLoadingProductsForFilter}
                     >
                       {productIdInput && productIdInput !== "all"
-                        ? productsForFilter.find(p => p._id === productIdInput)?.name || "All Products"
-                        : "All Products"}
+                        ? productsForFilter.find(p => p._id === productIdInput)?.name || "所有商品"
+                        : "所有商品"}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[400px] p-0">
                     <Command>
                       <CommandInput
-                        placeholder="Search product..."
+                        placeholder="搜尋商品..."
                         value={productFilterSearch}
                         onValueChange={setProductFilterSearch}
                       />
                       <CommandList>
-                        <CommandEmpty>No product found.</CommandEmpty>
+                        <CommandEmpty>找不到商品。</CommandEmpty>
                         <CommandGroup>
                           <CommandItem
                             value="all"
@@ -257,7 +257,7 @@ export default function InventoryPage() {
                                   : "opacity-0"
                               )}
                             />
-                            All Products
+                            所有商品
                           </CommandItem>
                           {productsForFilter
                             .filter(p => 
@@ -291,13 +291,13 @@ export default function InventoryPage() {
                 </Popover>
               </div>
               <div>
-                <label htmlFor="typeFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">Movement Type</label>
+                <label htmlFor="typeFilterInventory" className="block text-sm font-medium text-muted-foreground mb-1">動作類型</label>
                 <Select value={movementTypeInput} onValueChange={(value) => setMovementTypeInput(value === "all" ? undefined : value as InventoryMovementType)}>
                   <SelectTrigger id="typeFilterInventory">
-                    <SelectValue placeholder="All Types" />
+                    <SelectValue placeholder="所有類型" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="all">所有類型</SelectItem>
                     {InventoryMovementTypeSchema.options.map(type => (
                       <SelectItem key={type} value={type}>{type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>
                     ))}
@@ -307,7 +307,7 @@ export default function InventoryPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
               <div>
-                <label htmlFor="dateFromInventory" className="block text-sm font-medium text-muted-foreground mb-1">Date From</label>
+                <label htmlFor="dateFromInventory" className="block text-sm font-medium text-muted-foreground mb-1">從</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -316,7 +316,7 @@ export default function InventoryPage() {
                       className={cn("w-full justify-start text-left font-normal", !dateFromInput && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateFromInput ? formatForCalendarDisplay(dateFromInput) : <span>Pick a date</span>}
+                      {dateFromInput ? formatForCalendarDisplay(dateFromInput) : <span>選擇日期</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -325,7 +325,7 @@ export default function InventoryPage() {
                 </Popover>
               </div>
               <div>
-                <label htmlFor="dateToInventory" className="block text-sm font-medium text-muted-foreground mb-1">Date To</label>
+                <label htmlFor="dateToInventory" className="block text-sm font-medium text-muted-foreground mb-1">至</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -334,7 +334,7 @@ export default function InventoryPage() {
                       className={cn("w-full justify-start text-left font-normal", !dateToInput && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateToInput ? formatForCalendarDisplay(dateToInput) : <span>Pick a date</span>}
+                      {dateToInput ? formatForCalendarDisplay(dateToInput) : <span>選擇日期</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -349,10 +349,10 @@ export default function InventoryPage() {
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
-                <Search className="mr-2 h-4 w-4" /> Apply Search & Filters
+                <Search className="mr-2 h-4 w-4" /> 應用搜尋 & 過濾
               </Button>
               <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isLoading}>
-                <X className="mr-2 h-4 w-4" /> Clear All
+                <X className="mr-2 h-4 w-4" /> 清除所有
               </Button>
             </div>
           </form>
@@ -364,11 +364,11 @@ export default function InventoryPage() {
           ) : !isLoading && movements.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold text-foreground">No Inventory Movements Found</h3>
+              <h3 className="text-xl font-semibold text-foreground">找不到庫存移動</h3>
               <p className="text-muted-foreground">
                 {appliedFilters.searchTerm || appliedFilters.productId || appliedFilters.movementType || appliedFilters.dateFrom || appliedFilters.dateTo
-                  ? "No records match your current filters or search term."
-                  : "There are no inventory movements recorded yet."}
+                  ? "找不到符合目前過濾器或搜尋條件的記錄。"
+                  : "目前沒有任何庫存移動記錄。"}
               </p>
             </div>
           ) : (
@@ -377,21 +377,21 @@ export default function InventoryPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="text-right">Qty Change</TableHead>
-                      <TableHead className="text-right">Stock Before</TableHead>
-                      <TableHead className="text-right">Stock After</TableHead>
-                      <TableHead>Batch Expiry</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Notes/Reason</TableHead>
+                      <TableHead>日期</TableHead>
+                      <TableHead>商品</TableHead>
+                      <TableHead>類型</TableHead>
+                      <TableHead className="text-right">數量變更</TableHead>
+                      <TableHead className="text-right">庫存前</TableHead>
+                      <TableHead className="text-right">庫存後</TableHead>
+                      <TableHead>批次到期</TableHead>
+                      <TableHead>用戶</TableHead>
+                      <TableHead>備註/原因</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {movements.map((move) => (
                       <TableRow key={move._id}>
-                        <TableCell>{isValid(new Date(move.movementDate)) ? formatToYYYYMMDDWithTime(move.movementDate) : 'Invalid Date'}</TableCell>
+                        <TableCell>{isValid(new Date(move.movementDate)) ? formatToYYYYMMDDWithTime(move.movementDate) : '無效日期'}</TableCell>
                         <TableCell className="font-medium">{move.productName}</TableCell>
                         <TableCell>
                           <Badge variant={
@@ -426,7 +426,7 @@ export default function InventoryPage() {
               {totalPages >= 1 && (
                 <div className="flex items-center justify-between mt-6 gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Rows per page:</span>
+                    <span className="text-sm text-muted-foreground">每頁顯示:</span>
                     <Select
                       value={itemsPerPage.toString()}
                       onValueChange={handleItemsPerPageChange}
@@ -442,7 +442,7 @@ export default function InventoryPage() {
                     </Select>
                   </div>
                   <span className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
+                    第 {currentPage} 頁，共 {totalPages} 頁
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
@@ -451,7 +451,7 @@ export default function InventoryPage() {
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1 || isLoading}
                     >
-                      <ArrowLeft className="mr-1 h-4 w-4" /> Previous
+                      <ArrowLeft className="mr-1 h-4 w-4" /> 上一頁
                     </Button>
                     <Button
                       variant="outline"
@@ -459,7 +459,7 @@ export default function InventoryPage() {
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages || isLoading}
                     >
-                      Next <ArrowRight className="ml-1 h-4 w-4" />
+                      下一頁 <ArrowRight className="ml-1 h-4 w-4" />
                     </Button>
                   </div>
                 </div>

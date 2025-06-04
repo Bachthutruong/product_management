@@ -14,7 +14,7 @@ export const OrderLineItemSchema = z.object({
   productId: z.string(), 
   productName: z.string(), 
   productSku: z.string().optional(), 
-  quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
+  quantity: z.coerce.number().int().min(1, "數量必須至少為 1"),
   unitPrice: z.coerce.number().min(0), 
   cost: z.coerce.number().min(0).optional().default(0), 
   notes: z.string().optional().nullable(),
@@ -30,10 +30,10 @@ export type OrderStatus = z.infer<typeof OrderStatusSchema>;
 
 export const OrderSchema = z.object({
   _id: z.any().optional(), 
-  orderNumber: z.string().min(1, "Order number is required").optional(), 
+  orderNumber: z.string().min(1, "訂單號碼是必需的").optional(),
   customerId: z.string(), 
   customerName: z.string(), 
-  items: z.array(OrderLineItemSchema).min(1, "Order must have at least one item"),
+  items: z.array(OrderLineItemSchema).min(1, "訂單必須至少包含一個項目"),
   subtotal: z.coerce.number().min(0), 
   discountType: DiscountTypeSchema.optional().nullable(),
   discountValue: z.coerce.number().min(0).optional().nullable(),
@@ -59,16 +59,16 @@ export const OrderSchema = z.object({
 export type Order = z.infer<typeof OrderSchema> & { _id: string };
 
 export const CreateOrderFormSchema = z.object({
-  customerId: z.string().min(1, "Customer is required"),
+  customerId: z.string().min(1, "客戶是必需的"),
   items: z.array(z.object({
-    productId: z.string().min(1, "Product is required"),
-    quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
+    productId: z.string().min(1, "產品是必需的"),
+    quantity: z.coerce.number().int().min(1, "數量必須至少為 1"),
     unitPrice: z.coerce.number(), 
     productName: z.string(), 
     productSku: z.string().optional(),
     cost: z.coerce.number().optional().default(0), 
     notes: z.string().optional().nullable(),
-  })).min(1, "Order must have at least one item."),
+  })).min(1, "訂單必須至少包含一個項目。"),
   discountType: DiscountTypeSchema.optional().nullable(),
   discountValueInput: z.string().optional().nullable(), 
   shippingFeeInput: z.string().optional().nullable(), 

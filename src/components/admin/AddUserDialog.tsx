@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -50,8 +49,8 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
       const result = await addUser(data);
       if (result.success && result.user) {
         toast({
-          title: 'User Added',
-          description: `${result.user.name} has been successfully added as an ${result.user.role}.`,
+          title: '使用者已新增',
+          description: `${result.user.name} 已成功新增為 ${result.user.role}。`,
         });
         form.reset();
         setShowPassword(false);
@@ -60,8 +59,8 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
       } else {
         toast({
           variant: 'destructive',
-          title: 'Error Adding User',
-          description: result.error || 'An unknown error occurred.',
+          title: '新增使用者錯誤',
+          description: result.error || '發生未知錯誤。',
         });
          if (result.errors) {
           result.errors.forEach((err) => {
@@ -72,8 +71,8 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Submission Error',
-        description: 'An unexpected error occurred.',
+        title: '提交錯誤',
+        description: '發生意外錯誤。',
       });
     } finally {
       setIsSubmitting(false);
@@ -84,14 +83,14 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
     <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) form.reset(); setShowPassword(false);}}>
       <DialogTrigger asChild>
         <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0">
-          <PlusCircle className="mr-2 h-5 w-5" /> Add Employee
+          <PlusCircle className="mr-2 h-5 w-5" /> 新增員工
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New Employee</DialogTitle>
+          <DialogTitle>新增員工</DialogTitle>
           <DialogDescription>
-            Fill in the details for the new employee account. They can change their password later.
+            填寫新員工帳戶的詳細資訊。他們稍後可以更改密碼。
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -101,9 +100,9 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>全名</FormLabel>
                   <FormControl>
-                    <Input placeholder="John Doe" {...field} disabled={isSubmitting} />
+                    <Input placeholder="王小明" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -114,7 +113,7 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel>
+                  <FormLabel>電子郵件地址</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="employee@example.com" {...field} disabled={isSubmitting} />
                   </FormControl>
@@ -127,7 +126,7 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Initial Password</FormLabel>
+                  <FormLabel>初始密碼</FormLabel>
                    <div className="relative">
                     <FormControl>
                         <Input 
@@ -143,7 +142,7 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
                         size="icon"
                         className="absolute inset-y-0 right-0 h-full px-3 text-muted-foreground hover:text-foreground"
                         onClick={() => setShowPassword(!showPassword)}
-                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-label={showPassword ? "隱藏密碼" : "顯示密碼"}
                         disabled={isSubmitting}
                         tabIndex={-1}
                     >
@@ -159,17 +158,17 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
               name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role</FormLabel>
+                  <FormLabel>角色</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
+                        <SelectValue placeholder="選擇角色" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {UserRoleSchema.options.map((roleValue) => (
                         <SelectItem key={roleValue} value={roleValue}>
-                          {roleValue.charAt(0).toUpperCase() + roleValue.slice(1)}
+                          {roleValue === 'admin' ? '管理員' : '員工'}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -180,7 +179,7 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>
-                Cancel
+                取消
               </Button>
               <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 {isSubmitting ? (
@@ -188,7 +187,11 @@ export function AddUserDialog({ onUserAdded }: { onUserAdded?: () => void }) {
                 ) : (
                   <PlusCircle className="mr-2 h-4 w-4" />
                 )}
-                Add Employee
+                {isSubmitting ? (
+                  <>正在新增員工...</>
+                ) : (
+                  <>新增員工</>
+                )}
               </Button>
             </DialogFooter>
           </form>

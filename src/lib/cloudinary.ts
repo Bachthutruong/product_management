@@ -1,14 +1,13 @@
-
 import { v2 as cloudinary } from 'cloudinary';
 
 if (!process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) {
-  throw new Error('Missing Cloudinary environment variable: "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME"');
+  throw new Error('缺少 Cloudinary 環境變數: "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME"');
 }
 if (!process.env.CLOUDINARY_API_KEY) {
-  throw new Error('Missing Cloudinary environment variable: "CLOUDINARY_API_KEY"');
+  throw new Error('缺少 Cloudinary 環境變數: "CLOUDINARY_API_KEY"');
 }
 if (!process.env.CLOUDINARY_API_SECRET) {
-  throw new Error('Missing Cloudinary environment variable: "CLOUDINARY_API_SECRET"');
+  throw new Error('缺少 Cloudinary 環境變數: "CLOUDINARY_API_SECRET"');
 }
 
 cloudinary.config({
@@ -29,7 +28,7 @@ export async function uploadImageToCloudinary(fileBuffer: Buffer, folder: string
         } else if (result) {
           resolve({ url: result.secure_url, publicId: result.public_id });
         } else {
-          reject(new Error('Cloudinary upload failed without error or result.'));
+          reject(new Error('Cloudinary 上傳失敗，無錯誤或結果。'));
         }
       }
     );

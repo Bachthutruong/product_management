@@ -43,8 +43,8 @@ export default function OrderDetailPage() {
         if (!result.success || !result.order) {
           toast({ 
             variant: "destructive", 
-            title: "Order Not Found", 
-            description: result.error || "The requested order could not be found." 
+            title: "找不到訂單", 
+            description: result.error || "無法找到該訂單。" 
           });
           router.push('/orders');
           return;
@@ -55,8 +55,8 @@ export default function OrderDetailPage() {
         console.error("Failed to fetch order:", error);
         toast({ 
           variant: "destructive", 
-          title: "Loading Error", 
-          description: "Could not load order details." 
+          title: "載入錯誤", 
+          description: "無法載入訂單詳細資料。" 
         });
         router.push('/orders');
       } finally {
@@ -127,8 +127,8 @@ export default function OrderDetailPage() {
         </Button>
         <div className="flex items-center gap-4 flex-1">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Order {order.orderNumber}</h1>
-            <p className="text-muted-foreground">Order Details</p>
+            <h1 className="text-3xl font-bold text-foreground">訂單編號 {order.orderNumber}</h1>
+            <p className="text-muted-foreground">訂單詳細資料</p>
           </div>
           <Badge variant={getStatusVariant(order.status)} className="ml-auto">
             <span className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(order.status)}`}></span>
@@ -143,35 +143,35 @@ export default function OrderDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5" />
-              Order Information
+              訂單資訊
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Order Number</label>
+                <label className="text-sm font-medium text-muted-foreground">訂單編號</label>
                 <p className="text-foreground font-medium">{order.orderNumber}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Order Date</label>
+                <label className="text-sm font-medium text-muted-foreground">訂單日期</label>
                 <p className="text-foreground">{formatToYYYYMMDDWithTime(order.orderDate)}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Status</label>
+                <label className="text-sm font-medium text-muted-foreground">狀態</label>
                 <Badge variant={getStatusVariant(order.status)} className="mt-1">
                   <span className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(order.status)}`}></span>
                   {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                 </Badge>
               </div>
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Created By</label>
+                <label className="text-sm font-medium text-muted-foreground">建立者</label>
                 <p className="text-foreground">{order.createdByName}</p>
               </div>
             </div>
             
             {order.notes && (
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Notes</label>
+                <label className="text-sm font-medium text-muted-foreground">備註</label>
                 <p className="text-foreground whitespace-pre-wrap">{order.notes}</p>
               </div>
             )}
@@ -183,16 +183,16 @@ export default function OrderDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
-              Customer Information
+              客戶資訊
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Customer Name</label>
+              <label className="text-sm font-medium text-muted-foreground">客戶名稱</label>
               <p className="text-foreground font-medium">{order.customerName}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Customer ID</label>
+              <label className="text-sm font-medium text-muted-foreground">客戶ID</label>
               <p className="text-foreground">{order.customerId}</p>
             </div>
           </CardContent>
@@ -204,7 +204,7 @@ export default function OrderDetailPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Order Items
+            訂單商品
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -212,12 +212,12 @@ export default function OrderDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Product</TableHead>
+                  <TableHead>商品</TableHead>
                   <TableHead>SKU</TableHead>
-                  <TableHead className="text-right">Quantity</TableHead>
-                  <TableHead className="text-right">Unit Price</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Notes</TableHead>
+                  <TableHead className="text-right">數量</TableHead>
+                  <TableHead className="text-right">單價</TableHead>
+                  <TableHead className="text-right">總價</TableHead>
+                  <TableHead>備註</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -244,20 +244,20 @@ export default function OrderDetailPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Order Summary
+            訂單摘要
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Subtotal</span>
+              <span className="text-muted-foreground">小計</span>
               <span className="text-foreground">{formatCurrency(order.subtotal)}</span>
             </div>
             
             {order.discountAmount && order.discountAmount > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  Discount {order.discountType === 'percentage' ? `(${order.discountValue}%)` : ''}
+                  折扣 {order.discountType === 'percentage' ? `(${order.discountValue}%)` : ''}
                 </span>
                 <span className="text-green-600">-{formatCurrency(order.discountAmount)}</span>
               </div>
@@ -265,21 +265,21 @@ export default function OrderDetailPage() {
             
             {order.shippingFee && order.shippingFee > 0 && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Shipping Fee</span>
+                <span className="text-muted-foreground">運費</span>
                 <span className="text-foreground">{formatCurrency(order.shippingFee)}</span>
               </div>
             )}
             
             <div className="border-t pt-2">
               <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold">Total Amount</span>
+                <span className="text-lg font-semibold">總金額</span>
                 <span className="text-xl font-bold text-foreground">{formatCurrency(order.totalAmount)}</span>
               </div>
             </div>
             
             {order.profit && (
               <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Profit</span>
+                <span className="text-muted-foreground">利潤</span>
                 <span className={`font-medium ${order.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(order.profit)}
                 </span>
@@ -302,7 +302,7 @@ export default function OrderDetailPage() {
           variant="outline"
           onClick={() => router.push('/orders')}
         >
-          Back to Orders
+          返回訂單列表
         </Button>
       </div>
     </div>

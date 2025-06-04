@@ -2,29 +2,29 @@
 'use server';
 
 /**
- * @fileOverview AI-powered reorder quantity suggestion flow.
+ * @fileOverview AI 動力庫存再訂購數量建議流程。
  *
- * - suggestReorderQuantity - A function that suggests the optimal reorder quantity for a product.
- * - SuggestReorderQuantityInput - The input type for the suggestReorderQuantity function.
- * - SuggestReorderQuantityOutput - The return type for the suggestReorderQuantity function.
+ * - suggestReorderQuantity - 一個建議產品最佳再訂購數量的函數。
+ * - SuggestReorderQuantityInput - suggestReorderQuantity 函數的輸入類型。
+ * - SuggestReorderQuantityOutput - suggestReorderQuantity 函數的回傳類型。
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SuggestReorderQuantityInputSchema = z.object({
-  productId: z.string().describe('The ID of the product to reorder.'),
-  productName: z.string().describe('The name of the product.'),
-  averageDailySales: z.number().describe('The average daily sales of the product.'),
-  currentStockLevel: z.number().describe('The current stock level of the product.'),
-  leadTimeInDays: z.number().describe('The lead time in days to receive a new shipment of the product.'),
-  desiredSafetyStockLevel: z.number().describe('The desired safety stock level for the product.'),
+  productId: z.string().describe('要再訂購的產品 ID。'),
+  productName: z.string().describe('產品名稱。'),
+  averageDailySales: z.number().describe('產品的平均日銷售量。'),
+  currentStockLevel: z.number().describe('產品目前的庫存水平。'),
+  leadTimeInDays: z.number().describe('收到新貨所需的提前期（天）。'),
+  desiredSafetyStockLevel: z.number().describe('產品所需的目標安全庫存水平。'),
 });
 export type SuggestReorderQuantityInput = z.infer<typeof SuggestReorderQuantityInputSchema>;
 
 const SuggestReorderQuantityOutputSchema = z.object({
-  reorderQuantity: z.number().describe('The suggested reorder quantity for the product.'),
-  reasoning: z.string().describe('The reasoning behind the suggested reorder quantity.'),
+  reorderQuantity: z.number().describe('建議的產品再訂購數量。'),
+  reasoning: z.string().describe('建議再訂購數量的理由。'),
 });
 export type SuggestReorderQuantityOutput = z.infer<typeof SuggestReorderQuantityOutputSchema>;
 
@@ -36,16 +36,16 @@ const prompt = ai.definePrompt({
   name: 'suggestReorderQuantityPrompt',
   input: {schema: SuggestReorderQuantityInputSchema},
   output: {schema: SuggestReorderQuantityOutputSchema},
-  prompt: `You are an expert inventory management specialist. Based on the following information, suggest an optimal reorder quantity for the product.
+  prompt: `您是庫存管理專家。根據以下資訊，建議產品的最佳再訂購數量。
 
-Product ID: {{{productId}}}
-Product Name: {{{productName}}}
-Average Daily Sales: {{{averageDailySales}}}
-Current Stock Level: {{{currentStockLevel}}}
-Lead Time (days): {{{leadTimeInDays}}}
-Desired Safety Stock Level: {{{desiredSafetyStockLevel}}}
+產品 ID: {{{productId}}}
+產品名稱: {{{productName}}}
+平均日銷售量: {{{averageDailySales}}}
+目前庫存水平: {{{currentStockLevel}}}
+提前期（天）: {{{leadTimeInDays}}}
+目標安全庫存水平: {{{desiredSafetyStockLevel}}}
 
-Consider the lead time, average daily sales, and desired safety stock level to minimize stockouts and overstocking. Provide a clear reasoning for your suggested reorder quantity.
+請考慮提前期、平均日銷售量和目標安全庫存水平，以最大程度地減少庫存不足和過度庫存。提供您建議的再訂購數量的明確理由。
 `,
 });
 

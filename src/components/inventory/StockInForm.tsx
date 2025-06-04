@@ -76,7 +76,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
 
   async function onSubmit(data: StockInFormInput) {
     if (!user) {
-      toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in." });
+      toast({ variant: "destructive", title: "認證錯誤", description: "您必須登入。" });
       return;
     }
     setIsSubmitting(true);
@@ -84,8 +84,8 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
       const result = await recordStockIn(data, user);
       if (result.success && result.movement) {
         toast({
-          title: 'Stock In Recorded',
-          description: `${data.quantity} units of ${result.movement.productName} stocked in.`,
+          title: '入庫已記錄',
+          description: `${data.quantity} 單位的 ${result.movement.productName} 已入庫。`,
         });
         form.reset({
           productId: '',
@@ -97,15 +97,15 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
       } else {
         toast({
           variant: 'destructive',
-          title: 'Error Recording Stock In',
-          description: result.error || 'An unknown error occurred.',
+          title: '記錄入庫錯誤',
+          description: result.error || '發生未知錯誤。',
         });
       }
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Submission Error',
-        description: 'An unexpected error occurred.',
+        title: '提交錯誤',
+        description: '發生意外錯誤。',
       });
     } finally {
       setIsSubmitting(false);
@@ -113,7 +113,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
   }
 
   if (!user) {
-    return <p>Please log in to record stock.</p>;
+    return <p>請登入以記錄庫存。</p>;
   }
 
   return (
@@ -121,9 +121,9 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
       <CardHeader>
         <CardTitle className="flex items-center">
           <ArrowDownToLine className="mr-2 h-6 w-6 text-green-500" />
-          Stock In (Receive Products)
+          入庫 (接收產品)
         </CardTitle>
-        <CardDescription>Record new stock arrivals. Select product, enter quantity, and batch expiry date.</CardDescription>
+        <CardDescription>記錄新到貨庫存。選擇產品，輸入數量和批次到期日期。</CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -133,7 +133,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
               name="productId"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Product</FormLabel>
+                  <FormLabel>產品</FormLabel>
                   <Popover open={openProductPopover} onOpenChange={setOpenProductPopover}>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -147,8 +147,8 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
                           disabled={isLoadingProducts || isSubmitting}
                         >
                           {field.value
-                            ? products.find(p => p._id === field.value)?.name || "Select a product"
-                            : (isLoadingProducts ? "Loading products..." : "Select a product")}
+                            ? products.find(p => p._id === field.value)?.name || "選擇產品"
+                            : (isLoadingProducts ? "載入產品中..." : "選擇產品")}
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </FormControl>
@@ -156,12 +156,12 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
                     <PopoverContent className="w-[400px] p-0">
                       <Command>
                         <CommandInput
-                          placeholder="Search product..."
+                          placeholder="搜尋產品..."
                           value={productSearch}
                           onValueChange={setProductSearch}
                         />
                         <CommandList>
-                          <CommandEmpty>No product found.</CommandEmpty>
+                          <CommandEmpty>找不到產品。</CommandEmpty>
                           <CommandGroup>
                             {products
                               .filter(p => 
@@ -188,7 +188,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
                                   <div className="flex flex-col">
                                     <span>{product.name} (SKU: {product.sku || 'N/A'})</span>
                                     <span className="text-xs text-muted-foreground">
-                                      Current Stock: {product.stock}
+                                      目前庫存: {product.stock}
                                     </span>
                                   </div>
                                 </CommandItem>
@@ -207,7 +207,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
               name="quantity"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Quantity Received</FormLabel>
+                  <FormLabel>接收數量</FormLabel>
                   <FormControl>
                     <Input type="number" min="1" placeholder="e.g., 50" {...field} disabled={isSubmitting} />
                   </FormControl>
@@ -220,7 +220,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
               name="batchExpiryDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Batch Expiry Date (Required)</FormLabel>
+                  <FormLabel>批次到期日期 (必填)</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -235,7 +235,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
                           {field.value ? (
                             formatForCalendarDisplay(field.value)
                           ) : (
-                            <span>Pick a date</span>
+                            <span>選擇日期</span>
                           )}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
@@ -261,7 +261,7 @@ export function StockInForm({ onStockInRecorded }: StockInFormProps) {
               ) : (
                 <ArrowDownToLine className="mr-2 h-4 w-4" />
               )}
-              Record Stock In
+              記錄入庫
             </Button>
           </CardFooter>
         </form>

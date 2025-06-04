@@ -38,7 +38,7 @@ export default function CustomerOrdersPage() {
 
   const fetchCustomerDetailsAndOrders = useCallback(async () => {
     if (!customerId) {
-      toast({ variant: "destructive", title: "Error", description: "Customer ID is missing." });
+      toast({ variant: "destructive", title: "錯誤", description: "客戶 ID 遺失。" });
       setIsLoading(false);
       return;
     }
@@ -50,17 +50,21 @@ export default function CustomerOrdersPage() {
       ]);
 
       if (!fetchedCustomer) {
-        toast({ variant: "destructive", title: "Error", description: "Customer not found." });
+        toast({ variant: "destructive", title: "錯誤", description: "客戶未找到。" });
       }
       setCustomer(fetchedCustomer);
-      //@ts-expect-error _id is not in Order model but might be added dynamically
-      setOrders(fetchedOrders);
+      if (Array.isArray(fetchedOrders)) {
+        setOrders(fetchedOrders as Order[]);
+      } else {
+        console.error("Fetched orders is not an array:", fetchedOrders);
+        setOrders([]);
+      }
     } catch (error) {
       console.error("Failed to fetch customer orders:", error);
       toast({
         variant: "destructive",
-        title: "Loading Error",
-        description: "Could not load customer or order data.",
+        title: "載入錯誤",
+        description: "無法載入客戶或訂單資料。",
       });
     } finally {
       setIsLoading(false);
@@ -85,10 +89,10 @@ export default function CustomerOrdersPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] p-6 text-center">
         <User className="w-16 h-16 text-muted-foreground mb-4" />
-        <h1 className="text-2xl font-semibold text-foreground">Customer Not Found</h1>
-        <p className="text-muted-foreground">The requested customer could not be found.</p>
+        <h1 className="text-2xl font-semibold text-foreground">客戶未找到</h1>
+        <p className="text-muted-foreground">要求的客戶無法找到。</p>
         <Button asChild className="mt-6">
-          <Link href="/customers"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Customers</Link>
+          <Link href="/customers"><ArrowLeft className="mr-2 h-4 w-4" /> 返回客戶列表</Link>
         </Button>
       </div>
     );
@@ -99,10 +103,10 @@ export default function CustomerOrdersPage() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <Button asChild variant="outline" size="sm" className="mb-4">
-            <Link href="/customers"><ArrowLeft className="mr-2 h-4 w-4" /> Back to All Customers</Link>
+            <Link href="/customers"><ArrowLeft className="mr-2 h-4 w-4" /> 返回所有客戶</Link>
           </Button>
           <h1 className="text-3xl font-bold text-foreground flex items-center">
-            <ShoppingCart className="mr-3 h-8 w-8 text-primary" /> Orders for {customer.name}
+            <ShoppingCart className="mr-3 h-8 w-8 text-primary" /> {customer.name} 的訂單
           </h1>
           <p className="text-muted-foreground">
             {customer.email && <span>Email: {customer.email} | </span>}
@@ -113,16 +117,16 @@ export default function CustomerOrdersPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Order History</CardTitle>
-          <CardDescription>All orders placed by {customer.name}.</CardDescription>
+          <CardTitle>訂單歷史</CardTitle>
+          <CardDescription>所有由 {customer.name} 下的訂單。</CardDescription>
         </CardHeader>
         <CardContent>
           {orders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold text-foreground">No Orders Found</h3>
+              <h3 className="text-xl font-semibold text-foreground">沒有找到訂單</h3>
               <p className="text-muted-foreground">
-                This customer has not placed any orders yet.
+                此客戶尚未下任何訂單。
               </p>
             </div>
           ) : (
@@ -130,12 +134,12 @@ export default function CustomerOrdersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Order #</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Created By</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    {user?.role === 'admin' && <TableHead className="text-right">Profit</TableHead>}
+                    <TableHead>訂單 #</TableHead>
+                    <TableHead>日期</TableHead>
+                    <TableHead>建立者</TableHead>
+                    <TableHead className="text-right">總金額</TableHead>
+                    <TableHead>狀態</TableHead>
+                    {user?.role === 'admin' && <TableHead className="text-right">利潤</TableHead>}
                     {/* Add other relevant columns if needed */}
                   </TableRow>
                 </TableHeader>

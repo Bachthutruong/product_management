@@ -24,11 +24,11 @@ import { format } from 'date-fns';
 import { formatForCalendarDisplay } from '@/lib/date-utils';
 
 const EditProductFormResolverSchema = ProductFormInputSchema.extend({
-  price: z.coerce.number().min(0, { message: "Price must be a positive number" }),
-  cost: z.coerce.number().min(0, { message: "Cost must be non-negative" }).optional().default(0),
-  stock: z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" }),
+  price: z.coerce.number().min(0, { message: "價格必須是非負數" }),
+  cost: z.coerce.number().min(0, { message: "成本必須是非負數" }).optional().default(0),
+  stock: z.coerce.number().int({ message: "庫存必須是整數" }).min(0, { message: "庫存必須是非負數" }),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
-  expiryDate: z.date({ message: "Expiry date is required" }),
+  expiryDate: z.date({ message: "到期日期是必需的" }),
   categoryId: z.string().optional(),
   categoryName: z.string().optional(),
 });
@@ -80,7 +80,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
         setCategories(result.categories);
       } catch (error) {
         console.error("Failed to fetch categories for edit form:", error);
-        toast({ variant: "destructive", title: "Error Loading Categories", description: "Could not load categories for selection." });
+        toast({ variant: "destructive", title: "載入分類錯誤", description: "無法載入分類以供選擇。" });
       }
       setIsLoadingCategories(false);
     }
@@ -168,7 +168,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
 
   async function onSubmit(data: EditFormValuesType) {
     if (!currentUser) {
-      toast({ variant: "destructive", title: "Authentication Error", description: "User not authenticated. Please log in again." });
+      toast({ variant: "destructive", title: "認證錯誤", description: "使用者未驗證。請重新登入。" });
       return;
     }
     setIsSubmitting(true);
@@ -203,15 +203,15 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
       const result = await updateProduct(product._id, formData, currentUser);
       if (result.success && result.product) {
         toast({
-          title: 'Product Updated',
-          description: `${result.product.name} has been successfully updated.`,
+          title: '產品已更新',
+          description: `${result.product.name} 已成功更新。`,
         });
         if (onProductUpdated) onProductUpdated(result.product);
       } else {
         toast({
           variant: 'destructive',
-          title: 'Error Updating Product',
-          description: result.error || 'An unknown error occurred.',
+          title: '更新產品錯誤',
+          description: result.error || '發生未知錯誤。',
         });
         if (result.errors) {
           result.errors.forEach((err) => {
@@ -222,8 +222,8 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Submission Error',
-        description: 'An unexpected error occurred.',
+        title: '提交錯誤',
+        description: '發生意外錯誤。',
       });
     } finally {
       setIsSubmitting(false);
@@ -239,9 +239,9 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Product Name</FormLabel>
+                <FormLabel>產品名稱</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., Super Widget" {...field} />
+                  <Input placeholder="例如：超級小部件" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -255,7 +255,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                 <FormItem>
                   <FormLabel>SKU</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., SW-001" {...field} />
+                    <Input placeholder="例如：SW-001" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -266,7 +266,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               name="categoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category</FormLabel>
+                  <FormLabel>分類</FormLabel>
                   <Select
                     onValueChange={(value) => {
                       const selectedCat = categories.find(c => c._id === value);
@@ -278,12 +278,12 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select a category"} />
+                        <SelectValue placeholder={isLoadingCategories ? "正在載入分類..." : "選擇一個分類"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {!isLoadingCategories && categories.length === 0 && (
-                        <SelectItem value="no-categories-pls-add" disabled>No categories found. Add one first.</SelectItem>
+                        <SelectItem value="no-categories-pls-add" disabled>找不到分類。請先新增一個。</SelectItem>
                       )}
                       {categories.filter(category => typeof category._id === 'string' && category._id !== '').map((category) => (
                         <SelectItem key={category._id} value={category._id}>
@@ -303,9 +303,9 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               name="price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Price</FormLabel>
+                  <FormLabel>價格</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="decimal" placeholder="e.g., 19.99" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
+                    <Input type="text" inputMode="decimal" placeholder="例如：19.99" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -316,9 +316,9 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               name="cost"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Cost (Optional)</FormLabel>
+                  <FormLabel>成本 (選填)</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="decimal" placeholder="e.g., 9.99" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
+                    <Input type="text" inputMode="decimal" placeholder="例如：9.99" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -329,9 +329,9 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               name="stock"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Stock Quantity</FormLabel>
+                  <FormLabel>庫存數量</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="numeric" placeholder="e.g., 100" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
+                    <Input type="text" inputMode="numeric" placeholder="例如：100" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -344,9 +344,9 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               name="unitOfMeasure"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Unit of Measure (Optional)</FormLabel>
+                  <FormLabel>計量單位 (選填)</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., pcs, kg, liter" {...field} />
+                    <Input placeholder="例如：個, 公斤, 公升" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -357,9 +357,9 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               name="lowStockThreshold"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Low Stock Threshold (Optional)</FormLabel>
+                  <FormLabel>低庫存閾值 (選填)</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="numeric" placeholder="e.g., 10" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
+                    <Input type="text" inputMode="numeric" placeholder="例如：10" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -371,7 +371,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
             name="expiryDate"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel>Expiry Date (Required)</FormLabel>
+                <FormLabel>到期日期 (必填)</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
@@ -385,7 +385,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                         {field.value ? (
                           formatForCalendarDisplay(new Date(field.value))
                         ) : (
-                          <span>Pick a date</span>
+                          <span>選擇日期</span>
                         )}
                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                       </Button>
@@ -410,9 +410,9 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
             name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description (Optional)</FormLabel>
+                <FormLabel>描述 (選填)</FormLabel>
                 <FormControl>
-                  <Textarea placeholder="Detailed product description..." {...field} rows={3} />
+                  <Textarea placeholder="詳細產品描述..." {...field} rows={3} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -421,13 +421,13 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
 
           {existingImages.length > 0 && (
             <FormItem>
-              <FormLabel>Current Images</FormLabel>
+              <FormLabel>現有圖片</FormLabel>
               <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {existingImages.map((image) => (
                   <div key={image.publicId} className="relative aspect-square group">
                     <Image
                       src={image.url}
-                      alt="Existing product image"
+                      alt="現有產品圖片"
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
                       className="rounded-md object-cover"
@@ -438,7 +438,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                       size="icon"
                       className="absolute top-1 right-1 h-6 w-6 opacity-80 group-hover:opacity-100 transition-opacity z-10"
                       onClick={() => markExistingImageForDeletion(image.publicId)}
-                      title="Delete this image"
+                      title="刪除此圖片"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -449,7 +449,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
           )}
 
           <FormItem>
-            <FormLabel htmlFor="images-input-in-edit-dialog">Add New Images (Multiple)</FormLabel>
+            <FormLabel htmlFor="images-input-in-edit-dialog">新增圖片 (多張)</FormLabel>
             <FormControl>
               <div className="flex items-center justify-center w-full">
                 <label
@@ -459,9 +459,9 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
                     <p className="mb-1 text-sm text-muted-foreground">
-                      <span className="font-semibold">Click to upload</span> or drag and drop
+                      <span className="font-semibold">點擊上傳</span> 或拖曳檔案
                     </p>
-                    <p className="text-xs text-muted-foreground">Select multiple images if needed (e.g., PNG, JPG)</p>
+                    <p className="text-xs text-muted-foreground">如果需要，選擇多張圖片 (例如：PNG, JPG)</p>
                   </div>
                   <Input
                     id="images-input-in-edit-dialog"
@@ -478,18 +478,18 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
 
           {newImagePreviews.length > 0 && (
             <FormItem>
-              <FormLabel>New Images to Upload</FormLabel>
+              <FormLabel>待上傳的新圖片</FormLabel>
               <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {newImagePreviews.map((previewUrl, index) => (
                   <div key={previewUrl} className="relative aspect-square group">
                     <Image
                       src={previewUrl}
-                      alt={`New image preview ${index + 1}`}
+                      alt={`新圖片預覽 ${index + 1}`}
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
                       className="rounded-md object-cover"
-                      onError={() => URL.revokeObjectURL(previewUrl)} // Clean up blob if image fails to load
-                      onLoad={() => { if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl); }} // Clean up blob after load
+                      onError={() => URL.revokeObjectURL(previewUrl)}
+                      onLoad={() => { if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl); }}
                     />
                     <Button
                       type="button"
@@ -497,7 +497,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
                       size="icon"
                       className="absolute top-1 right-1 h-6 w-6 opacity-80 group-hover:opacity-100 transition-opacity z-10"
                       onClick={() => removeNewImagePreview(index)}
-                      title="Remove this new image"
+                      title="移除此新圖片"
                     >
                       <XCircle className="h-4 w-4" />
                     </Button>
@@ -511,12 +511,12 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
         <div className="flex flex-wrap gap-2 justify-end pt-4 border-t border-border">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-              Cancel
+              取消
             </Button>
           )}
           <Button type="submit" disabled={isSubmitting || isLoadingCategories} className="bg-primary hover:bg-primary/90 text-primary-foreground">
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save Changes
+            {isSubmitting ? "正在儲存變更..." : "儲存變更"}
           </Button>
         </div>
       </form>

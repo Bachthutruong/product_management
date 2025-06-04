@@ -84,15 +84,15 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
     const result = await updateOrderStatus(order._id, targetStatus);
     if (result.success) {
       toast({
-        title: "Order Status Updated",
-        description: `Order ${order.orderNumber} status changed to ${targetStatus}.`,
+        title: "訂單狀態已更新",
+        description: `訂單 ${order.orderNumber} 狀態已變更為 ${targetStatus}.`,
       });
       onStatusUpdated();
     } else {
       toast({
         variant: "destructive",
-        title: "Error Updating Status",
-        description: result.error || "An unexpected error occurred.",
+        title: "更新狀態時發生錯誤",
+        description: result.error || "發生預期外的錯誤。",
       });
     }
     setIsUpdatingStatus(false);
@@ -114,11 +114,11 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
         className="text-xs bg-blue-500 hover:bg-blue-600 text-white"
       >
         {isUpdatingStatus && targetStatus === 'shipped' ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Truck className="mr-1 h-3 w-3" />}
-        Mark as Shipped
+        確認已出貨
       </Button>
     );
-    dialogTitle = `Mark Order ${order.orderNumber} as Shipped?`;
-    dialogDescription = "This will change the order status to 'Shipped'. Are you sure?";
+    dialogTitle = `確認將訂單 ${order.orderNumber} 變更為已出貨?`;
+    dialogDescription = "這將會將訂單狀態變更為 '已出貨'。確認嗎？";
   } else if (order.status === 'shipped') {
     actionButton = (
       <Button
@@ -129,11 +129,11 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
         className="text-xs bg-green-500 hover:bg-green-600 text-white"
       >
         {isUpdatingStatus && targetStatus === 'delivered' ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle className="mr-1 h-3 w-3" />}
-        Mark as Delivered
+        確認已送達
       </Button>
     );
-    dialogTitle = `Mark Order ${order.orderNumber} as Delivered?`;
-    dialogDescription = "This will change the order status to 'Delivered'. Are you sure?";
+    dialogTitle = `確認將訂單 ${order.orderNumber} 變更為已送達?`;
+    dialogDescription = "這將會將訂單狀態變更為 '已送達'。確認嗎？";
   } else if (order.status === 'delivered') {
     actionButton = (
       <Button
@@ -144,11 +144,11 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
         className="text-xs bg-teal-500 hover:bg-teal-600 text-white"
       >
         {isUpdatingStatus && targetStatus === 'completed' ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <ThumbsUp className="mr-1 h-3 w-3" />}
-        Mark as Completed
+        確認已完成
       </Button>
     );
-    dialogTitle = `Mark Order ${order.orderNumber} as Completed?`;
-    dialogDescription = "This will finalize the order status to 'Completed'. Are you sure?";
+    dialogTitle = `確認將訂單 ${order.orderNumber} 變更為已完成?`;
+    dialogDescription = "這將會將訂單狀態變更為 '已完成'。確認嗎？";
   }
 
   if (!actionButton) return null;
@@ -166,7 +166,7 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => { setIsAlertOpen(false); setTargetStatus(null); }} disabled={isUpdatingStatus}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => { setIsAlertOpen(false); setTargetStatus(null); }} disabled={isUpdatingStatus}>取消</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirmUpdateStatus}
             disabled={isUpdatingStatus}
@@ -182,7 +182,7 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
                   targetStatus === 'completed' ? <ThumbsUp className="mr-2 h-4 w-4" /> : null
               )
             }
-            Confirm
+            確認
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -202,15 +202,15 @@ function DeleteOrderButton({ orderId, orderNumber, onOrderDeleted }: { orderId: 
       const result = await deleteOrder(orderId, user.role, user);
       if (result.success) {
         toast({
-          title: "Order Deleted",
-          description: `Order ${orderNumber} has been successfully deleted.`,
+          title: "訂單已刪除",
+          description: `訂單 ${orderNumber} 已成功刪除。`,
         });
         onOrderDeleted();
       } else {
         toast({
           variant: "destructive",
-          title: "Error Deleting Order",
-          description: result.error || "An unexpected error occurred.",
+          title: "刪除訂單時發生錯誤",
+          description: result.error || "發生預期外的錯誤。",
         });
       }
     } finally {
@@ -223,21 +223,21 @@ function DeleteOrderButton({ orderId, orderNumber, onOrderDeleted }: { orderId: 
       <AlertDialogTrigger asChild>
         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" title={`Delete order ${orderNumber}`}>
           <Trash2 className="h-4 w-4" />
-          <span className="sr-only">Delete order {orderNumber}</span>
+          <span className="sr-only">刪除訂單 {orderNumber}</span>
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Order</AlertDialogTitle>
+          <AlertDialogTitle>刪除訂單</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete order <strong>{orderNumber}</strong>? This action cannot be undone and will permanently remove the order from the system.
+            確認要刪除訂單 <strong>{orderNumber}</strong>? 此操作無法撤銷，並將永久從系統中刪除訂單。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>取消</AlertDialogCancel>
           <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-            Delete Order
+            刪除訂單
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -265,17 +265,17 @@ function OrderDetailsDialog({ order }: { order: Order }) {
           variant="ghost"
           size="icon"
           className="text-muted-foreground hover:text-primary"
-          title={`View order details ${order.orderNumber}`}
+          title={`查看訂單詳細資料 ${order.orderNumber}`}
         >
           <Eye className="h-4 w-4" />
-          <span className="sr-only">View order details {order.orderNumber}</span>
+          <span className="sr-only">查看訂單詳細資料 {order.orderNumber}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Order Details - {order.orderNumber}</DialogTitle>
+          <DialogTitle>訂單詳細資料 - {order.orderNumber}</DialogTitle>
           <DialogDescription>
-            Order placed on {formatToYYYYMMDDWithTime(order.orderDate)} by {order.customerName}
+            訂單於 {formatToYYYYMMDDWithTime(order.orderDate)} 由 {order.customerName} 下單
           </DialogDescription>
         </DialogHeader>
         
@@ -283,7 +283,7 @@ function OrderDetailsDialog({ order }: { order: Order }) {
           {/* Order Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Status</label>
+              <label className="text-sm font-medium text-muted-foreground">狀態</label>
               <Badge
                 variant={
                   order.status === 'completed' ? 'default' :
@@ -305,30 +305,30 @@ function OrderDetailsDialog({ order }: { order: Order }) {
               </Badge>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Subtotal</h4>
+              <h4 className="font-semibold text-gray-900 mb-1">小計</h4>
               <p className="font-medium">{formatCurrency(order.subtotal)}</p>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Total</h4>
+              <h4 className="font-semibold text-gray-900 mb-1">總計</h4>
               <p className="font-medium text-lg">{formatCurrency(order.totalAmount)}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Created By</label>
+              <label className="text-sm font-medium text-muted-foreground">建立者</label>
               <p className="font-medium">{order.createdByName || 'N/A'}</p>
             </div>
           </div>
 
           {/* Order Items with Batch Information */}
           <div>
-            <h3 className="text-lg font-semibold mb-3">Order Items & Batch Information</h3>
+            <h3 className="text-lg font-semibold mb-3">訂單商品及批次資訊</h3>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Unit Price</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Batch Info</TableHead>
+                  <TableHead>商品</TableHead>
+                  <TableHead className="text-right">數量</TableHead>
+                  <TableHead className="text-right">單價</TableHead>
+                  <TableHead className="text-right">總計</TableHead>
+                  <TableHead>批次資訊</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -349,11 +349,11 @@ function OrderDetailsDialog({ order }: { order: Order }) {
                           {item.batchesUsed.map((batch, batchIndex) => (
                             <div key={batchIndex} className="text-xs border rounded p-2">
                               <div className="flex items-center justify-between">
-                                <span className="font-medium">Batch: {batch.batchId}</span>
-                                <span>Qty: {batch.quantityUsed}</span>
+                                <span className="font-medium">批次: {batch.batchId}</span>
+                                <span>數量: {batch.quantityUsed}</span>
                               </div>
                               <div className="flex items-center justify-between mt-1">
-                                <span>Expiry: {formatToYYYYMMDD(batch.expiryDate)}</span>
+                                <span>有效期: {formatToYYYYMMDD(batch.expiryDate)}</span>
                                 <Badge
                                   variant={
                                     isExpired(batch.expiryDate) ? 'destructive' :
@@ -361,8 +361,8 @@ function OrderDetailsDialog({ order }: { order: Order }) {
                                   }
                                   className="text-xs"
                                 >
-                                  {isExpired(batch.expiryDate) ? 'Expired' :
-                                    isNearExpiry(batch.expiryDate) ? 'Near Expiry' : 'Active'}
+                                  {isExpired(batch.expiryDate) ? '已過期' :
+                                    isNearExpiry(batch.expiryDate) ? '即將過期' : '有效'}
                                 </Badge>
                               </div>
                             </div>
@@ -371,7 +371,7 @@ function OrderDetailsDialog({ order }: { order: Order }) {
                       ) : (
                         <Badge variant="outline" className="text-xs">
                           <Package className="w-3 h-3 mr-1" />
-                          No batch info
+                          無批次資訊
                         </Badge>
                       )}
                     </TableCell>
@@ -384,14 +384,14 @@ function OrderDetailsDialog({ order }: { order: Order }) {
           {/* Additional Information */}
           {(order.discountAmount && order.discountAmount > 0) && (
             <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Discount</h4>
-              <p>{formatCurrency(order.discountAmount)} ({order.discountType === 'percentage' ? `${order.discountValue}%` : 'Fixed amount'})</p>
+              <h4 className="font-semibold text-gray-900 mb-1">折扣</h4>
+              <p>{formatCurrency(order.discountAmount)} ({order.discountType === 'percentage' ? `${order.discountValue}%` : '固定金額'})</p>
             </div>
           )}
 
           {(order.shippingFee && order.shippingFee > 0) && (
             <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Shipping Fee</h4>
+              <h4 className="font-semibold text-gray-900 mb-1">運費</h4>
               <p>{formatCurrency(order.shippingFee)}</p>
             </div>
           )}
@@ -399,7 +399,7 @@ function OrderDetailsDialog({ order }: { order: Order }) {
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setIsOpen(false)}>
-            Close
+            關閉
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -428,15 +428,15 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
           size="icon"
           className="text-muted-foreground hover:text-primary"
           disabled={isEditDisabledForEmployee}
-          title={isEditDisabledForEmployee ? `Cannot edit order in '${order.status}' status` : `Edit order ${order.orderNumber}`}
+          title={isEditDisabledForEmployee ? `無法編輯處於 '${order.status}' 狀態的訂單` : `編輯訂單 ${order.orderNumber}`}
         >
           <Edit3 className="h-4 w-4" />
-          <span className="sr-only">Edit order {order.orderNumber}</span>
+          <span className="sr-only">編輯訂單 {order.orderNumber}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Order - {order.orderNumber}</DialogTitle>
+          <DialogTitle>編輯訂單 - {order.orderNumber}</DialogTitle>
         </DialogHeader>
         <EditOrderForm
           order={order}
@@ -496,8 +496,8 @@ export default function OrdersPage() {
       console.error("Failed to fetch orders:", error);
       toast({
         variant: "destructive",
-        title: "Loading Error",
-        description: "Could not load order data. Please try again later.",
+        title: "載入錯誤",
+        description: "無法載入訂單資料。請稍後再試。",
       });
     } finally {
       setIsLoading(false);
@@ -560,7 +560,7 @@ export default function OrdersPage() {
   const handlePrintOrder = (order: Order) => {
     const printWindow = window.open('', '_blank', 'height=700,width=900');
     if (printWindow) {
-      printWindow.document.write('<html><head><title>Order Invoice - ' + order.orderNumber + '</title>');
+      printWindow.document.write('<html><head><title>訂單發票 - ' + order.orderNumber + '</title>');
       printWindow.document.write(`
         <style>
           body { font-family: 'Arial', sans-serif; margin: 20px; color: #333; }
@@ -602,7 +602,7 @@ export default function OrdersPage() {
 
       // Header
       printWindow.document.write('<div class="header">');
-      printWindow.document.write('<h1>Your Company Name</h1>'); // Placeholder
+      printWindow.document.write('<h1>您的公司名稱</h1>'); // Placeholder
       printWindow.document.write('<p>123 Main Street, Anytown, CA 90210</p>'); // Placeholder
       printWindow.document.write('<p>Phone: (123) 456-7890 | Email: contact@yourcompany.com</p>'); // Placeholder
       printWindow.document.write('</div>');
@@ -610,18 +610,18 @@ export default function OrdersPage() {
       // Company & Invoice Details
       printWindow.document.write('<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">');
       printWindow.document.write('<div class="invoice-details" style="width: 48%;">');
-      printWindow.document.write('<h3>Order Invoice</h3>');
+      printWindow.document.write('<h3>訂單發票</h3>');
       printWindow.document.write('<div class="details-grid">');
-      printWindow.document.write('<strong>Order #:</strong><span>' + order.orderNumber + '</span>');
-      printWindow.document.write('<strong>Order Date:</strong><span>' + (isValid(new Date(order.orderDate)) ? formatToYYYYMMDDWithTime(order.orderDate) : 'Invalid Date') + '</span>');
-      printWindow.document.write('<strong>Status:</strong><span>' + (order.status.charAt(0).toUpperCase() + order.status.slice(1)) + '</span>');
+      printWindow.document.write('<strong>訂單編號:</strong><span>' + order.orderNumber + '</span>');
+      printWindow.document.write('<strong>訂單日期:</strong><span>' + (isValid(new Date(order.orderDate)) ? formatToYYYYMMDDWithTime(order.orderDate) : 'Invalid Date') + '</span>');
+      printWindow.document.write('<strong>狀態:</strong><span>' + (order.status.charAt(0).toUpperCase() + order.status.slice(1)) + '</span>');
       printWindow.document.write('</div>');
       printWindow.document.write('</div>');
 
       printWindow.document.write('<div class="customer-details" style="width: 48%;">');
       printWindow.document.write('<h3>Bill To</h3>');
       printWindow.document.write('<div class="details-grid">');
-      printWindow.document.write('<strong>Name:</strong><span>' + order.customerName + '</span>');
+      printWindow.document.write('<strong>姓名:</strong><span>' + order.customerName + '</span>');
       // @ts-expect-error customerEmail is not in Order model but might be added dynamically
       if (order.customerEmail) printWindow.document.write('<strong>Email:</strong><span>' + order.customerEmail + '</span>');
       // @ts-expect-error customerPhone is not in Order model but might be added dynamically
@@ -630,7 +630,7 @@ export default function OrdersPage() {
       if (order.shippingAddress) {
         // @ts-expect-error shippingAddress is not in Order model but might be added dynamically
         const addr = order.shippingAddress;
-        printWindow.document.write('<strong>Address:</strong><span>' +
+        printWindow.document.write('<strong>地址:</strong><span>' +
           `${addr.street}, ${addr.city}, ${addr.state} ${addr.postalCode}, ${addr.country}` +
           '</span>');
       }
@@ -641,7 +641,7 @@ export default function OrdersPage() {
 
       // Items Table
       printWindow.document.write('<table class="items-table">');
-      printWindow.document.write('<thead><tr><th>#</th><th>Item</th><th>Quantity</th><th class="number-cell">Unit Price</th><th class="number-cell">Total</th></tr></thead>');
+      printWindow.document.write('<thead><tr><th>#</th><th>商品</th><th>數量</th><th class="number-cell">單價</th><th class="number-cell">總計</th></tr></thead>');
       printWindow.document.write('<tbody>');
       order.items.forEach((item, index) => {
         printWindow.document.write(
@@ -658,38 +658,38 @@ export default function OrdersPage() {
 
       // Totals
       printWindow.document.write('<div class="totals"><table>');
-      printWindow.document.write('<tr><td>Subtotal:</td><td>' + formatCurrency(order.subtotal) + '</td></tr>');
+      printWindow.document.write('<tr><td>小計:</td><td>' + formatCurrency(order.subtotal) + '</td></tr>');
       if (order.discountAmount && order.discountAmount > 0) {
-        printWindow.document.write('<tr><td>Discount:</td><td>-' + formatCurrency(order.discountAmount) + '</td></tr>');
+        printWindow.document.write('<tr><td>折扣:</td><td>-' + formatCurrency(order.discountAmount) + '</td></tr>');
       }
       if (order.shippingFee && order.shippingFee > 0) {
-        printWindow.document.write('<tr><td>Shipping:</td><td>' + formatCurrency(order.shippingFee) + '</td></tr>');
+        printWindow.document.write('<tr><td>運費:</td><td>' + formatCurrency(order.shippingFee) + '</td></tr>');
       }
       // if (order.taxAmount && order.taxAmount > 0) {
       //   printWindow.document.write('<tr><td>Tax:</td><td>' + formatCurrency(order.taxAmount) + '</td></tr>');
       // }
-      printWindow.document.write('<tr style="border-top: 1px solid #ccc; font-weight: bold; font-size: 1.1em;"><td><strong>Total:</strong></td><td><strong>' + formatCurrency(order.totalAmount) + '</strong></td></tr>');
+      printWindow.document.write('<tr style="border-top: 1px solid #ccc; font-weight: bold; font-size: 1.1em;"><td><strong>總計:</strong></td><td><strong>' + formatCurrency(order.totalAmount) + '</strong></td></tr>');
       printWindow.document.write('</table></div><div style="clear:both;"></div>');
 
 
       // Notes
       if (order.notes) {
         printWindow.document.write('<div class="notes-section" style="margin-top: 20px;">');
-        printWindow.document.write('<h3>Notes</h3>');
+        printWindow.document.write('<h3>備註</h3>');
         printWindow.document.write('<p style="font-size: 0.9em; white-space: pre-wrap;">' + order.notes + '</p>');
         printWindow.document.write('</div>');
       }
 
       // Footer
-      printWindow.document.write('<div class="footer">Thank you for your business!</div>');
+      printWindow.document.write('<div class="footer">謝謝您的支持！</div>');
 
       printWindow.document.write('</div>'); // End invoice-container
 
       // Print Button
       printWindow.document.write(`
         <div class="print-button-container">
-          <button onclick="window.print()">Print Invoice</button>
-          <button onclick="window.close()">Close</button>
+          <button onclick="window.print()">列印發票</button>
+          <button onclick="window.close()">關閉</button>
         </div>
       `);
       printWindow.document.write('</body></html>');
@@ -698,8 +698,8 @@ export default function OrdersPage() {
     } else {
       toast({
         variant: "destructive",
-        title: "Print Error",
-        description: "Could not open print window. Please check your pop-up blocker settings.",
+        title: "列印錯誤",
+        description: "無法開啟列印視窗。請檢查您的彈出視窗阻擋設定。",
       });
     }
   };
@@ -716,7 +716,7 @@ export default function OrdersPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground flex items-center">
-          <ShoppingCart className="mr-3 h-8 w-8 text-primary" /> Order Management
+          <ShoppingCart className="mr-3 h-8 w-8 text-primary" /> 訂單管理
         </h1>
         <div className="flex items-center gap-2">
           {user?.role === 'admin' && (
@@ -726,23 +726,23 @@ export default function OrdersPage() {
               className="shrink-0"
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              View Deleted Orders
+              查看已刪除的訂單
             </Button>
           )}
           <Dialog open={isCreateOrderDialogOpen} onOpenChange={setIsCreateOrderDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0">
-                <PlusCircle className="mr-2 h-5 w-5" /> Create Order
+                <PlusCircle className="mr-2 h-5 w-5" /> 新增訂單
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center text-2xl">
                   <ShoppingCart className="mr-3 h-7 w-7 text-primary" />
-                  Create New Order
+                  新增訂單
                 </DialogTitle>
                 <DialogDescription>
-                  Select customer, add products, and specify discounts or shipping.
+                  選擇客戶，新增商品，並指定折扣或運費。
                 </DialogDescription>
               </DialogHeader>
               <CreateOrderForm onOrderCreated={handleOrderCreatedOrUpdated} closeDialog={() => setIsCreateOrderDialogOpen(false)} />
@@ -755,32 +755,32 @@ export default function OrdersPage() {
         <CardHeader>
           <CardTitle className="flex items-center text-xl">
             <Filter className="mr-2 h-5 w-5 text-primary" />
-            Filter & Search Orders
+            過濾及搜尋訂單
           </CardTitle>
           <CardDescription>
-            Refine your order view. {isLoading && totalOrders === 0 ? "Loading..." : `${totalOrders} orders found.`}
+            精簡您的訂單檢視。 {isLoading && totalOrders === 0 ? "載入中..." : `${totalOrders} 筆訂單已找到。`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleApplyFilters} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
               <div className="lg:col-span-1">
-                <label htmlFor="searchTermOrders" className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
+                <label htmlFor="searchTermOrders" className="block text-sm font-medium text-muted-foreground mb-1">搜尋</label>
                 <Input
                   id="searchTermOrders"
-                  placeholder="Order #, Customer Name..."
+                  placeholder="訂單編號, 客戶姓名..."
                   value={searchTermInput}
                   onChange={(e) => setSearchTermInput(e.target.value)}
                 />
               </div>
               <div>
-                <label htmlFor="statusFilterOrders" className="block text-sm font-medium text-muted-foreground mb-1">Status</label>
+                <label htmlFor="statusFilterOrders" className="block text-sm font-medium text-muted-foreground mb-1">狀態</label>
                 <Select value={statusInput} onValueChange={(value) => setStatusInput(value as OrderStatus | 'all')}>
                   <SelectTrigger id="statusFilterOrders">
-                    <SelectValue placeholder="All Statuses" />
+                    <SelectValue placeholder="所有狀態" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="all">所有狀態</SelectItem>
                     {AllOrderStatusOptions.map(statusValue => (
                       <SelectItem key={statusValue} value={statusValue}>
                         {statusValue.charAt(0).toUpperCase() + statusValue.slice(1)}
@@ -790,7 +790,7 @@ export default function OrdersPage() {
                 </Select>
               </div>
               <div>
-                <label htmlFor="dateFromOrders" className="block text-sm font-medium text-muted-foreground mb-1">Date From</label>
+                <label htmlFor="dateFromOrders" className="block text-sm font-medium text-muted-foreground mb-1">日期從</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -799,7 +799,7 @@ export default function OrdersPage() {
                       className={cn("w-full justify-start text-left font-normal", !dateFromInput && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateFromInput ? formatForCalendarDisplay(dateFromInput) : <span>Pick a date</span>}
+                      {dateFromInput ? formatForCalendarDisplay(dateFromInput) : <span>選擇日期</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -808,7 +808,7 @@ export default function OrdersPage() {
                 </Popover>
               </div>
               <div>
-                <label htmlFor="dateToOrders" className="block text-sm font-medium text-muted-foreground mb-1">Date To</label>
+                <label htmlFor="dateToOrders" className="block text-sm font-medium text-muted-foreground mb-1">日期至</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -817,7 +817,7 @@ export default function OrdersPage() {
                       className={cn("w-full justify-start text-left font-normal", !dateToInput && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateToInput ? formatForCalendarDisplay(dateToInput) : <span>Pick a date</span>}
+                      {dateToInput ? formatForCalendarDisplay(dateToInput) : <span>選擇日期</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -832,10 +832,10 @@ export default function OrdersPage() {
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
-                <Search className="mr-2 h-4 w-4" /> Apply
+                <Search className="mr-2 h-4 w-4" /> 套用
               </Button>
               <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isLoading}>
-                <X className="mr-2 h-4 w-4" /> Clear Filters
+                <X className="mr-2 h-4 w-4" /> 清除過濾
               </Button>
             </div>
           </form>
@@ -844,8 +844,8 @@ export default function OrdersPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Order List</CardTitle>
-          <CardDescription>Manage and track all customer orders.</CardDescription>
+          <CardTitle>訂單列表</CardTitle>
+          <CardDescription>管理及追蹤所有客戶訂單。</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading && orders.length === 0 && totalOrders === 0 ? (
@@ -855,11 +855,11 @@ export default function OrdersPage() {
           ) : !isLoading && orders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold text-foreground">No Orders Found</h3>
+              <h3 className="text-xl font-semibold text-foreground">找不到訂單</h3>
               <p className="text-muted-foreground">
                 {appliedFilters.searchTerm || appliedFilters.status !== 'all' || appliedFilters.dateFrom || appliedFilters.dateTo
-                  ? "No orders match your current filters."
-                  : "There are no orders yet. Create one to get started."}
+                  ? "找不到符合您目前過濾條件的訂單。"
+                  : "目前沒有任何訂單。"}
               </p>
             </div>
           ) : (
@@ -868,14 +868,14 @@ export default function OrdersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Order #</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Created By</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead>Status</TableHead>
-                      {user?.role === 'admin' && <TableHead className="text-right">Profit</TableHead>}
-                      <TableHead className="text-center">Actions</TableHead>
+                      <TableHead>訂單編號</TableHead>
+                      <TableHead>客戶</TableHead>
+                      <TableHead>日期</TableHead>
+                      <TableHead>建立者</TableHead>
+                      <TableHead className="text-right">總計</TableHead>
+                      <TableHead>狀態</TableHead>
+                      {user?.role === 'admin' && <TableHead className="text-right">利潤</TableHead>}
+                      <TableHead className="text-center">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -953,7 +953,7 @@ export default function OrdersPage() {
               {totalPages >= 1 && (
                 <div className="flex items-center justify-between mt-6 gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Rows per page:</span>
+                    <span className="text-sm text-muted-foreground">每頁顯示:</span>
                     <Select
                       value={itemsPerPage.toString()}
                       onValueChange={handleItemsPerPageChange}
@@ -969,7 +969,7 @@ export default function OrdersPage() {
                     </Select>
                   </div>
                   <span className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
+                    第 {currentPage} 頁，共 {totalPages} 頁
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
@@ -978,7 +978,7 @@ export default function OrdersPage() {
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1 || isLoading}
                     >
-                      <ArrowLeft className="mr-1 h-4 w-4" /> Previous
+                      <ArrowLeft className="mr-1 h-4 w-4" /> 上一頁
                     </Button>
                     <Button
                       variant="outline"
@@ -986,7 +986,7 @@ export default function OrdersPage() {
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages || isLoading}
                     >
-                      Next <ArrowRight className="ml-1 h-4 w-4" />
+                      下一頁 <ArrowRight className="ml-1 h-4 w-4" />
                     </Button>
                   </div>
                 </div>

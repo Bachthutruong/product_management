@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const ProductImageSchema = z.object({
-  url: z.string().url({ message: "Invalid image URL" }),
+  url: z.string().url({ message: "無效的圖片 URL" }),
   publicId: z.string(),
   isPrimary: z.boolean().optional().default(false),
 });
@@ -14,7 +14,7 @@ export const PriceHistoryEntrySchema = z.object({
 });
 export type PriceHistoryEntry = z.infer<typeof PriceHistoryEntrySchema>;
 
-// Schema for Stock-In History entries
+// 庫存入庫歷史記錄的 Schema
 export const StockInEntrySchema = z.object({
   quantityAdded: z.number().int().positive(),
   batchExpiryDate: z.date().optional().nullable(),
@@ -25,7 +25,7 @@ export const StockInEntrySchema = z.object({
 });
 export type StockInEntry = z.infer<typeof StockInEntrySchema>;
 
-// Schema for Batch tracking - each batch has its own expiry date and remaining stock
+// 批次追蹤的 Schema - 每個批次都有自己的到期日期和剩餘庫存
 export const ProductBatchSchema = z.object({
   batchId: z.string(), // Unique identifier for this batch
   expiryDate: z.date(), // Required for new batches
@@ -40,17 +40,17 @@ export type ProductBatch = z.infer<typeof ProductBatchSchema>;
 
 export const ProductSchema = z.object({
   _id: z.any().optional(), // MongoDB ObjectId will be here
-  name: z.string().min(1, { message: "Product name is required" }),
-  sku: z.string().min(1, { message: "SKU is required" }).optional(),
+  name: z.string().min(1, { message: "產品名稱是必需的" }),
+  sku: z.string().min(1, { message: "SKU 是必需的" }).optional(),
   categoryId: z.string().optional(),
   categoryName: z.string().optional(),
   unitOfMeasure: z.string().optional(),
-  price: z.coerce.number().min(0, { message: "Price must be a positive number" }),
-  cost: z.coerce.number().min(0, { message: "Cost must be a non-negative number" }).optional().default(0), // Cost of the product
-  stock: z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" }),
+  price: z.coerce.number().min(0, { message: "價格必須是非負數" }),
+  cost: z.coerce.number().min(0, { message: "成本必須是非負數" }).optional().default(0),
+  stock: z.coerce.number().int({ message: "庫存必須是整數" }).min(0, { message: "庫存必須是非負數" }),
   description: z.string().optional(),
   images: z.array(ProductImageSchema).optional().default([]),
-  expiryDate: z.date({ message: "Expiry date is required" }), // Make expiry date required
+  expiryDate: z.date({ message: "到期日期是必需的" }),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
   priceHistory: z.array(PriceHistoryEntrySchema).optional().default([]),
   stockInHistory: z.array(StockInEntrySchema).optional().default([]),
@@ -61,29 +61,29 @@ export const ProductSchema = z.object({
 
 export type Product = z.infer<typeof ProductSchema> & { _id: string };
 
-// Schema for validating form input (non-file fields) for both add and edit.
-// The actual FileList for 'images' is handled by FormData processing.
+// 用於驗證表單輸入 (非檔案欄位) 的 Schema，適用於新增和編輯。
+// 'images' 的實際 FileList 處理由 FormData 處理。
 export const ProductFormInputSchema = ProductSchema.omit({
   _id: true,
   createdAt: true,
   updatedAt: true,
-  images: true, // images field in schema is for stored image data, not FileList
+  images: true, // images 欄位在 schema 中是儲存的圖片資料，不是 FileList
   priceHistory: true,
   stockInHistory: true,
-  batches: true, // batches managed separately
+  batches: true, // 批次獨立管理
 });
 export type ProductFormInput = z.infer<typeof ProductFormInputSchema>;
 
-// Type for useForm in the component, includes FileList for images
-// This type is primarily for the AddProductForm. EditProductForm might manage FileList slightly differently.
+// 元件中 useForm 使用的類型，包含 images 的 FileList
+// 此類型主要用於 AddProductForm。EditProductForm 可能會略有不同地管理 FileList。
 export type AddProductFormValues = Omit<ProductFormInput, 'expiryDate' | 'lowStockThreshold' | 'price' | 'cost' | 'stock'> & {
-  images?: FileList | null; // For new image uploads
-  expiryDate?: Date | null; // Still optional in form but will be required by validation
+  images?: FileList | null; // 用於新的圖片上傳
+  expiryDate?: Date | null; // 在表單中仍然是選填，但驗證時是必需的
   lowStockThreshold?: number | string;
   price?: number | string;
   cost?: number | string;
   stock?: number | string;
 };
 
-// Note: For EditProductForm, form values will align with EditProductFormValuesSchema in EditProductForm.tsx
-// to handle potential string inputs for numeric fields.
+// 注意: 對於 EditProductForm，表單值將與 EditProductForm.tsx 中的 EditProductFormValuesSchema 對應，
+// 以處理數字欄位的潛在字串輸入。

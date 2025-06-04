@@ -1,44 +1,44 @@
 import { format, isValid } from 'date-fns';
 
 /**
- * Format date to yyyy/mm/dd format
+ * 將日期格式化為 yyyy/mm/dd 格式
  */
 export function formatToYYYYMMDD(date: Date | string | null | undefined): string {
-  if (!date) return 'N/A';
+  if (!date) return 'N/A'; // 翻譯: 不適用
   
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
-  if (!isValid(dateObj)) return 'Invalid Date';
+  if (!isValid(dateObj)) return '無效日期'; // 翻譯: Invalid Date
   
   return format(dateObj, 'yyyy/MM/dd');
 }
 
 /**
- * Format date to yyyy/mm/dd HH:mm format
+ * 將日期格式化為 yyyy/mm/dd HH:mm 格式
  */
 export function formatToYYYYMMDDWithTime(date: Date | string | null | undefined): string {
-  if (!date) return 'N/A';
+  if (!date) return 'N/A'; // 翻譯: 不適用
   
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
-  if (!isValid(dateObj)) return 'Invalid Date';
+  if (!isValid(dateObj)) return '無效日期'; // 翻譯: Invalid Date
   
   return format(dateObj, 'yyyy/MM/dd HH:mm');
 }
 
 /**
- * Format date for display in calendar picker (still using PPP for readability)
+ * 格式化日期以供日曆選擇器顯示 (仍使用 PPP 以提高可讀性)
  */
 export function formatForCalendarDisplay(date: Date | null | undefined): string {
   if (!date) return '';
   
-  if (!isValid(date)) return 'Invalid Date';
+  if (!isValid(date)) return '無效日期'; // 翻譯: Invalid Date
   
   return format(date, 'PPP');
 }
 
 /**
- * Format date to yyyy/mm/dd for form inputs
+ * 將日期格式化為 yyyy-MM-dd 以供表單輸入使用
  */
 export function formatForInputValue(date: Date | null | undefined): string {
   if (!date) return '';

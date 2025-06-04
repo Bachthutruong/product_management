@@ -1,12 +1,11 @@
-
 import { z } from 'zod';
 
 export const CustomerSchema = z.object({
   _id: z.any().optional(), // MongoDB ObjectId
-  name: z.string().min(1, "Customer name is required"),
-  email: z.string().email("Invalid email address").nullable().optional(), // Allows string, null, or undefined
-  phone: z.string().nullable().optional(), // Allows string, null, or undefined
-  address: z.string().nullable().optional(), // Allows string, null, or undefined
+  name: z.string().min(1, "客戶名稱是必需的"),
+  email: z.string().email("無效的電子郵件地址").nullable().optional(),
+  phone: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
 });
@@ -18,7 +17,7 @@ export const CreateCustomerInputSchema = CustomerSchema.omit({ _id: true, create
   .extend({
     // Ensure that empty strings from the form are also considered valid for optional fields
     // and will be converted to null by the server action before DB insertion.
-    email: z.string().email("Invalid email address").optional().or(z.literal('')),
+    email: z.string().email("無效的電子郵件地址").optional().or(z.literal('')),
     phone: z.string().optional().or(z.literal('')),
     address: z.string().optional().or(z.literal('')),
   });

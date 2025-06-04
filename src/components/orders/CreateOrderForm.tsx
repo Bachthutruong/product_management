@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +9,6 @@ import { getProducts } from '@/app/(app)/products/actions';
 import { getCustomers } from '@/app/(app)/customers/actions';
 import { createOrder } from '@/app/(app)/orders/actions';
 import { useAuth } from '@/hooks/useAuth';
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,12 +36,10 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [customerSearch, setCustomerSearch] = useState('');
   const [openCustomerPopover, setOpenCustomerPopover] = useState(false);
   const [productSearches, setProductSearches] = useState<{[key: number]: string}>({});
   const [openProductPopovers, setOpenProductPopovers] = useState<{[key: number]: boolean}>({});
-
   const form = useForm<CreateOrderFormValues>({
     resolver: zodResolver(CreateOrderFormSchema),
     defaultValues: {
@@ -55,12 +51,10 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
       notes: '',
     },
   });
-
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "items",
   });
-
   const fetchInitialData = useCallback(async () => {
     setIsLoadingProducts(true);
     setIsLoadingCustomers(true);
@@ -78,11 +72,9 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
       setIsLoadingCustomers(false);
     }
   }, [toast]);
-
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
-
   const handleAddProductLine = () => {
     if (products.length > 0) {
       append({
@@ -95,10 +87,9 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
         notes: ''
       });
     } else {
-      toast({ variant: "default", title: "No Products", description: "Please add products to the inventory first." });
+      toast({ variant: "default", title: "No Products", description: "Please add products to the inventory first. " });
     }
   };
-
   const handleProductSelect = (lineIndex: number, productId: string) => {
     const selectedProduct = products.find(p => p._id === productId);
     if (selectedProduct) {
@@ -113,12 +104,10 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
       form.trigger(`items.${lineIndex}.quantity`);
     }
   };
-
   const watchedItems = form.watch("items");
   const watchedDiscountType = form.watch("discountType");
   const watchedDiscountValueInput = form.watch("discountValueInput");
   const watchedShippingFeeInput = form.watch("shippingFeeInput");
-
   const { subtotal, discountAmount, totalAmount } = useMemo(() => {
     let currentSubtotal = 0;
     watchedItems.forEach(item => {
@@ -126,7 +115,6 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
       const price = Number(item.unitPrice) || 0;
       currentSubtotal += quantity * price;
     });
-
     let currentDiscountAmount = 0;
     const discountValue = parseFloat(watchedDiscountValueInput || '0');
     if (watchedDiscountType === 'percentage' && discountValue > 0) {
@@ -135,26 +123,20 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
       currentDiscountAmount = discountValue;
     }
     currentDiscountAmount = Math.max(0, Math.min(currentDiscountAmount, currentSubtotal));
-
-
     const shipping = parseFloat(watchedShippingFeeInput || '0') || 0;
     const currentTotalAmount = currentSubtotal - currentDiscountAmount + shipping;
-
     return {
       subtotal: currentSubtotal,
       discountAmount: currentDiscountAmount,
       totalAmount: currentTotalAmount
     };
   }, [watchedItems, watchedDiscountType, watchedDiscountValueInput, watchedShippingFeeInput]);
-
-
   async function onSubmit(data: CreateOrderFormValues) {
     if (!user) {
-      toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in." });
+      toast({ variant: "destructive", title: "認證錯誤", description: "您必須登入。" });
       return;
     }
     setIsSubmitting(true);
-
     const orderInput: CreateOrderInput = {
       customerId: data.customerId,
       //@ts-expect-error batchesUsed is not in CreateOrderInput
@@ -172,13 +154,12 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
       shippingFee: data.shippingFeeInput ? parseFloat(data.shippingFeeInput) : undefined,
       notes: data.notes,
     };
-
     try {
       const result = await createOrder(orderInput, user);
       if (result.success) {
         toast({
-          title: 'Order Created',
-          description: `Order ${result.order?.orderNumber || ''} has been successfully created.`,
+          title: '訂單已建立',
+          description: `訂單 ${result.order?.orderNumber || ''} 已成功建立。`,
         });
         form.reset();
         if (onOrderCreated && result.order) onOrderCreated(result.order._id);
@@ -186,8 +167,8 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
       } else {
         toast({
           variant: 'destructive',
-          title: 'Error Creating Order',
-          description: result.error || 'An unknown error occurred.',
+          title: '建立訂單錯誤',
+          description: result.error || '發生未知錯誤。',
         });
         if (result.errors) {
           console.error("Order creation Zod errors:", result.errors);
@@ -196,24 +177,21 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Submission Error',
-        description: 'An unexpected error occurred while creating the order.',
+        title: '提交錯誤',
+        description: '建立訂單時發生意外錯誤。',
       });
     } finally {
       setIsSubmitting(false);
     }
   }
-
   const handleCustomerAdded = (newCustomer: Customer) => {
     setCustomers(prev => [...prev, newCustomer]);
     form.setValue('customerId', newCustomer._id);
-    toast({ title: "Customer Selected", description: `${newCustomer.name} is now selected for this order.` });
+    toast({ title: "客戶已選取", description: `${newCustomer.name} 現已選取此訂單。` });
   };
-
   if (isLoadingProducts || isLoadingCustomers) {
     return <div className="flex justify-center items-center p-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
@@ -224,7 +202,7 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
             name="customerId"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel>Customer</FormLabel>
+                <FormLabel>客戶</FormLabel>
                 <div className="flex items-center gap-2">
                   <Popover open={openCustomerPopover} onOpenChange={setOpenCustomerPopover}>
                     <PopoverTrigger asChild>
@@ -241,7 +219,7 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                             ? customers.find(
                               (customer) => customer._id === field.value
                             )?.name
-                            : "Select customer"}
+                            : "選擇客戶"}
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </FormControl>
@@ -249,12 +227,12 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                       <Command>
                         <CommandInput
-                          placeholder="Search customer..."
+                          placeholder="搜尋客戶..."
                           value={customerSearch}
                           onValueChange={setCustomerSearch}
                         />
                         <CommandList>
-                          <CommandEmpty>No customer found.</CommandEmpty>
+                          <CommandEmpty>找不到客戶。</CommandEmpty>
                           <CommandGroup>
                             {customers
                               .filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()))
@@ -275,7 +253,7 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                                         : "opacity-0"
                                     )}
                                   />
-                                  {customer.name} ({customer.phone || customer.email || 'No contact'})
+                                  {customer.name} ({customer.phone || customer.email || '無聯絡資訊'})
                                 </CommandItem>
                               ))}
                           </CommandGroup>
@@ -292,10 +270,9 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
               </FormItem>
             )}
           />
-
           {/* Order Items */}
           <div className="space-y-3">
-            <FormLabel>Order Items</FormLabel>
+            <FormLabel>訂單明細</FormLabel>
             {fields.map((item, index) => (
               <Card key={item.id} className="p-4 space-y-3 bg-muted/30">
                 <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-3 items-start">
@@ -304,9 +281,9 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                     name={`items.${index}.productId`}
                     render={({ field: productField }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel className="sr-only">Product</FormLabel>
-                        <Popover 
-                          open={openProductPopovers[index] || false} 
+                        <FormLabel className="sr-only">產品</FormLabel>
+                        <Popover
+                          open={openProductPopovers[index] || false}
                           onOpenChange={(open) => setOpenProductPopovers(prev => ({...prev, [index]: open}))}
                         >
                           <PopoverTrigger asChild>
@@ -320,8 +297,8 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                                 )}
                               >
                                 {productField.value
-                                  ? products.find(p => p._id === productField.value)?.name || "Select product"
-                                  : "Select product"}
+                                  ? products.find(p => p._id === productField.value)?.name || "選擇產品"
+                                  : "選擇產品"}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </FormControl>
@@ -329,15 +306,15 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                           <PopoverContent className="w-[400px] p-0">
                             <Command>
                               <CommandInput
-                                placeholder="Search product..."
+                                placeholder="搜尋產品..."
                                 value={productSearches[index] || ''}
                                 onValueChange={(value) => setProductSearches(prev => ({...prev, [index]: value}))}
                               />
                               <CommandList>
-                                <CommandEmpty>No product found.</CommandEmpty>
+                                <CommandEmpty>找不到產品。</CommandEmpty>
                                 <CommandGroup>
                                   {products
-                                    .filter(p => 
+                                    .filter(p =>
                                       p.name.toLowerCase().includes((productSearches[index] || '').toLowerCase()) ||
                                       (p.sku && p.sku.toLowerCase().includes((productSearches[index] || '').toLowerCase()))
                                     )
@@ -366,8 +343,8 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                                         <div className="flex flex-col">
                                           <span>{product.name} (SKU: {product.sku || 'N/A'})</span>
                                           <span className="text-xs text-muted-foreground">
-                                            Stock: {product.stock} - Price: {formatCurrency(product.price)}
-                                            {product.stock <= 0 && " (Out of stock)"}
+                                            庫存: {product.stock} - 價格: {formatCurrency(product.price)}
+                                            {product.stock <= 0 && " (無庫存)"}
                                           </span>
                                         </div>
                                       </CommandItem>
@@ -386,12 +363,12 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                     name={`items.${index}.quantity`}
                     render={({ field: quantityField }) => (
                       <FormItem>
-                        <FormLabel className="sr-only">Quantity</FormLabel>
+                        <FormLabel className="sr-only">數量</FormLabel>
                         <FormControl>
                           <Input
                             type="text"
                             inputMode="numeric"
-                            placeholder="Qty"
+                            placeholder="數量"
                             value={quantityField.value || ''}
                             onChange={(e) => {
                               const value = e.target.value;
@@ -431,10 +408,10 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                   name={`items.${index}.notes`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="sr-only">Item Notes</FormLabel>
+                      <FormLabel className="sr-only">項目備註</FormLabel>
                       <FormControl>
                         {/* @ts-expect-error Input is not in FormControl */}
-                        <Input placeholder="Notes for this item (optional)" {...field} />
+                        <Input placeholder="此項目的備註 (選填)" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -443,32 +420,31 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
               </Card>
             ))}
             <Button type="button" variant="outline" onClick={handleAddProductLine} className="w-full">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Product to Order
+              <PlusCircle className="mr-2 h-4 w-4" /> 新增產品到訂單
             </Button>
             {form.formState.errors.items && typeof form.formState.errors.items === 'object' && !Array.isArray(form.formState.errors.items) && (
-              <FormMessage>{(form.formState.errors.items as any).message || "Please add at least one item."}</FormMessage>
+              <FormMessage>{(form.formState.errors.items as any).message || "請至少新增一個項目。"}</FormMessage>
             )}
           </div>
-
           {/* Discount */}
           <Card className="p-4 bg-muted/30">
-            <FormLabel className="text-base font-medium">Discount & Shipping</FormLabel>
+            <FormLabel className="text-base font-medium">折扣與運費</FormLabel>
             <div className="grid md:grid-cols-2 gap-4 mt-2">
               <FormField
                 control={form.control}
                 name="discountType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Discount Type</FormLabel>
+                    <FormLabel>折扣類型</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select discount type" />
+                          <SelectValue placeholder="選擇折扣類型" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="percentage">Percentage (%)</SelectItem>
-                        <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
+                        <SelectItem value="percentage">百分比 (%)</SelectItem>
+                        <SelectItem value="fixed">固定金額 ($)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -480,12 +456,12 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                 name="discountValueInput"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Discount Value</FormLabel>
+                    <FormLabel>折扣金額</FormLabel>
                     <FormControl>
                       {/* @ts-expect-error Input is not in FormControl */}
                       <Input
                         type="number"
-                        placeholder="e.g., 10 or 5.50"
+                        placeholder="例如：10 或 5.50"
                         {...field}
                         disabled={!watchedDiscountType}
                         min="0"
@@ -498,72 +474,91 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
               />
             </div>
             {/* Shipping Fee */}
+            <div className="mt-4">
+              <FormLabel className="text-base font-medium">運費</FormLabel>
+              <div className="mt-2">
+                <FormField
+                  control={form.control}
+                  name="shippingFeeInput"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="sr-only">運費 ($)</FormLabel>
+                      <FormControl>
+                        {/* @ts-expect-error Input is not in FormControl */}
+                        <Input
+                          type="number"
+                          placeholder="例如：5.00"
+                          {...field}
+                          min="0"
+                          step="0.01"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          </Card>
+          {/* Order Summary (Totals) */}
+          <Card className="p-4 bg-muted/30">
+            <FormLabel className="text-base font-medium">訂單總結</FormLabel>
+            <div className="space-y-2 mt-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">小計:</span>
+                <span className="font-semibold">{formatCurrency(subtotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span className="text-muted-foreground">折扣:</span>
+                  <span className="font-semibold">-{formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+              {parseFloat(watchedShippingFeeInput || '0') > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">運費:</span>
+                  <span className="font-semibold">{formatCurrency(parseFloat(watchedShippingFeeInput || '0'))}</span>
+                </div>
+              )}
+              <hr className="border-border" />
+              <div className="flex justify-between text-lg font-bold">
+                <span>總計:</span>
+                <span>{formatCurrency(totalAmount)}</span>
+              </div>
+            </div>
+          </Card>
+          {/* Order Notes */}
+          <Card className="p-4 bg-muted/30">
             <FormField
               control={form.control}
-              name="shippingFeeInput"
+              name="notes"
               render={({ field }) => (
-                <FormItem className="mt-4">
-                  <FormLabel>Shipping Fee ($)</FormLabel>
+                <FormItem>
+                  <FormLabel>訂單備註 (選填)</FormLabel>
                   <FormControl>
-                    {/* @ts-expect-error Input is not in FormControl */}
-                    <Input type="number" placeholder="e.g., 5.00" {...field} min="0" step="0.01" />
+                    {/* @ts-expect-error Textarea is not in FormControl */}
+                    <Textarea placeholder="輸入訂單的備註..." {...field} className="min-h-[80px]" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </Card>
-
-
-          {/* Order Notes */}
-          <FormField
-            control={form.control}
-            name="notes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Order Notes (Optional)</FormLabel>
-                <FormControl>
-                  {/* @ts-expect-error Textarea is not in FormControl */}
-                  <Textarea placeholder="Any special instructions for this order..." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
         </div>
-
-        {/* Order Summary */}
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Order Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>Subtotal:</span> <span>{formatCurrency(subtotal)}</span></div>
-            {discountAmount > 0 && (
-              <div className="flex justify-between text-destructive">
-                <span>Discount:</span>
-                <span>-{formatCurrency(discountAmount)}</span>
-              </div>
-            )}
-            {parseFloat(watchedShippingFeeInput || '0') > 0 && (
-              <div className="flex justify-between"><span>Shipping:</span> <span>+{formatCurrency(parseFloat(watchedShippingFeeInput || '0'))}</span></div>
-            )}
-            <hr className="my-2" />
-            <div className="flex justify-between font-bold text-lg text-primary"><span>Total Amount:</span> <span>{formatCurrency(totalAmount)}</span></div>
-          </CardContent>
-        </Card>
-
-        <CardFooter className="flex justify-end gap-2 px-0 pb-0">
-          <Button type="button" variant="outline" onClick={closeDialog} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting || fields.length === 0 || !form.formState.isValid} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+        <CardFooter className="flex justify-end gap-3 border-t p-4">
+          <Button type="button" variant="outline" onClick={closeDialog}>取消</Button>
+          <Button type="submit" disabled={isSubmitting || fields.length === 0}>
             {isSubmitting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                正在建立訂單...
+              </>
             ) : (
-              <CheckIcon className="mr-2 h-4 w-4" />
+              <>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                建立訂單
+              </>
             )}
-            Complete Order
           </Button>
         </CardFooter>
       </form>

@@ -54,45 +54,45 @@ function OrderDetailsDialog({ order }: { order: Order }) {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="text-xs">
           <Eye className="mr-1 h-3 w-3" />
-          View Details
+          查看詳細資料
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Order Details - {order.orderNumber}</DialogTitle>
           <DialogDescription>
-            Deleted Order Information
+            已刪除訂單資訊
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Order Information</CardTitle>
+                <CardTitle className="text-sm">訂單資訊</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Order Number:</span>
+                  <span className="text-muted-foreground">訂單號碼:</span>
                   <span className="font-medium">{order.orderNumber}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Customer:</span>
+                  <span className="text-muted-foreground">客戶:</span>
                   <span className="font-medium">{order.customerName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Status:</span>
+                  <span className="text-muted-foreground">狀態:</span>
                   <Badge variant="outline">{order.status}</Badge>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Order Date:</span>
+                  <span className="text-muted-foreground">訂單日期:</span>
                   <span>{formatToYYYYMMDDWithTime(order.orderDate)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Deleted Date:</span>
+                  <span className="text-muted-foreground">已刪除日期:</span>
                   <span className="text-red-600">{order.deletedAt ? formatToYYYYMMDDWithTime(order.deletedAt) : 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Deleted By:</span>
+                  <span className="text-muted-foreground">已刪除者:</span>
                   <span className="text-red-600">{order.deletedByName || 'N/A'}</span>
                 </div>
               </CardContent>
@@ -100,27 +100,27 @@ function OrderDetailsDialog({ order }: { order: Order }) {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Order Summary</CardTitle>
+                <CardTitle className="text-sm">訂單摘要</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal:</span>
+                  <span className="text-muted-foreground">小計:</span>
                   <span>{formatCurrency(order.subtotal)}</span>
                 </div>
                 {order.discountAmount && order.discountAmount > 0 && (
                   <div className="flex justify-between text-green-600">
-                    <span>Discount:</span>
+                    <span>折扣:</span>
                     <span>-{formatCurrency(order.discountAmount)}</span>
                   </div>
                 )}
                 {order.shippingFee && order.shippingFee > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shipping:</span>
+                    <span className="text-muted-foreground">運費:</span>
                     <span>{formatCurrency(order.shippingFee)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t pt-2 font-medium">
-                  <span>Total Amount:</span>
+                  <span>總金額:</span>
                   <span>{formatCurrency(order.totalAmount)}</span>
                 </div>
               </CardContent>
@@ -129,18 +129,18 @@ function OrderDetailsDialog({ order }: { order: Order }) {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Order Items</CardTitle>
+              <CardTitle className="text-sm">訂單項目</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Product</TableHead>
+                      <TableHead>產品</TableHead>
                       <TableHead>SKU</TableHead>
-                      <TableHead className="text-right">Quantity</TableHead>
-                      <TableHead className="text-right">Unit Price</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">數量</TableHead>
+                      <TableHead className="text-right">單價</TableHead>
+                      <TableHead className="text-right">總金額</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -162,7 +162,7 @@ function OrderDetailsDialog({ order }: { order: Order }) {
           {order.notes && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Notes</CardTitle>
+                  <CardTitle className="text-sm">備註</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">{order.notes}</p>
@@ -214,8 +214,8 @@ export default function DeletedOrdersPage() {
       console.error("Failed to fetch deleted orders:", error);
       toast({
         variant: "destructive",
-        title: "Loading Error",
-        description: "Could not load deleted orders. Please try again later.",
+        title: "載入錯誤",
+        description: "無法載入已刪除訂單。請稍後再試。",
       });
     } finally {
       setIsLoadingOrders(false);
@@ -230,7 +230,7 @@ export default function DeletedOrdersPage() {
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'admin')) {
-      // For now, non-admins will see an access denied message
+      // 目前，非管理員將看到訪問拒絕消息
     }
   }, [user, authLoading, router]);
 
@@ -273,9 +273,9 @@ export default function DeletedOrdersPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] p-6 text-center">
         <ShieldAlert className="w-16 h-16 text-destructive mb-4" />
-        <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
-        <p className="text-muted-foreground">You do not have permission to view deleted orders.</p>
-        <Button onClick={() => router.push('/dashboard')} className="mt-6">Go to Dashboard</Button>
+        <h1 className="text-2xl font-bold text-destructive">訪問被拒絕</h1>
+        <p className="text-muted-foreground">您沒有權限查看已刪除訂單。</p>
+        <Button onClick={() => router.push('/dashboard')} className="mt-6">前往儀表板</Button>
       </div>
     );
   }
@@ -284,11 +284,11 @@ export default function DeletedOrdersPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground flex items-center">
-          <Trash2 className="mr-3 h-8 w-8 text-destructive" /> Deleted Orders
+          <Trash2 className="mr-3 h-8 w-8 text-destructive" /> 已刪除訂單
         </h1>
         <Button onClick={() => router.push('/orders')} variant="outline">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Orders
+          返回訂單
         </Button>
       </div>
 
@@ -296,10 +296,10 @@ export default function DeletedOrdersPage() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Filter className="mr-2 h-5 w-5" />
-            Filters
+            過濾器
           </CardTitle>
           <CardDescription>
-            Search and filter deleted orders. Total deleted orders: {totalCount}
+            搜尋和過濾已刪除訂單。總已刪除訂單數量: {totalCount}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -308,7 +308,7 @@ export default function DeletedOrdersPage() {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search orders..."
+                placeholder="搜尋訂單..."
                 className="pl-8"
                 value={filters.searchTerm}
                 onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
@@ -317,10 +317,10 @@ export default function DeletedOrdersPage() {
 
             <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value as OrderStatus | 'all' }))}>
               <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
+                <SelectValue placeholder="所有狀態" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="all">所有狀態</SelectItem>
                 {AllOrderStatusOptions.map(status => (
                   <SelectItem key={status} value={status}>
                     {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -333,7 +333,7 @@ export default function DeletedOrdersPage() {
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("justify-start text-left font-normal", !filters.dateFrom && "text-muted-foreground")}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filters.dateFrom ? formatForCalendarDisplay(filters.dateFrom) : "From Date"}
+                  {filters.dateFrom ? formatForCalendarDisplay(filters.dateFrom) : "從日期"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -348,7 +348,7 @@ export default function DeletedOrdersPage() {
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("justify-start text-left font-normal", !filters.dateTo && "text-muted-foreground")}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filters.dateTo ? formatForCalendarDisplay(filters.dateTo) : "To Date"}
+                  {filters.dateTo ? formatForCalendarDisplay(filters.dateTo) : "至日期"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -360,7 +360,7 @@ export default function DeletedOrdersPage() {
             </Popover>
 
             <div className="flex gap-2">
-              <Button type="submit" className="flex-1">Apply</Button>
+              <Button type="submit" className="flex-1">套用</Button>
               <Button type="button" variant="outline" onClick={handleClearFilters}>
                 <X className="h-4 w-4" />
               </Button>
@@ -374,10 +374,10 @@ export default function DeletedOrdersPage() {
           <CardTitle className="flex items-center justify-between">
             <span className="flex items-center">
               <PackageSearch className="mr-2 h-5 w-5" />
-              Deleted Orders
+              已刪除訂單
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Show:</span>
+              <span className="text-sm text-muted-foreground">顯示:</span>
               <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
                 <SelectTrigger className="w-20">
                   <SelectValue />
@@ -391,7 +391,7 @@ export default function DeletedOrdersPage() {
             </div>
           </CardTitle>
           <CardDescription>
-            Showing {orders.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} deleted orders
+            顯示 {orders.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} 至 {Math.min(currentPage * itemsPerPage, totalCount)} 的已刪除訂單，總已刪除訂單數量: {totalCount}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -402,8 +402,8 @@ export default function DeletedOrdersPage() {
           ) : orders.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Package className="mx-auto h-16 w-16 mb-4 opacity-50" />
-              <p className="text-lg">No deleted orders found</p>
-              <p className="text-sm">Try adjusting your search filters</p>
+              <p className="text-lg">找不到已刪除訂單</p>
+              <p className="text-sm">嘗試調整您的搜尋過濾器</p>
             </div>
           ) : (
             <>
@@ -411,14 +411,14 @@ export default function DeletedOrdersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Order Number</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Order Date</TableHead>
-                      <TableHead>Deleted Date</TableHead>
-                      <TableHead>Deleted By</TableHead>
-                      <TableHead className="text-right">Total Amount</TableHead>
-                      <TableHead className="text-center">Actions</TableHead>
+                      <TableHead>訂單號碼</TableHead>
+                      <TableHead>客戶</TableHead>
+                      <TableHead>狀態</TableHead>
+                      <TableHead>訂單日期</TableHead>
+                      <TableHead>已刪除日期</TableHead>
+                      <TableHead>已刪除者</TableHead>
+                      <TableHead className="text-right">總金額</TableHead>
+                      <TableHead className="text-center">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -457,7 +457,7 @@ export default function DeletedOrdersPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6">
                   <div className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
+                    第 {currentPage} 頁，共 {totalPages} 頁
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -467,7 +467,7 @@ export default function DeletedOrdersPage() {
                       disabled={currentPage === 1}
                     >
                       <ArrowLeft className="h-4 w-4" />
-                      Previous
+                      上一頁
                     </Button>
                     <Button
                       variant="outline"
@@ -475,7 +475,7 @@ export default function DeletedOrdersPage() {
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
                     >
-                      Next
+                      下一頁
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </div>

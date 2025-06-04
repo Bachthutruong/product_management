@@ -82,17 +82,17 @@ function DeleteProductButton({
 
   const handleDelete = async () => {
     if (userRole !== 'admin') {
-      toast({ variant: "destructive", title: "Permission Denied", description: "Only admins can delete products." });
+      toast({ variant: "destructive", title: "權限不足", description: "只有管理員可以刪除產品。" });
       setIsAlertOpen(false);
       return;
     }
     setIsDeleting(true);
     const result = await deleteProduct(productId, userRole);
     if (result.success) {
-      toast({ title: "Product Deleted", description: `${productName} has been successfully deleted.` });
+      toast({ title: "產品已刪除", description: `${productName} 已成功刪除。` });
       onProductDeleted();
     } else {
-      toast({ variant: "destructive", title: "Error Deleting Product", description: result.error });
+      toast({ variant: "destructive", title: "刪除產品錯誤", description: result.error });
     }
     setIsDeleting(false);
     setIsAlertOpen(false);
@@ -101,23 +101,23 @@ function DeleteProductButton({
   return (
     <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting} title={`Delete ${productName}`}>
+        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting} title={`刪除 ${productName}`}>
           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          <span className="sr-only">Delete {productName}</span>
+          <span className="sr-only">刪除 {productName}</span>
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogNativeTitle>Are you sure you want to delete "{productName}"?</AlertDialogNativeTitle>
+          <AlertDialogNativeTitle>確定要刪除「{productName}」嗎？</AlertDialogNativeTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the product and its images.
+            此動作無法復原。這將永久刪除產品及其圖片。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>取消</AlertDialogCancel>
           <Button onClick={handleDelete} variant="destructive" disabled={isDeleting}>
             {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-            Delete
+            刪除
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -168,7 +168,7 @@ export default function ProductsPage() {
         setAllCategories(result.categories);
       } catch (error) {
         console.error("Failed to fetch categories for product filter:", error);
-        toast({ variant: "destructive", title: "Filter Error", description: "Could not load categories for filtering." });
+        toast({ variant: "destructive", title: "篩選錯誤", description: "無法載入分類以供篩選。" });
       }
       setIsLoadingCategories(false);
     }
@@ -191,7 +191,7 @@ export default function ProductsPage() {
       setTotalProducts(result.totalCount);
     } catch (error) {
       console.error("Failed to fetch products:", error);
-      toast({ variant: "destructive", title: "Loading Error", description: "Could not load products." });
+      toast({ variant: "destructive", title: "載入錯誤", description: "無法載入產品。" });
     } finally {
       setIsLoading(false);
     }
@@ -302,21 +302,21 @@ export default function ProductsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold text-foreground">Products</h1>
+        <h1 className="text-3xl font-bold text-foreground">產品</h1>
         <Dialog open={isAddProductDialogOpen} onOpenChange={setIsAddProductDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <PlusCircle className="mr-2 h-5 w-5" /> Add Product
+              <PlusCircle className="mr-2 h-5 w-5" /> 新增產品
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogNativeHeader>
               <DialogNativeTitle className="flex items-center text-2xl">
                 <PlusCircle className="mr-3 h-7 w-7 text-primary" />
-                Add New Product
+                新增產品
               </DialogNativeTitle>
               <DialogNativeDescription>
-                Fill in product details. Click "Add Product" when you're done.
+                填寫產品詳細資訊。完成後點擊「新增產品」。
               </DialogNativeDescription>
             </DialogNativeHeader>
             {user?._id && <AddProductForm userId={user._id} onProductAdded={handleProductAddedOrUpdated} />}
@@ -328,66 +328,66 @@ export default function ProductsPage() {
         <CardHeader>
           <CardTitle className="flex items-center text-xl">
             <Filter className="mr-2 h-5 w-5 text-primary" />
-            Filter & Search Products
+            篩選與搜尋產品
           </CardTitle>
           <CardDescription>
-            Refine your product view. {isLoading && totalProducts === 0 ? "Loading..." : `${totalProducts} products found.`}
+            優化您的產品檢視。{isLoading && totalProducts === 0 ? "載入中..." : `${totalProducts} 個產品已找到。`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleApplyFilters} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
               <div>
-                <label htmlFor="searchTermProducts" className="block text-sm font-medium text-muted-foreground mb-1">Search Term</label>
+                <label htmlFor="searchTermProducts" className="block text-sm font-medium text-muted-foreground mb-1">搜尋詞</label>
                 <Input
                   id="searchTermProducts"
-                  placeholder="Name, SKU, description..."
+                  placeholder="名稱、SKU、描述..."
                   value={searchTermInput}
                   onChange={(e) => setSearchTermInput(e.target.value)}
                 />
               </div>
               <div>
-                <label htmlFor="categoryFilterProducts" className="block text-sm font-medium text-muted-foreground mb-1">Category</label>
+                <label htmlFor="categoryFilterProducts" className="block text-sm font-medium text-muted-foreground mb-1">分類</label>
                 <Select
                   value={categoryFilterInput}
                   onValueChange={(value) => setCategoryFilterInput(value)}
                   disabled={isLoadingCategories}
                 >
                   <SelectTrigger id="categoryFilterProducts">
-                    <SelectValue placeholder={isLoadingCategories ? "Loading..." : "All Categories"} />
+                    <SelectValue placeholder={isLoadingCategories ? "載入中..." : "所有分類"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="all">所有分類</SelectItem>
                     {allCategories.filter(cat => typeof cat._id === 'string' && cat._id !== '').map(cat => (
                       <SelectItem key={cat._id} value={cat._id}>{cat.name}</SelectItem>
                     ))}
                     {!isLoadingCategories && allCategories.length === 0 && (
-                      <SelectItem value="no-cat" disabled>No categories available</SelectItem>
+                      <SelectItem value="no-cat" disabled>沒有可用的分類</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <label htmlFor="stockStatusFilter" className="block text-sm font-medium text-muted-foreground mb-1">Stock Status</label>
+                <label htmlFor="stockStatusFilter" className="block text-sm font-medium text-muted-foreground mb-1">庫存狀態</label>
                 <Select value={stockStatusFilterInput} onValueChange={(value) => setStockStatusFilterInput(value as StockStatusFilter)}>
                   <SelectTrigger id="stockStatusFilter">
-                    <SelectValue placeholder="All Stock Statuses" />
+                    <SelectValue placeholder="所有庫存狀態" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="inStock">In Stock</SelectItem>
-                    <SelectItem value="low">Low Stock</SelectItem>
-                    <SelectItem value="outOfStock">Out of Stock</SelectItem>
+                    <SelectItem value="all">所有狀態</SelectItem>
+                    <SelectItem value="inStock">有庫存</SelectItem>
+                    <SelectItem value="low">庫存不足</SelectItem>
+                    <SelectItem value="outOfStock">無庫存</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading || isLoadingCategories}>
-                <Search className="mr-2 h-4 w-4" /> Apply
+                <Search className="mr-2 h-4 w-4" /> 套用篩選
               </Button>
               <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isLoading || isLoadingCategories}>
-                <X className="mr-2 h-4 w-4" /> Clear Filters
+                <X className="mr-2 h-4 w-4" /> 清除篩選
               </Button>
             </div>
           </form>
@@ -396,8 +396,8 @@ export default function ProductsPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Product List</CardTitle>
-          <CardDescription>Your current product catalog. Warnings for low stock & upcoming expiry.</CardDescription>
+          <CardTitle>產品列表</CardTitle>
+          <CardDescription>您的產品目錄。低庫存和即將到期的警告。</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading && products.length === 0 && totalProducts === 0 ? (
@@ -407,11 +407,11 @@ export default function ProductsPage() {
           ) : !isLoading && products.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageX className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold text-foreground">No Products Found</h3>
+              <h3 className="text-xl font-semibold text-foreground">找不到產品</h3>
               <p className="text-muted-foreground">
                 {appliedFilters.searchTerm || appliedFilters.categoryId || appliedFilters.stockStatus !== 'all'
-                  ? "No products match your current filters."
-                  : "Add your first product using the 'Add Product' button."}
+                  ? "沒有產品符合您目前的篩選條件。"
+                  : "使用「新增產品」按鈕新增您的第一個產品。"}
               </p>
             </div>
           ) : (
@@ -420,17 +420,17 @@ export default function ProductsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[60px] sm:w-[80px]">Image</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Category</TableHead>
+                      <TableHead className="w-[60px] sm:w-[80px]">圖片</TableHead>
+                      <TableHead>名稱</TableHead>
+                      <TableHead>分類</TableHead>
                       <TableHead>SKU</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                      <TableHead className="text-right">Cost</TableHead>
-                      <TableHead className="text-right">Stock</TableHead>
-                      <TableHead>Expiry (Main)</TableHead>
-                      <TableHead>Alerts</TableHead>
-                      <TableHead className="text-center">Actions</TableHead>
+                      <TableHead>單位</TableHead>
+                      <TableHead className="text-right">價格</TableHead>
+                      <TableHead className="text-right">成本</TableHead>
+                      <TableHead className="text-right">庫存</TableHead>
+                      <TableHead>到期日 (主要)</TableHead>
+                      <TableHead>警示</TableHead>
+                      <TableHead className="text-center">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -444,9 +444,9 @@ export default function ProductsPage() {
                         const expiry = new Date(product.expiryDate);
 
                         if (isBefore(expiry, today)) {
-                          expiryWarningText = 'Expired';
+                          expiryWarningText = '已過期';
                         } else if (isBefore(expiry, oneYearFromNow)) {
-                          expiryWarningText = 'Expires <1yr';
+                          expiryWarningText = '即將一年內到期';
                         }
                       }
                       const firstImage = product.images && product.images.length > 0 ? product.images[0] : null;
@@ -458,7 +458,7 @@ export default function ProductsPage() {
                               <button
                                 onClick={() => openImagePreviewDialog(product.images || [], 0)}
                                 className="focus:outline-none focus:ring-2 focus:ring-primary rounded-md"
-                                title={`View image for ${product.name}`}
+                                title={`檢視 ${product.name} 的圖片`}
                               >
                                 <NextImage
                                   src={firstImage.url}
@@ -495,11 +495,11 @@ export default function ProductsPage() {
                             <div className="flex flex-col gap-1 items-start">
                               {isLowStock && (
                                 <Badge variant="destructive" className="text-xs">
-                                  <AlertCircle className="mr-1 h-3 w-3" /> Low Stock ({product.stock}/{product.lowStockThreshold})
+                                  <AlertCircle className="mr-1 h-3 w-3" /> 庫存不足 ({product.stock}/{product.lowStockThreshold})
                                 </Badge>
                               )}
                               {expiryWarningText && (
-                                <Badge variant={expiryWarningText === 'Expired' ? 'destructive' : 'outline'} className={`text-xs whitespace-nowrap ${expiryWarningText === 'Expired' ? '' : 'border-orange-500 text-orange-600'}`}>
+                                <Badge variant={expiryWarningText === '已過期' ? 'destructive' : 'outline'} className={`text-xs whitespace-nowrap ${expiryWarningText === '已過期' ? '' : 'border-orange-500 text-orange-600'}`}>
                                   <CalendarClock className="mr-1 h-3 w-3" /> {expiryWarningText}
                                 </Badge>
                               )}
@@ -512,21 +512,21 @@ export default function ProductsPage() {
                                 size="icon"
                                 className="text-muted-foreground hover:text-primary"
                                 onClick={() => openStockInHistoryDialog(product)}
-                                title={`View stock-in history for ${product.name}`}
+                                title={`檢視 ${product.name} 的入庫歷史`}
                               >
                                 <History className="h-4 w-4" />
-                                <span className="sr-only">View stock-in history for {product.name}</span>
+                                <span className="sr-only">檢視 {product.name} 的入庫歷史</span>
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="text-muted-foreground hover:text-primary"
                                 onClick={() => openEditDialog(product)}
-                                title={`Edit ${product.name}`}
+                                title={`編輯 ${product.name}`}
                                 disabled={!user}
                               >
                                 <Edit3 className="h-4 w-4" />
-                                <span className="sr-only">Edit ${product.name}</span>
+                                <span className="sr-only">編輯 ${product.name}</span>
                               </Button>
                               {user?.role === 'admin' && (
                                 <DeleteProductButton
@@ -547,7 +547,7 @@ export default function ProductsPage() {
               {totalPages >= 1 && (
                 <div className="flex items-center justify-between mt-6 gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Rows per page:</span>
+                    <span className="text-sm text-muted-foreground">每頁列數:</span>
                     <Select
                       value={itemsPerPage.toString()}
                       onValueChange={handleItemsPerPageChange}
@@ -563,7 +563,7 @@ export default function ProductsPage() {
                     </Select>
                   </div>
                   <span className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
+                    第 {currentPage} 頁，共 {totalPages} 頁
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
@@ -572,7 +572,7 @@ export default function ProductsPage() {
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1 || isLoading}
                     >
-                      <ArrowLeft className="mr-1 h-4 w-4" /> Previous
+                      <ArrowLeft className="mr-1 h-4 w-4" /> 上一頁
                     </Button>
                     <Button
                       variant="outline"
@@ -580,7 +580,7 @@ export default function ProductsPage() {
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages || isLoading}
                     >
-                      Next <ArrowRight className="ml-1 h-4 w-4" />
+                      下一頁 <ArrowRight className="ml-1 h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -599,10 +599,10 @@ export default function ProductsPage() {
             <DialogNativeHeader>
               <DialogNativeTitle className="flex items-center text-2xl">
                 <Edit3 className="mr-3 h-7 w-7 text-primary" />
-                Edit Product: {editingProduct.name}
+                編輯產品: {editingProduct.name}
               </DialogNativeTitle>
               <DialogNativeDescription>
-                Modify product details. Click "Save Changes" when you're done.
+                修改產品詳細資訊。完成後點擊「儲存變更」。
               </DialogNativeDescription>
             </DialogNativeHeader>
             <EditProductForm
@@ -627,10 +627,10 @@ export default function ProductsPage() {
             <DialogNativeHeader>
               <DialogNativeTitle className="flex items-center text-2xl">
                 <History className="mr-3 h-7 w-7 text-primary" />
-                Stock-In History: {viewingHistoryForProduct.name}
+                入庫歷史: {viewingHistoryForProduct.name}
               </DialogNativeTitle>
               <DialogNativeDescription>
-                Review all stock-in movements for this product, including quantities and batch expiry dates.
+                檢視此產品的所有入庫記錄，包括數量和批次到期日期。
               </DialogNativeDescription>
             </DialogNativeHeader>
             <ProductStockInHistoryDialog productId={viewingHistoryForProduct._id} />
@@ -648,15 +648,15 @@ export default function ProductsPage() {
         }}>
           <DialogContent className="max-w-2xl p-4 sm:p-6 md:max-w-3xl lg:max-w-4xl">
             <DialogNativeHeader className="mb-4">
-              <DialogNativeTitle className="text-xl sm:text-2xl">Image Preview</DialogNativeTitle>
+              <DialogNativeTitle className="text-xl sm:text-2xl">圖片預覽</DialogNativeTitle>
               <DialogNativeDescription className="text-sm text-muted-foreground">
-                Viewing image {currentPreviewImageIndex + 1} of {imagesForPreview.length}
+                正在檢視第 {currentPreviewImageIndex + 1} 張圖片，共 {imagesForPreview.length} 張
               </DialogNativeDescription>
             </DialogNativeHeader>
             <div className="relative aspect-[4/3]">
               <NextImage
                 src={imagesForPreview[currentPreviewImageIndex].url}
-                alt={`Product image ${currentPreviewImageIndex + 1}`}
+                alt={`產品圖片 ${currentPreviewImageIndex + 1}`}
                 fill
                 className="rounded-md object-contain"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -669,7 +669,7 @@ export default function ProductsPage() {
                   disabled={currentPreviewImageIndex === 0}
                   variant="outline"
                   size="icon"
-                  aria-label="Previous image"
+                  aria-label="上一張圖片"
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
@@ -681,7 +681,7 @@ export default function ProductsPage() {
                   disabled={currentPreviewImageIndex === imagesForPreview.length - 1}
                   variant="outline"
                   size="icon"
-                  aria-label="Next image"
+                  aria-label="下一張圖片"
                 >
                   <ArrowRight className="h-5 w-5" />
                 </Button>

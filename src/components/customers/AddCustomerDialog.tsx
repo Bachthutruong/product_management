@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -49,8 +48,8 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
       const result = await addCustomer(data);
       if (result.success && result.customer) {
         toast({
-          title: 'Customer Added',
-          description: `${result.customer.name} has been successfully added.`,
+          title: '客戶已新增',
+          description: `${result.customer.name} 已成功新增。`,
         });
         form.reset();
         setIsOpen(false);
@@ -59,8 +58,8 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
       } else {
         toast({
           variant: 'destructive',
-          title: 'Error Adding Customer',
-          description: result.error || 'An unknown error occurred.',
+          title: '新增客戶錯誤',
+          description: result.error || '發生未知錯誤。',
         });
         if (result.errors) {
           result.errors.forEach((err) => {
@@ -71,8 +70,8 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Submission Error',
-        description: 'An unexpected error occurred.',
+        title: '提交錯誤',
+        description: '發生意外錯誤。',
       });
     } finally {
       setIsSubmitting(false);
@@ -81,7 +80,7 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
 
   const defaultTrigger = (
     <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0">
-      <UserPlus className="mr-2 h-5 w-5" /> Add Customer
+      <UserPlus className="mr-2 h-5 w-5" /> 新增客戶
     </Button>
   );
 
@@ -94,10 +93,10 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <UserPlus className="mr-2 h-6 w-6 text-primary" />
-            Add New Customer
+            新增客戶
           </DialogTitle>
           <DialogDescription>
-            Fill in the details for the new customer. Email and phone are optional.
+            填寫新客戶的詳細資訊。電子郵件和電話為選填欄位。
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -107,9 +106,9 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>全名</FormLabel>
                   <FormControl>
-                    <Input placeholder="John Doe" {...field} disabled={isSubmitting} />
+                    <Input placeholder="王小明" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -120,7 +119,7 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address (Optional)</FormLabel>
+                  <FormLabel>電子郵件地址 (選填)</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="customer@example.com" {...field} disabled={isSubmitting} />
                   </FormControl>
@@ -133,9 +132,9 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
               name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number (Optional)</FormLabel>
+                  <FormLabel>電話號碼 (選填)</FormLabel>
                   <FormControl>
-                    <Input placeholder="+1234567890" {...field} disabled={isSubmitting} />
+                    <Input placeholder="+886912345678" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -146,9 +145,9 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address (Optional)</FormLabel>
+                  <FormLabel>地址 (選填)</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="123 Main St, Anytown, USA" {...field} disabled={isSubmitting} />
+                    <Textarea placeholder="台灣台北市信義區市府路1號" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -157,7 +156,7 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="outline" disabled={isSubmitting}>
-                  Cancel
+                  取消
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -166,7 +165,7 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
                 ) : (
                   <PlusCircle className="mr-2 h-4 w-4" />
                 )}
-                Add Customer
+                新增客戶
               </Button>
             </DialogFooter>
           </form>

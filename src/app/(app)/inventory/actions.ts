@@ -34,17 +34,17 @@ export async function recordStockIn(
 ): Promise<{ success: boolean; movement?: InventoryMovement; error?: string; errors?: z.ZodIssue[] }> {
   const validation = RecordStockInInputSchema.safeParse(data);
   if (!validation.success) {
-    return { success: false, error: "Validation failed", errors: validation.error.errors };
+    return { success: false, error: "資料驗證失敗", errors: validation.error.errors };
   }
 
   const { productId, quantity, batchExpiryDate, userId } = validation.data;
 
   if (userId !== currentUser._id) {
-    return { success: false, error: "User ID mismatch. Action denied." };
+    return { success: false, error: "用戶ID不匹配。操作被拒絕。" };
   }
 
   if (!batchExpiryDate) {
-    return { success: false, error: "Batch expiry date is required for stock-in operations." };
+    return { success: false, error: "批次到期日期是必需的。" };
   }
 
   try {
@@ -54,7 +54,7 @@ export async function recordStockIn(
     const product = await db.collection<Product>(PRODUCTS_COLLECTION).findOne({ _id: productObjectId });
 
     if (!product) {
-      return { success: false, error: 'Product not found.' };
+      return { success: false, error: '找不到商品。' };
     }
 
     const stockBefore = product.stock;
@@ -69,7 +69,7 @@ export async function recordStockIn(
       costPerUnit: product.cost || 0,
       createdAt: new Date(),
       supplier: undefined,
-      notes: `Stock-in by ${currentUser.name}`,
+      notes: `入庫 by ${currentUser.name}`,
     };
 
     // Get existing batches and add the new one
@@ -93,7 +93,7 @@ export async function recordStockIn(
     );
 
     if (productUpdateResult.modifiedCount === 0 && productUpdateResult.matchedCount === 0) {
-      return { success: false, error: 'Failed to update product stock. Product may not exist.' };
+      return { success: false, error: '更新庫存失敗。商品可能不存在。' };
     }
 
     const movementData: Omit<InventoryMovement, '_id'> = {
@@ -114,7 +114,7 @@ export async function recordStockIn(
     const movementResult = await db.collection(INVENTORY_MOVEMENTS_COLLECTION).insertOne(movementData);
     if (!movementResult.insertedId) {
       console.error(`Failed to log inventory movement for product ${productId} after stock update.`);
-      return { success: false, error: 'Failed to log inventory movement after updating stock.' };
+      return { success: false, error: '更新庫存後記錄庫存移動失敗。' };
     }
 
     const insertedMovement: InventoryMovement = {
@@ -130,9 +130,9 @@ export async function recordStockIn(
   } catch (error: any) {
     console.error('Failed to record stock in:', error);
     if (error instanceof z.ZodError) {
-      return { success: false, error: "Data validation error during processing.", errors: error.errors };
+      return { success: false, error: "資料驗證錯誤。", errors: error.errors };
     }
-    return { success: false, error: error.message || 'An unexpected error occurred.' };
+    return { success: false, error: error.message || '發生意外錯誤。' };
   }
 }
 
@@ -223,12 +223,12 @@ export async function recordStockAdjustment(
 ): Promise<{ success: boolean; movement?: InventoryMovement; error?: string; errors?: z.ZodIssue[] }> {
   const validation = RecordStockAdjustmentInputSchema.safeParse(data);
   if (!validation.success) {
-    return { success: false, error: "Validation failed", errors: validation.error.errors };
+    return { success: false, error: "資料驗證失敗", errors: validation.error.errors };
   }
   const { productId, quantityChange, reason, notes } = validation.data;
 
   if (quantityChange === 0) {
-    return { success: false, error: "Quantity change cannot be zero." };
+    return { success: false, error: "數量變更不能為零。" };
   }
 
   const db = await getDb();
@@ -237,14 +237,14 @@ export async function recordStockAdjustment(
   const product = await db.collection<Product>(PRODUCTS_COLLECTION).findOne({ _id: productObjectId });
 
   if (!product) {
-    return { success: false, error: 'Product not found.' };
+    return { success: false, error: '找不到商品。' };
   }
 
   const stockBefore = product.stock;
   const stockAfter = stockBefore + quantityChange;
 
   if (stockAfter < 0) {
-    return { success: false, error: `Adjustment would result in negative stock (${stockAfter}). Current stock: ${stockBefore}. Change: ${quantityChange}` };
+    return { success: false, error: `調整會導致庫存為負 (${stockAfter})。目前庫存: ${stockBefore}。變更: ${quantityChange}` };
   }
 
   try {
@@ -254,7 +254,7 @@ export async function recordStockAdjustment(
     );
 
     if (productUpdateResult.modifiedCount === 0 && productUpdateResult.matchedCount === 0) {
-      return { success: false, error: 'Failed to update product stock for adjustment. Product may not exist.' };
+      return { success: false, error: '更新庫存失敗。商品可能不存在。' };
     }
 
     const movementType = quantityChange > 0 ? 'adjustment-add' : 'adjustment-remove';
@@ -276,8 +276,8 @@ export async function recordStockAdjustment(
 
     const movementResult = await db.collection(INVENTORY_MOVEMENTS_COLLECTION).insertOne(movementData);
     if (!movementResult.insertedId) {
-      console.error(`Critical: Failed to log stock adjustment for product ${productId} after stock was updated.`);
-      return { success: false, error: 'Failed to log stock adjustment after updating stock. Data inconsistency possible.' };
+      console.error(`Critical: 無法記錄庫存調整。商品: ${productId} 庫存更新後。`);
+      return { success: false, error: '更新庫存後記錄庫存調整失敗。資料不一致可能發生。' };
     }
 
     const insertedMovement = InventoryMovementSchema.parse({
@@ -293,9 +293,9 @@ export async function recordStockAdjustment(
   } catch (error: any) {
     console.error('Failed to record stock adjustment:', error);
     if (error instanceof z.ZodError) {
-      return { success: false, error: "Data validation error during adjustment processing.", errors: error.errors };
+      return { success: false, error: "資料驗證錯誤。庫存調整過程中。", errors: error.errors };
     }
-    return { success: false, error: error.message || 'An unexpected error occurred during stock adjustment.' };
+    return { success: false, error: error.message || '庫存調整過程中發生意外錯誤。' };
   }
 }
 

@@ -44,16 +44,16 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'employee'], group: 'Overview' },
-  { href: '/products', label: 'Products', icon: Package, roles: ['admin', 'employee'], group: 'Management' },
-  { href: '/categories', label: 'Categories', icon: FolderTree, roles: ['admin', 'employee'], group: 'Management' },
-  { href: '/inventory', label: 'Inventory', icon: Warehouse, roles: ['admin', 'employee'], group: 'Management' },
-  { href: '/orders', label: 'Orders', icon: ShoppingCart, roles: ['admin', 'employee'], group: 'Management' },
-  { href: '/customers', label: 'Customers', icon: Users, roles: ['admin', 'employee'], group: 'Management' },
-  { href: '/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'employee'], group: 'Analysis' },
-  { href: '/ai-reorder', label: 'AI Reorder', icon: Lightbulb, roles: ['admin', 'employee'], group: 'Analysis' },
-  { href: '/admin/users', label: 'User Management', icon: UserCog, roles: ['admin'], group: 'Administration' },
-  { href: '/admin/deleted-orders', label: 'Deleted Orders', icon: Trash2, roles: ['admin'], group: 'Administration' },
+  { href: '/dashboard', label: '儀表板', icon: LayoutDashboard, roles: ['admin', 'employee'], group: '概覽' },
+  { href: '/products', label: '產品', icon: Package, roles: ['admin', 'employee'], group: '管理' },
+  { href: '/categories', label: '類別', icon: FolderTree, roles: ['admin', 'employee'], group: '管理' },
+  { href: '/inventory', label: '庫存', icon: Warehouse, roles: ['admin', 'employee'], group: '管理' },
+  { href: '/orders', label: '訂單', icon: ShoppingCart, roles: ['admin', 'employee'], group: '管理' },
+  { href: '/customers', label: '客戶', icon: Users, roles: ['admin', 'employee'], group: '管理' },
+  { href: '/reports', label: '報告', icon: BarChart3, roles: ['admin', 'employee'], group: '分析' },
+  { href: '/ai-reorder', label: 'AI 再訂購', icon: Lightbulb, roles: ['admin', 'employee'], group: '分析' },
+  { href: '/admin/users', label: '使用者管理', icon: UserCog, roles: ['admin'], group: '管理' },
+  { href: '/admin/deleted-orders', label: '已刪除訂單', icon: Trash2, roles: ['admin'], group: '管理' },
 ];
 
 export function SidebarNavigation() {
@@ -141,10 +141,10 @@ export function SidebarNavigation() {
             <SidebarMenuButton
               onClick={logout}
               className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              tooltip={{ children: "Logout", className: "bg-accent text-accent-foreground border-accent" }}
+              tooltip={{ children: "登出", className: "bg-accent text-accent-foreground border-accent" }}
             >
               <LogOut className="h-5 w-5" />
-              <span className="group-data-[collapsible=icon]:hidden">Logout</span>
+              <span className="group-data-[collapsible=icon]:hidden">登出</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

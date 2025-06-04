@@ -239,8 +239,8 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
         <div className="flex items-center gap-3">
           <ShoppingCart className="h-6 w-6" />
           <div>
-            <CardTitle className="text-2xl font-bold">Edit Order - {order.orderNumber}</CardTitle>
-            <CardDescription className="text-blue-100 mt-1">Update order details and line items</CardDescription>
+            <CardTitle className="text-2xl font-bold">編輯訂單 - {order.orderNumber}</CardTitle>
+            <CardDescription className="text-blue-100 mt-1">更新訂單詳細資訊和明細項目</CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -253,7 +253,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
             <div className="bg-slate-50 p-4 rounded-lg border">
               <div className="flex items-center gap-2 mb-3">
                 <Users className="h-5 w-5 text-blue-600" />
-                <h3 className="text-lg font-semibold text-gray-800">Customer Information</h3>
+                <h3 className="text-lg font-semibold text-gray-800">客戶資訊</h3>
               </div>
               
               <FormField
@@ -261,7 +261,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                 name="customerId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Customer *</FormLabel>
+                    <FormLabel>客戶 *</FormLabel>
                     <div className="flex gap-2">
                       <Popover open={openCustomerPopover} onOpenChange={setOpenCustomerPopover}>
                         <PopoverTrigger asChild>
@@ -272,8 +272,8 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                               className={cn("flex-1 justify-between", !field.value && "text-muted-foreground")}
                             >
                               {field.value
-                                ? getSelectedCustomer()?.name || "Select customer"
-                                : "Select customer"
+                                ? getSelectedCustomer()?.name || "選擇客戶"
+                                : "選擇客戶"
                               }
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
@@ -282,11 +282,11 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                         <PopoverContent className="w-[400px] p-0">
                           <Command>
                             <CommandInput 
-                              placeholder="Search customers..." 
+                              placeholder="搜尋客戶..." 
                               value={customerSearch}
                               onValueChange={setCustomerSearch}
                             />
-                            <CommandEmpty>No customer found.</CommandEmpty>
+                            <CommandEmpty>找不到客戶。</CommandEmpty>
                             <CommandGroup>
                               <CommandList className="max-h-48">
                                 {isLoadingCustomers ? (
@@ -332,7 +332,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">Order Items</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">訂單明細</h3>
                 </div>
                 <Button
                   type="button"
@@ -342,7 +342,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                   className="flex items-center gap-2"
                 >
                   <PlusCircle className="h-4 w-4" />
-                  Add Item
+                  新增項目
                 </Button>
               </div>
 
@@ -357,7 +357,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                         name={`items.${index}.productId`}
                         render={({ field: productField }) => (
                           <FormItem className="md:col-span-2">
-                            <FormLabel>Product *</FormLabel>
+                            <FormLabel>產品 *</FormLabel>
                             <Popover 
                               open={openProductPopovers[index] || false} 
                               onOpenChange={(open) => setOpenProductPopovers(prev => ({ ...prev, [index]: open }))}
@@ -370,8 +370,8 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                                     className={cn("w-full justify-between", !productField.value && "text-muted-foreground")}
                                   >
                                     {productField.value
-                                      ? products.find(p => p._id === productField.value)?.name || "Select product"
-                                      : "Select product"
+                                      ? products.find(p => p._id === productField.value)?.name || "選擇產品"
+                                      : "選擇產品"
                                     }
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                   </Button>
@@ -380,11 +380,11 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                               <PopoverContent className="w-[400px] p-0">
                                 <Command>
                                   <CommandInput 
-                                    placeholder="Search products..." 
+                                    placeholder="搜尋產品..." 
                                     value={productSearches[index] || ''}
                                     onValueChange={(value) => setProductSearches(prev => ({ ...prev, [index]: value }))}
                                   />
-                                  <CommandEmpty>No product found.</CommandEmpty>
+                                  <CommandEmpty>找不到產品。</CommandEmpty>
                                   <CommandGroup>
                                     <CommandList className="max-h-48">
                                       {isLoadingProducts ? (
@@ -407,7 +407,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                                             />
                                             <div>
                                               <p className="font-medium">{product.name}</p>
-                                              <p className="text-sm text-muted-foreground">SKU: {product.sku} | Stock: {product.stock} | Price: ${product.price}</p>
+                                              <p className="text-sm text-muted-foreground">SKU: {product.sku} | 庫存: {product.stock} | 價格: ${product.price}</p>
                                             </div>
                                           </CommandItem>
                                         ))
@@ -428,12 +428,12 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                         name={`items.${index}.quantity`}
                         render={({ field: qtyField }) => (
                           <FormItem>
-                            <FormLabel>Quantity *</FormLabel>
+                            <FormLabel>數量 *</FormLabel>
                             <FormControl>
                               <Input 
                                 type="text" 
                                 inputMode="numeric" 
-                                placeholder="e.g., 1, 2, 10"
+                                placeholder="例如：1, 2, 10"
                                 value={qtyField.value || ''}
                                 onChange={(e) => {
                                   const value = e.target.value;
@@ -471,7 +471,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                         name={`items.${index}.unitPrice`}
                         render={({ field: priceField }) => (
                           <FormItem>
-                            <FormLabel>Unit Price *</FormLabel>
+                            <FormLabel>單價 *</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" min="0" {...priceField} />
                             </FormControl>
@@ -501,10 +501,10 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                         name={`items.${index}.notes`}
                         render={({ field: notesField }) => (
                           <FormItem>
-                            <FormLabel>Item Notes</FormLabel>
+                            <FormLabel>項目備註</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder="Optional notes for this item"
+                                placeholder="此項目的選項備註"
                                 value={notesField.value || ''}
                                 onChange={notesField.onChange}
                                 onBlur={notesField.onBlur}
@@ -524,7 +524,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
               {fields.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <ShoppingCart className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>No items added yet. Click "Add Item" to start building the order.</p>
+                  <p>尚未新增項目。點擊「新增項目」開始建立訂單。</p>
                 </div>
               )}
             </div>
@@ -536,7 +536,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
               <div className="bg-slate-50 p-4 rounded-lg border">
                 <div className="flex items-center gap-2 mb-3">
                   <Percent className="h-5 w-5 text-green-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">Discount</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">折扣</h3>
                 </div>
                 
                 <div className="space-y-4">
@@ -545,17 +545,17 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                     name="discountType"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Discount Type</FormLabel>
+                        <FormLabel>折扣類型</FormLabel>
                         <Select onValueChange={(value) => field.onChange(value === 'none' ? null : value)} value={field.value || 'none'}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select discount type" />
+                              <SelectValue placeholder="選擇折扣類型" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="none">No Discount</SelectItem>
-                            <SelectItem value="percentage">Percentage</SelectItem>
-                            <SelectItem value="fixed">Fixed Amount</SelectItem>
+                            <SelectItem value="none">無折扣</SelectItem>
+                            <SelectItem value="percentage">百分比</SelectItem>
+                            <SelectItem value="fixed">固定金額</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -570,7 +570,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            {watchedDiscountType === 'percentage' ? 'Discount Percentage' : 'Discount Amount ($)'}
+                            {watchedDiscountType === 'percentage' ? '折扣百分比' : '折扣金額 ($)'}
                           </FormLabel>
                           <FormControl>
                             <Input
@@ -598,7 +598,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
               <div className="bg-slate-50 p-4 rounded-lg border">
                 <div className="flex items-center gap-2 mb-3">
                   <Truck className="h-5 w-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">Shipping</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">運費</h3>
                 </div>
                 
                 <FormField
@@ -606,7 +606,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                   name="shippingFeeInput"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Shipping Fee ($)</FormLabel>
+                      <FormLabel>運費 ($)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -631,29 +631,29 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
             <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-lg border-2 border-blue-200">
               <div className="flex items-center gap-2 mb-4">
                 <DollarSign className="h-6 w-6 text-blue-600" />
-                <h3 className="text-xl font-bold text-gray-800">Order Summary</h3>
+                <h3 className="text-xl font-bold text-gray-800">訂單總結</h3>
               </div>
               
               <div className="space-y-2 text-lg">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal:</span>
+                  <span className="text-gray-600">小計:</span>
                   <span className="font-semibold">{formatCurrency(subtotal)}</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-green-600">
-                    <span>Discount:</span>
+                    <span>折扣:</span>
                     <span className="font-semibold">-{formatCurrency(discountAmount)}</span>
                   </div>
                 )}
                 {parseFloat(watchedShippingFeeInput || '0') > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Shipping:</span>
+                    <span className="text-gray-600">運費:</span>
                     <span className="font-semibold">{formatCurrency(parseFloat(watchedShippingFeeInput || '0'))}</span>
                   </div>
                 )}
                 <hr className="border-gray-300" />
                 <div className="flex justify-between text-xl font-bold text-blue-700">
-                  <span>Total:</span>
+                  <span>總計:</span>
                   <span>{formatCurrency(totalAmount)}</span>
                 </div>
               </div>
@@ -666,10 +666,10 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Order Notes</FormLabel>
+                    <FormLabel>訂單備註</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Add any additional notes for this order..."
+                        placeholder="新增此訂單的任何額外備註..."
                         className="min-h-[100px]"
                         value={field.value || ''}
                         onChange={field.onChange}
@@ -694,7 +694,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                 disabled={isSubmitting}
                 className="flex-1"
               >
-                Cancel
+                取消
               </Button>
               <Button 
                 type="submit" 
@@ -704,10 +704,10 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating Order...
+                    正在更新訂單...
                   </>
                 ) : (
-                  "Update Order"
+                  "更新訂單"
                 )}
               </Button>
             </div>

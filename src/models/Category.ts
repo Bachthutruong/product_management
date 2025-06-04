@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const CategorySchema = z.object({
     _id: z.any().optional(), // MongoDB ObjectId will be here, handled by the database
-    name: z.string().min(1, { message: "Category name is required" }),
+    name: z.string().min(1, { message: "分類名稱是必需的" }),
     description: z.string().optional(),
     createdAt: z.date().optional(),
     updatedAt: z.date().optional(),

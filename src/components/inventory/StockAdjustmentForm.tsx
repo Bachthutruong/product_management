@@ -50,7 +50,7 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
         const result = await getProducts(); // Changed from fetchedProducts
         setProducts(result.products); // Access the .products property
       } catch (error) {
-        toast({ variant: "destructive", title: "Error", description: "Could not load products for selection." });
+        toast({ variant: "destructive", title: "錯誤", description: "無法載入產品供選擇。" });
       } finally {
         setIsLoadingProducts(false);
       }
@@ -60,22 +60,22 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
 
   async function onSubmit(data: RecordStockAdjustmentInput) {
     if (!user) {
-      toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in." });
+      toast({ variant: "destructive", title: "認證錯誤", description: "您必須登入。" });
       return;
     }
     if (data.quantityChange === 0) {
-      form.setError("quantityChange", { message: "Quantity change cannot be zero." });
+      form.setError("quantityChange", { message: "數量變更不能為零。" });
       return;
     }
     setIsSubmitting(true);
     try {
       const result = await recordStockAdjustment(data, user);
       if (result.success && result.movement) {
-        const adjustmentType = data.quantityChange > 0 ? 'added' : 'removed';
+        const adjustmentType = data.quantityChange > 0 ? '新增' : '移除';
         const absQuantity = Math.abs(data.quantityChange);
         toast({
-          title: 'Stock Adjustment Recorded',
-          description: `${absQuantity} units of ${result.movement.productName} ${adjustmentType} due to ${data.reason}.`,
+          title: '庫存調整已記錄',
+          description: `由於 ${data.reason}，已${adjustmentType} ${absQuantity} 單位的 ${result.movement.productName}。`,
         });
         form.reset({
           productId: '',
@@ -87,15 +87,15 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
       } else {
         toast({
           variant: 'destructive',
-          title: 'Error Recording Adjustment',
-          description: result.error || 'An unknown error occurred.',
+          title: '記錄調整錯誤',
+          description: result.error || '發生未知錯誤。',
         });
       }
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Submission Error',
-        description: 'An unexpected error occurred while recording the stock adjustment.',
+        title: '提交錯誤',
+        description: '記錄庫存調整時發生意外錯誤。',
       });
     } finally {
       setIsSubmitting(false);
@@ -103,7 +103,7 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
   }
 
   if (!user) {
-    return <p>Please log in to record stock adjustments.</p>;
+    return <p>請登入以記錄庫存調整。</p>;
   }
 
   return (
@@ -111,9 +111,9 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
       <CardHeader>
         <CardTitle className="flex items-center">
           <Edit className="mr-2 h-6 w-6 text-orange-500" />
-          Stock Adjustment
+          庫存調整
         </CardTitle>
-        <CardDescription>Record stock changes (e.g., damages, corrections, internal use). Use positive for additions, negative for removals.</CardDescription>
+        <CardDescription>記錄庫存變更（例如：損壞、修正、內部使用）。增加使用正數，移除使用負數。</CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -123,7 +123,7 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
               name="productId"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Product</FormLabel>
+                  <FormLabel>產品</FormLabel>
                   <Popover open={openProductPopover} onOpenChange={setOpenProductPopover}>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -137,8 +137,8 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
                           disabled={isLoadingProducts || isSubmitting}
                         >
                           {field.value
-                            ? products.find(p => p._id === field.value)?.name || "Select a product"
-                            : (isLoadingProducts ? "Loading products..." : "Select a product")}
+                            ? products.find(p => p._id === field.value)?.name || "選擇產品"
+                            : (isLoadingProducts ? "載入產品中..." : "選擇產品")}
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </FormControl>
@@ -146,12 +146,12 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
                     <PopoverContent className="w-[400px] p-0">
                       <Command>
                         <CommandInput
-                          placeholder="Search product..."
+                          placeholder="搜尋產品..."
                           value={productSearch}
                           onValueChange={setProductSearch}
                         />
                         <CommandList>
-                          <CommandEmpty>No product found.</CommandEmpty>
+                          <CommandEmpty>找不到產品。</CommandEmpty>
                           <CommandGroup>
                             {products
                               .filter(p => 
@@ -178,7 +178,7 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
                                   <div className="flex flex-col">
                                     <span>{product.name} (SKU: {product.sku || 'N/A'})</span>
                                     <span className="text-xs text-muted-foreground">
-                                      Current Stock: {product.stock}
+                                      目前庫存: {product.stock}
                                     </span>
                                   </div>
                                 </CommandItem>
@@ -197,11 +197,11 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
               name="quantityChange"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Quantity Change</FormLabel>
+                  <FormLabel>數量變更</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder="e.g., -5 or 10"
+                      placeholder="例如：-5 或 10"
                       {...field}
                       disabled={isSubmitting}
                       onChange={e => field.onChange(e.target.value === '' ? 0 : parseInt(e.target.value, 10))}
@@ -216,9 +216,9 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
               name="reason"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Reason for Adjustment</FormLabel>
+                  <FormLabel>調整原因</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Damaged goods, Stock count correction" {...field} disabled={isSubmitting} />
+                    <Input placeholder="例如：商品損壞、庫存盤點修正" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -229,10 +229,10 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Additional Notes (Optional)</FormLabel>
+                  <FormLabel>其他備註 (選填)</FormLabel>
                   <FormControl>
                     {/* @ts-expect-error Textarea is not in FormControl */}
-                    <Textarea placeholder="Any extra details about this adjustment..." {...field} disabled={isSubmitting} />
+                    <Textarea placeholder="關於此調整的任何額外詳細資訊..." {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -246,7 +246,7 @@ export function StockAdjustmentForm({ onStockAdjusted }: StockAdjustmentFormProp
               ) : (
                 <Edit className="mr-2 h-4 w-4" />
               )}
-              Record Stock Adjustment
+              記錄庫存調整
             </Button>
           </CardFooter>
         </form>

@@ -24,11 +24,11 @@ import { formatForCalendarDisplay } from '@/lib/date-utils';
 
 // Define the Zod schema for form values including coercions
 const AddProductFormResolverSchema = ProductFormInputSchema.extend({
-  price: z.coerce.number().min(0, { message: "Price must be a positive number" }),
-  cost: z.coerce.number().min(0, { message: "Cost must be non-negative" }).optional().default(0),
-  stock: z.coerce.number().int({ message: "Stock must be an integer" }).min(0, { message: "Stock must be non-negative" }),
+  price: z.coerce.number().min(0, { message: "價格必須是非負數" }),
+  cost: z.coerce.number().min(0, { message: "成本必須是非負數" }).optional().default(0),
+  stock: z.coerce.number().int({ message: "庫存必須是整數" }).min(0, { message: "庫存必須是非負數" }),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
-  expiryDate: z.date({ message: "Expiry date is required" }),
+  expiryDate: z.date({ message: "到期日期是必需的" }),
   categoryId: z.string().optional(),
   categoryName: z.string().optional(),
 });
@@ -51,7 +51,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
         setCategories(result.categories);
       } catch (error) {
         console.error("Failed to fetch categories for form:", error);
-        toast({ variant: "destructive", title: "Error", description: "Could not load categories for selection." });
+        toast({ variant: "destructive", title: "錯誤", description: "無法載入分類以供選擇。" });
       }
       setIsLoadingCategories(false);
     }
@@ -166,16 +166,16 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
       const result = await addProduct(formData);
       if (result.success && result.product) {
         toast({
-          title: 'Product Added',
-          description: `${result.product.name} has been successfully added.`,
+          title: '產品已新增',
+          description: `${result.product.name} 已成功新增。`,
         });
         resetFormAndPreviews();
         if (onProductAdded) onProductAdded(result.product);
       } else {
         toast({
           variant: 'destructive',
-          title: 'Error Adding Product',
-          description: result.error || 'An unknown error occurred.',
+          title: '新增產品錯誤',
+          description: result.error || '發生未知錯誤。',
         });
         if (result.errors) {
           result.errors.forEach((err) => {
@@ -187,8 +187,8 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
       console.error("Error in addProduct submission:", error);
       toast({
         variant: 'destructive',
-        title: 'Submission Error',
-        description: 'An unexpected error occurred during product submission.',
+        title: '提交錯誤',
+        description: '新增產品時發生意外錯誤。',
       });
     } finally {
       setIsSubmitting(false);
@@ -204,9 +204,9 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Product Name</FormLabel>
+                <FormLabel>產品名稱</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., Super Widget" {...field} />
+                  <Input placeholder="例如：超級小部件" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -220,7 +220,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                 <FormItem>
                   <FormLabel>SKU</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., SW-001" {...field} />
+                    <Input placeholder="例如：SW-001" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -231,7 +231,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
               name="categoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category</FormLabel>
+                  <FormLabel>分類</FormLabel>
                   <Select
                     onValueChange={(value) => {
                       const selectedCat = categories.find(c => c._id === value);
@@ -243,13 +243,13 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select a category"} />
+                        <SelectValue placeholder={isLoadingCategories ? "正在載入分類..." : "選擇一個分類"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {!isLoadingCategories && categories.length === 0 && (
                         <SelectItem value="no-categories-pls-add" disabled>
-                          No categories found. Add one first.
+                          找不到分類。請先新增一個。
                         </SelectItem>
                       )}
                       {categories.filter(category => typeof category._id === 'string' && category._id !== '').map((category) => (
@@ -270,9 +270,9 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
               name="price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Price</FormLabel>
+                  <FormLabel>價格</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="decimal" placeholder="e.g., 19.99" {...field} />
+                    <Input type="text" inputMode="decimal" placeholder="例如：19.99" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -283,9 +283,9 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
               name="cost"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Cost</FormLabel>
+                  <FormLabel>成本</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="decimal" placeholder="e.g., 10.50" {...field} />
+                    <Input type="text" inputMode="decimal" placeholder="例如：10.50" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -296,9 +296,9 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
               name="stock"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Stock Quantity</FormLabel>
+                  <FormLabel>庫存數量</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="numeric" placeholder="e.g., 100" {...field} />
+                    <Input type="text" inputMode="numeric" placeholder="例如：100" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -311,9 +311,9 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
               name="unitOfMeasure"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Unit of Measure</FormLabel>
+                  <FormLabel>計量單位</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., pcs, box, kg" {...field} />
+                    <Input placeholder="例如：個, 盒, 公斤" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -324,9 +324,9 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
               name="lowStockThreshold"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Low Stock Threshold</FormLabel>
+                  <FormLabel>低庫存閾值</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="numeric" placeholder="e.g., 10" {...field} />
+                    <Input type="text" inputMode="numeric" placeholder="例如：10" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -338,7 +338,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
             name="expiryDate"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel>Expiry Date (Required)</FormLabel>
+                <FormLabel>到期日期 (必填)</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
@@ -352,7 +352,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                         {field.value ? (
                           formatForCalendarDisplay(field.value)
                         ) : (
-                          <span>Pick a date</span>
+                          <span>選擇日期</span>
                         )}
                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                       </Button>
@@ -377,16 +377,16 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
             name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description (Optional)</FormLabel>
+                <FormLabel>描述 (選填)</FormLabel>
                 <FormControl>
-                  <Textarea placeholder="Brief description of the product..." {...field} />
+                  <Textarea placeholder="輸入產品的簡要描述..." {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
           <FormItem>
-            <FormLabel htmlFor="images-input-in-dialog">Product Images (Multiple)</FormLabel>
+            <FormLabel htmlFor="images-input-in-dialog">產品圖片 (多張)</FormLabel>
             <FormControl>
               <div className="flex items-center justify-center w-full">
                 <label
@@ -396,9 +396,9 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
                     <p className="mb-1 text-sm text-muted-foreground">
-                      <span className="font-semibold">Click to upload</span> or drag and drop
+                      <span className="font-semibold">點擊上傳</span> 或拖曳檔案
                     </p>
-                    <p className="text-xs text-muted-foreground">Select multiple images if needed (e.g., PNG, JPG)</p>
+                    <p className="text-xs text-muted-foreground">如果需要，選擇多張圖片 (例如：PNG, JPG)</p>
                   </div>
                   <Input
                     id="images-input-in-dialog"
@@ -419,7 +419,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                 <div key={index} className="relative group aspect-square">
                   <Image
                     src={src}
-                    alt={`Preview ${index + 1}`}
+                    alt={`預覽 ${index + 1}`}
                     width={100}
                     height={100}
                     className="object-cover w-full h-full rounded-md border"
@@ -433,7 +433,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
                     onClick={() => removeImagePreview(index)}
                   >
                     <XCircle className="h-4 w-4" />
-                    <span className="sr-only">Remove image</span>
+                    <span className="sr-only">移除圖片</span>
                   </Button>
                 </div>
               ))}
@@ -448,7 +448,7 @@ export function AddProductForm({ userId, onProductAdded }: { userId: string, onP
             ) : (
               <PlusCircle className="mr-2 h-4 w-4" />
             )}
-            Add Product
+            新增產品
           </Button>
         </div>
       </form>

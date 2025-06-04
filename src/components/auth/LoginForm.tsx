@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -58,7 +57,7 @@ export function LoginForm() {
             <PackageSearch className="h-12 w-12 text-primary" />
         </div>
         <CardTitle className="text-3xl font-bold">StockPilot</CardTitle>
-        <CardDescription>Sign in to manage your inventory</CardDescription>
+        <CardDescription>登入以管理您的庫存</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -66,7 +65,7 @@ export function LoginForm() {
             {formError && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Login Failed</AlertTitle>
+                <AlertTitle>登入失敗</AlertTitle>
                 <AlertDescription>{formError}</AlertDescription>
               </Alert>
             )}
@@ -75,7 +74,7 @@ export function LoginForm() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>電子郵件</FormLabel>
                   <FormControl>
                     <Input
                       type="email"
@@ -94,7 +93,7 @@ export function LoginForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>密碼</FormLabel>
                   <div className="relative">
                     <FormControl>
                       <Input
@@ -111,7 +110,7 @@ export function LoginForm() {
                       size="icon"
                       className="absolute inset-y-0 right-0 h-full px-3 text-muted-foreground hover:text-foreground"
                       onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-label={showPassword ? "隱藏密碼" : "顯示密碼"}
                       disabled={isLoading}
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -123,7 +122,7 @@ export function LoginForm() {
             />
             {/* Role select is removed as role is determined by backend */}
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Login"}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "登入"}
             </Button>
           </form>
         </Form>

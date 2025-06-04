@@ -45,7 +45,7 @@ export function ProductStockInHistoryDialog({ productId }: ProductStockInHistory
       setProduct(productData);
     } catch (error) {
       console.error("Failed to fetch stock data:", error);
-      toast({ variant: "destructive", title: "Loading Error", description: "Could not load stock information for this product." });
+      toast({ variant: "destructive", title: "載入錯誤", description: "無法載入此產品的庫存資訊。" });
       setMovements([]);
       setProduct(null);
     } finally {
@@ -83,8 +83,8 @@ export function ProductStockInHistoryDialog({ productId }: ProductStockInHistory
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
-        <h3 className="text-xl font-semibold text-foreground">No Stock Information Found</h3>
-        <p className="text-muted-foreground">This product has no recorded stock movements or batches.</p>
+        <h3 className="text-xl font-semibold text-foreground">找不到庫存資訊</h3>
+        <p className="text-muted-foreground">此產品沒有記錄的庫存異動或批次。</p>
       </div>
     );
   }
@@ -92,8 +92,8 @@ export function ProductStockInHistoryDialog({ productId }: ProductStockInHistory
   return (
     <Tabs defaultValue="batches" className="w-full">
       <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="batches">Current Batches</TabsTrigger>
-        <TabsTrigger value="history">Stock-In History</TabsTrigger>
+        <TabsTrigger value="batches">目前批次</TabsTrigger>
+        <TabsTrigger value="history">入庫歷史記錄</TabsTrigger>
       </TabsList>
 
       <TabsContent value="batches" className="mt-4">
@@ -102,12 +102,12 @@ export function ProductStockInHistoryDialog({ productId }: ProductStockInHistory
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Batch ID</TableHead>
-                  <TableHead>Expiry Date</TableHead>
-                  <TableHead className="text-right">Initial Qty</TableHead>
-                  <TableHead className="text-right">Remaining Qty</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Cost/Unit</TableHead>
+                  <TableHead>批次 ID</TableHead>
+                  <TableHead>到期日期</TableHead>
+                  <TableHead className="text-right">初始數量</TableHead>
+                  <TableHead className="text-right">剩餘數量</TableHead>
+                  <TableHead>狀態</TableHead>
+                  <TableHead>單位成本</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -121,13 +121,13 @@ export function ProductStockInHistoryDialog({ productId }: ProductStockInHistory
                     </TableCell>
                     <TableCell>
                       {batch.remainingQuantity === 0 ? (
-                        <Badge variant="outline">Out of Stock</Badge>
+                        <Badge variant="outline">無庫存</Badge>
                       ) : isExpired(batch.expiryDate) ? (
-                        <Badge variant="destructive">Expired</Badge>
+                        <Badge variant="destructive">已過期</Badge>
                       ) : isNearExpiry(batch.expiryDate) ? (
-                        <Badge variant="secondary">Near Expiry</Badge>
+                        <Badge variant="secondary">即將到期</Badge>
                       ) : (
-                        <Badge variant="default">Active</Badge>
+                        <Badge variant="default">有效</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -140,7 +140,7 @@ export function ProductStockInHistoryDialog({ productId }: ProductStockInHistory
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <Package className="w-12 h-12 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">No batches found for this product.</p>
+              <p className="text-muted-foreground">此產品沒有找到批次。</p>
             </div>
           )}
         </ScrollArea>
@@ -152,10 +152,10 @@ export function ProductStockInHistoryDialog({ productId }: ProductStockInHistory
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Stock-In Date</TableHead>
-                  <TableHead className="text-right">Quantity</TableHead>
-                  <TableHead>Batch Expiry</TableHead>
-                  <TableHead>Recorded By</TableHead>
+                  <TableHead>入庫日期</TableHead>
+                  <TableHead className="text-right">數量</TableHead>
+                  <TableHead>批次到期</TableHead>
+                  <TableHead>記錄人</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -166,7 +166,7 @@ export function ProductStockInHistoryDialog({ productId }: ProductStockInHistory
                       +{move.quantity}
                     </TableCell>
                     <TableCell>
-                      {move.batchExpiryDate ? formatToYYYYMMDD(move.batchExpiryDate) : <Badge variant="outline">N/A</Badge>}
+                      {move.batchExpiryDate ? formatToYYYYMMDD(move.batchExpiryDate) : <Badge variant="outline">不適用</Badge>}
                     </TableCell>
                     <TableCell className="flex items-center">
                       <UserCircle2 className="mr-1.5 h-4 w-4 text-muted-foreground" />
@@ -179,7 +179,7 @@ export function ProductStockInHistoryDialog({ productId }: ProductStockInHistory
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <PackageSearch className="w-12 h-12 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">No stock-in history found.</p>
+              <p className="text-muted-foreground">沒有找到入庫歷史記錄。</p>
             </div>
           )}
         </ScrollArea>

@@ -41,7 +41,7 @@ export function CategoryForm({
     }, [initialData, form]);
 
     const Icon = initialData ? Save : PlusCircle;
-    const buttonText = submitButtonText || (initialData ? 'Save Changes' : 'Add Category');
+    const buttonText = submitButtonText || (initialData ? '儲存變更' : '新增類別');
 
     return (
         <Form {...form}>
@@ -51,9 +51,9 @@ export function CategoryForm({
                     name="name"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Category Name</FormLabel>
+                            <FormLabel>類別名稱</FormLabel>
                             <FormControl>
-                                <Input placeholder="e.g., Electronics, Apparel" {...field} />
+                                <Input placeholder="例如：電子產品、服飾" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -64,9 +64,9 @@ export function CategoryForm({
                     name="description"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Description (Optional)</FormLabel>
+                            <FormLabel>描述 (選填)</FormLabel>
                             <FormControl>
-                                <Textarea placeholder="Brief description of the category..." {...field} />
+                                <Textarea placeholder="類別的簡短描述..." {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -75,7 +75,7 @@ export function CategoryForm({
                 <div className="flex flex-wrap gap-2 justify-end pt-2">
                     {onCancel && (
                         <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-                            Cancel
+                            取消
                         </Button>
                     )}
                     <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
