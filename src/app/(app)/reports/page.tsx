@@ -43,15 +43,15 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-foreground">Reports & Analysis</h1>
+      <h1 className="text-3xl font-bold text-foreground">報告與分析</h1>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <TrendingUp className="mr-2 h-6 w-6 text-green-500" /> Sales Summary
+              <TrendingUp className="mr-2 h-6 w-6 text-green-500" /> 銷售總結
             </CardTitle>
-            <CardDescription>Overall sales performance metrics.</CardDescription>
+            <CardDescription>整體銷售業績指標。</CardDescription>
           </CardHeader>
           <CardContent>
             {loadingSales ? (
@@ -63,23 +63,23 @@ export default function ReportsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center text-muted-foreground">
                     <ShoppingBag className="mr-2 h-5 w-5" />
-                    <span>Total Orders (All Time):</span>
+                    <span>總訂單數 (所有時間):</span>
                   </div>
                   <span className="font-semibold text-lg text-foreground">{salesSummary.totalOrdersAllTime}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center text-muted-foreground">
                     <DollarSign className="mr-2 h-5 w-5" />
-                    <span>Total Revenue (All Time):</span>
+                    <span>總營收 (所有時間):</span>
                   </div>
                   <span className="font-semibold text-lg text-foreground">{formatCurrency(salesSummary.totalRevenueAllTime)}</span>
                 </div>
                 <div className="h-32 bg-muted/30 rounded-md flex items-center justify-center text-sm text-muted-foreground mt-4">
-                  Sales Chart Area (Future Enhancement)
+                  銷售圖表區塊 (未來增強功能)
                 </div>
               </div>
             ) : (
-              <p className="text-muted-foreground">Could not load sales summary.</p>
+              <p className="text-muted-foreground">無法載入銷售總結。</p>
             )}
           </CardContent>
         </Card>
@@ -87,9 +87,9 @@ export default function ReportsPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <AlertTriangle className="mr-2 h-6 w-6 text-orange-500" /> Detailed Inventory Alerts
+              <AlertTriangle className="mr-2 h-6 w-6 text-orange-500" /> 詳細庫存警示
             </CardTitle>
-            <CardDescription>Products nearing expiration or low stock (shows up to 10).</CardDescription>
+            <CardDescription>即將到期或庫存不足的產品 (最多顯示 10 個)。</CardDescription>
           </CardHeader>
           <CardContent>
             {loadingAlerts ? (
@@ -99,38 +99,38 @@ export default function ReportsPage() {
             ) : inventoryAlerts ? (
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium text-foreground mb-2">Low Stock Products</h4>
+                  <h4 className="font-medium text-foreground mb-2">庫存不足產品</h4>
                   {inventoryAlerts.lowStockProducts.length > 0 ? (
                     <ul className="space-y-1 text-sm max-h-40 overflow-y-auto">
                       {inventoryAlerts.lowStockProducts.map(product => (
                         <li key={product._id} className="text-red-600">
                           <AlertTriangle className="inline h-4 w-4 mr-1" />
-                          <span className="font-semibold">{product.name}</span>: {product.stock} units (Threshold: {product.lowStockThreshold})
+                          <span className="font-semibold">{product.name}</span>: {product.stock} 個 (閾值: {product.lowStockThreshold})
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground flex items-center"><CircleSlash className="mr-2 h-4 w-4" />No low stock products.</p>
+                    <p className="text-sm text-muted-foreground flex items-center"><CircleSlash className="mr-2 h-4 w-4" />沒有庫存不足的產品。</p>
                   )}
                 </div>
                 <div>
-                  <h4 className="font-medium text-foreground mb-2">Expiring Soon Products (Next 30 Days)</h4>
+                  <h4 className="font-medium text-foreground mb-2">即將到期產品 (未來 30 天內)</h4>
                   {inventoryAlerts.expiringSoonProducts.length > 0 ? (
                     <ul className="space-y-1 text-sm max-h-40 overflow-y-auto">
                       {inventoryAlerts.expiringSoonProducts.map(product => (
                         <li key={product._id} className="text-orange-600">
                           <AlertTriangle className="inline h-4 w-4 mr-1" />
-                          <span className="font-semibold">{product.name}</span> expires on {product.expiryDate ? formatToYYYYMMDD(product.expiryDate) : "N/A"}
+                          <span className="font-semibold">{product.name}</span> 將於 {product.expiryDate ? formatToYYYYMMDD(product.expiryDate) : "不適用"} 到期
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground flex items-center"><CircleSlash className="mr-2 h-4 w-4" />No products expiring soon.</p>
+                    <p className="text-sm text-muted-foreground flex items-center"><CircleSlash className="mr-2 h-4 w-4" />沒有即將到期的產品。</p>
                   )}
                 </div>
               </div>
             ) : (
-              <p className="text-muted-foreground">Could not load inventory alerts.</p>
+              <p className="text-muted-foreground">無法載入庫存警示。</p>
             )}
           </CardContent>
         </Card>
@@ -138,15 +138,15 @@ export default function ReportsPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <FileText className="mr-2 h-6 w-6 text-blue-500" /> Custom Reports
+              <FileText className="mr-2 h-6 w-6 text-blue-500" /> 自訂報告
             </CardTitle>
-            <CardDescription>Generate and download custom reports.</CardDescription>
+            <CardDescription>產生並下載自訂報告。</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">Functionality to generate specific reports will be here.</p>
+            <p className="text-muted-foreground">產生特定報告的功能將在此處提供。</p>
             <div className="mt-4 space-y-2">
-              <Button variant="link" className="p-0 h-auto text-sm text-primary hover:underline" disabled>Download Inventory Report (CSV) - Soon</Button><br />
-              <Button variant="link" className="p-0 h-auto text-sm text-primary hover:underline" disabled>Download Sales Report (PDF) - Soon</Button>
+              <Button variant="link" className="p-0 h-auto text-sm text-primary hover:underline" disabled>下載庫存報告 (CSV) - 即將推出</Button><br />
+              <Button variant="link" className="p-0 h-auto text-sm text-primary hover:underline" disabled>下載銷售報告 (PDF) - 即將推出</Button>
             </div>
           </CardContent>
         </Card>

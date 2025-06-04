@@ -42,7 +42,7 @@ function DeleteCustomerButton({ customerId, customerName, onCustomerDeleted }: {
 
   const handleDelete = async () => {
     if (user?.role !== 'admin') {
-        toast({ variant: "destructive", title: "Permission Denied", description: "Only admins can delete customers." });
+        toast({ variant: "destructive", title: "權限不足", description: "只有管理員可以刪除客戶。" });
         setIsAlertOpen(false);
         return;
     }
@@ -50,15 +50,15 @@ function DeleteCustomerButton({ customerId, customerName, onCustomerDeleted }: {
     const result = await deleteCustomer(customerId, user.role);
     if (result.success) {
       toast({
-        title: "Customer Deleted",
-        description: `${customerName} has been successfully deleted.`,
+        title: "客戶已刪除",
+        description: `${customerName} 已成功刪除。`,
       });
       onCustomerDeleted();
     } else {
       toast({
         variant: "destructive",
-        title: "Error Deleting Customer",
-        description: result.error || "An unexpected error occurred.",
+        title: "刪除客戶錯誤",
+        description: result.error || "發生意外錯誤。",
       });
     }
     setIsDeleting(false);
@@ -72,21 +72,21 @@ function DeleteCustomerButton({ customerId, customerName, onCustomerDeleted }: {
       <AlertDialogTrigger asChild>
         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting}>
           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          <span className="sr-only">Delete {customerName}</span>
+          <span className="sr-only">刪除 {customerName}</span>
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure you want to delete "{customerName}"?</AlertDialogTitle>
+          <AlertDialogTitle>確定要刪除 "{customerName}"?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the customer. Consider if they have past orders.
+            此操作無法撤銷。這將永久刪除客戶。考慮他們是否有過去的訂單。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setIsAlertOpen(false)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => setIsAlertOpen(false)} disabled={isDeleting}>取消</AlertDialogCancel>
           <Button onClick={handleDelete} variant="destructive" disabled={isDeleting}>
             {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-            Delete Customer
+            刪除客戶
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -116,8 +116,8 @@ export default function CustomersPage() {
       console.error("Failed to fetch customers:", error);
       toast({
         variant: "destructive",
-        title: "Loading Error",
-        description: "Could not load customer data. Please try again later.",
+        title: "載入錯誤",
+        description: "無法載入客戶資料。請稍後再試。",
       });
     } finally {
       setIsLoadingCustomers(false);
@@ -156,14 +156,14 @@ export default function CustomersPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground flex items-center">
-          <UserPlus className="mr-3 h-8 w-8 text-primary" /> Customer Management
+          <UserPlus className="mr-3 h-8 w-8 text-primary" /> 客戶管理
         </h1>
         <div className="flex items-center gap-2 w-full md:w-auto">
           <form onSubmit={(e) => { e.preventDefault(); fetchCustomers(searchTerm); }} className="relative flex-grow md:flex-grow-0 md:w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               type="search" 
-              placeholder="Search name, email, phone..." 
+              placeholder="搜尋姓名、電子郵件、電話..." 
               className="pl-8 w-full" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -176,8 +176,8 @@ export default function CustomersPage() {
       
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Customer Directory</CardTitle>
-          <CardDescription>View and manage your customer information.</CardDescription>
+          <CardTitle>客戶目錄</CardTitle>
+          <CardDescription>查看和管理您的客戶資訊。</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingCustomers && customers.length === 0 ? (
@@ -187,9 +187,9 @@ export default function CustomersPage() {
           ) : filteredCustomers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <UserX className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold text-foreground">No Customers Found</h3>
+              <h3 className="text-xl font-semibold text-foreground">沒有找到客戶</h3>
               <p className="text-muted-foreground">
-                {searchTerm ? "No customers match your search." : "There are no customers yet. Add one to get started."}
+                {searchTerm ? "沒有客戶符合您的搜尋。" : "目前沒有客戶。添加一個開始。"}
               </p>
             </div>
           ) : (
@@ -197,12 +197,12 @@ export default function CustomersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
+                    <TableHead>姓名</TableHead>
+                    <TableHead>電子郵件</TableHead>
+                    <TableHead>電話</TableHead>
+                    <TableHead>地址</TableHead>
+                    <TableHead>加入日期</TableHead>
+                    <TableHead className="text-center">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -221,10 +221,10 @@ export default function CustomersPage() {
                                 size="icon" 
                                 className="text-muted-foreground hover:text-primary" 
                                 onClick={() => handleEditCustomer(cust)}
-                                title={`Edit ${cust.name}`}
+                                title={`編輯 ${cust.name}`}
                                 >
                                 <Edit3 className="h-4 w-4" />
-                                <span className="sr-only">Edit {cust.name}</span>
+                                <span className="sr-only">編輯 ${cust.name}</span>
                             </Button>
                             {/* Delete button remains admin-only */}
                             {user?.role === 'admin' && (
@@ -235,10 +235,10 @@ export default function CustomersPage() {
                                 size="icon" 
                                 className="text-muted-foreground hover:text-primary" 
                                 onClick={() => router.push(`/customers/${cust._id}/orders`)} 
-                                title={`View orders for ${cust.name}`}
+                                title={`查看 ${cust.name} 的訂單`}
                                 >
                                 <ListOrdered className="h-4 w-4" />
-                                <span className="sr-only">View orders for ${cust.name}</span>
+                                <span className="sr-only">查看 ${cust.name} 的訂單</span>
                             </Button>
                         </div>
                       </TableCell>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -15,12 +14,12 @@ import { Loader2, Lightbulb } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
-  productId: z.string().min(1, "Product ID is required"),
-  productName: z.string().min(1, "Product Name is required"),
-  averageDailySales: z.coerce.number().min(0, "Average daily sales must be non-negative"),
-  currentStockLevel: z.coerce.number().min(0, "Current stock level must be non-negative"),
-  leadTimeInDays: z.coerce.number().min(0, "Lead time must be non-negative"),
-  desiredSafetyStockLevel: z.coerce.number().min(0, "Desired safety stock must be non-negative"),
+  productId: z.string().min(1, "產品 ID 是必需的"),
+  productName: z.string().min(1, "產品名稱是必需的"),
+  averageDailySales: z.coerce.number().min(0, "平均日銷售量必須是非負數"),
+  currentStockLevel: z.coerce.number().min(0, "目前庫存水平必須是非負數"),
+  leadTimeInDays: z.coerce.number().min(0, "提前期必須是非負數"),
+  desiredSafetyStockLevel: z.coerce.number().min(0, "目標安全庫存必須是非負數"),
 });
 
 type ReorderFormValues = z.infer<typeof formSchema>;
@@ -49,15 +48,15 @@ export function ReorderSuggestionForm() {
       const result = await suggestReorderQuantity(data);
       setSuggestion(result);
       toast({
-        title: "Suggestion Ready!",
-        description: `AI suggests reordering ${result.reorderQuantity} units of ${data.productName}.`,
+        title: "建議已準備就緒！",
+        description: `AI 建議再訂購 ${result.reorderQuantity} 單位的 ${data.productName}。`,
       });
     } catch (error) {
       console.error("Error getting reorder suggestion:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to get reorder suggestion. Please try again.",
+        title: "錯誤",
+        description: "無法取得再訂購建議。請再試一次。",
       });
     } finally {
       setIsLoading(false);
@@ -69,10 +68,10 @@ export function ReorderSuggestionForm() {
       <CardHeader>
         <CardTitle className="flex items-center">
           <Lightbulb className="mr-2 h-6 w-6 text-accent" />
-          AI Reorder Quantity Suggester
+          AI 再訂購數量建議工具
         </CardTitle>
         <CardDescription>
-          Enter product details to get an AI-powered reorder quantity suggestion.
+          輸入產品詳細資訊以取得 AI 動力的再訂購數量建議。
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -84,7 +83,7 @@ export function ReorderSuggestionForm() {
                 name="productId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Product ID</FormLabel>
+                    <FormLabel>產品 ID</FormLabel>
                     <FormControl>
                       <Input placeholder="SKU-123" {...field} />
                     </FormControl>
@@ -97,9 +96,9 @@ export function ReorderSuggestionForm() {
                 name="productName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Product Name</FormLabel>
+                    <FormLabel>產品名稱</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Super Widget" {...field} />
+                      <Input placeholder="例如：超級小工具" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -112,9 +111,9 @@ export function ReorderSuggestionForm() {
                 name="averageDailySales"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Average Daily Sales</FormLabel>
+                    <FormLabel>平均日銷售量</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 10" {...field} />
+                      <Input type="number" placeholder="例如：10" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -125,9 +124,9 @@ export function ReorderSuggestionForm() {
                 name="currentStockLevel"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Current Stock Level</FormLabel>
+                    <FormLabel>目前庫存水平</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 50" {...field} />
+                      <Input type="number" placeholder="例如：50" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -140,9 +139,9 @@ export function ReorderSuggestionForm() {
                 name="leadTimeInDays"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Lead Time (Days)</FormLabel>
+                    <FormLabel>提前期（天）</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 7" {...field} />
+                      <Input type="number" placeholder="例如：7" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -153,9 +152,9 @@ export function ReorderSuggestionForm() {
                 name="desiredSafetyStockLevel"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Desired Safety Stock Level</FormLabel>
+                    <FormLabel>目標安全庫存水平</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 20" {...field} />
+                      <Input type="number" placeholder="例如：20" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -170,19 +169,19 @@ export function ReorderSuggestionForm() {
               ) : (
                 <Lightbulb className="mr-2 h-4 w-4" />
               )}
-              Get Suggestion
+              取得建議
             </Button>
             {suggestion && (
               <Card className="bg-accent/10 border-accent">
                 <CardHeader>
-                  <CardTitle className="text-accent">AI Suggestion</CardTitle>
+                  <CardTitle className="text-accent">AI 建議</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <p className="text-lg font-semibold text-foreground">
-                    Reorder Quantity: <span className="text-accent">{suggestion.reorderQuantity}</span> units
+                    再訂購數量: <span className="text-accent">{suggestion.reorderQuantity}</span> 單位
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">Reasoning:</span> {suggestion.reasoning}
+                    <span className="font-medium text-foreground">理由:</span> {suggestion.reasoning}
                   </p>
                 </CardContent>
               </Card>

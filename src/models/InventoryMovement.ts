@@ -22,17 +22,17 @@ export const InventoryMovementSchema = z.object({
 export type InventoryMovement = z.infer<typeof InventoryMovementSchema> & { _id: string };
 
 export const RecordStockInInputSchema = z.object({
-  productId: z.string().min(1, "Product selection is required"),
-  quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
-  batchExpiryDate: z.date({ message: "Batch expiry date is required" }),
+  productId: z.string().min(1, "產品選擇是必需的"),
+  quantity: z.coerce.number().int().min(1, "數量必須至少為 1"),
+  batchExpiryDate: z.date({ message: "批次到期日期是必需的" }),
   userId: z.string(), // Will be passed from the authenticated user session
 });
 export type RecordStockInInput = z.infer<typeof RecordStockInInputSchema>;
 
 export const RecordStockAdjustmentInputSchema = z.object({
-  productId: z.string().min(1, "Product selection is required"),
-  quantityChange: z.coerce.number().int().refine(val => val !== 0, "Quantity change cannot be zero"),
-  reason: z.string().min(1, "Reason is required"),
+  productId: z.string().min(1, "產品選擇是必需的"),
+  quantityChange: z.coerce.number().int().refine(val => val !== 0, "數量變更不能為零"),
+  reason: z.string().min(1, "原因說明是必需的"),
   notes: z.string().optional().nullable(),
 });
 export type RecordStockAdjustmentInput = z.infer<typeof RecordStockAdjustmentInputSchema>;

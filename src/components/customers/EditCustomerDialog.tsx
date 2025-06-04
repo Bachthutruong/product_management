@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -67,16 +66,16 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
       const result = await updateCustomer(customer._id, data);
       if (result.success && result.customer) {
         toast({
-          title: 'Customer Updated',
-          description: `${result.customer.name} has been successfully updated.`,
+          title: '客戶已更新',
+          description: `${result.customer.name} 已成功更新。`,
         });
         if (onCustomerUpdated) onCustomerUpdated();
         onOpenChange(false); // Close dialog
       } else {
         toast({
           variant: 'destructive',
-          title: 'Error Updating Customer',
-          description: result.error || 'An unknown error occurred.',
+          title: '更新客戶錯誤',
+          description: result.error || '發生未知錯誤。',
         });
          if (result.errors) {
           result.errors.forEach((err) => {
@@ -91,8 +90,8 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Submission Error',
-        description: 'An unexpected error occurred while updating the customer.',
+        title: '提交錯誤',
+        description: '更新客戶時發生意外錯誤。',
       });
     } finally {
       setIsSubmitting(false);
@@ -107,10 +106,10 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <Edit3 className="mr-2 h-6 w-6 text-primary" />
-            Edit Customer: {customer.name}
+            編輯客戶: {customer.name}
           </DialogTitle>
           <DialogDescription>
-            Modify the customer details below. Click "Save Changes" when you're done.
+            修改客戶詳細資訊。完成後請點擊「儲存變更」。
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -120,9 +119,9 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>全名</FormLabel>
                   <FormControl>
-                    <Input placeholder="John Doe" {...field} disabled={isSubmitting} />
+                    <Input placeholder="王小明" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -133,7 +132,7 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address (Optional)</FormLabel>
+                  <FormLabel>電子郵件地址 (選填)</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="customer@example.com" {...field} disabled={isSubmitting} />
                   </FormControl>
@@ -146,9 +145,9 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
               name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number (Optional)</FormLabel>
+                  <FormLabel>電話號碼 (選填)</FormLabel>
                   <FormControl>
-                    <Input placeholder="+1234567890" {...field} disabled={isSubmitting} />
+                    <Input placeholder="+886912345678" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -159,9 +158,9 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address (Optional)</FormLabel>
+                  <FormLabel>地址 (選填)</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="123 Main St, Anytown, USA" {...field} disabled={isSubmitting} />
+                    <Textarea placeholder="台灣台北市信義區市府路1號" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -170,7 +169,7 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
             <DialogFooter>
                <DialogClose asChild>
                 <Button type="button" variant="outline" disabled={isSubmitting}>
-                  Cancel
+                  取消
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -179,7 +178,7 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                Save Changes
+                儲存變更
               </Button>
             </DialogFooter>
           </form>

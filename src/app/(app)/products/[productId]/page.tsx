@@ -38,8 +38,8 @@ export default function ProductDetailPage() {
         if (!product) {
           toast({ 
             variant: "destructive", 
-            title: "Product Not Found", 
-            description: "The requested product could not be found." 
+            title: "找不到產品", 
+            description: "找不到要求的產品。" 
           });
           router.push('/products');
           return;
@@ -50,8 +50,8 @@ export default function ProductDetailPage() {
         console.error("Failed to fetch product:", error);
         toast({ 
           variant: "destructive", 
-          title: "Loading Error", 
-          description: "Could not load product details." 
+          title: "載入錯誤", 
+          description: "無法載入產品詳細資料。" 
         });
         router.push('/products');
       } finally {
@@ -116,7 +116,7 @@ export default function ProductDetailPage() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold text-foreground">{product.name}</h1>
-          <p className="text-muted-foreground">Product Details</p>
+          <p className="text-muted-foreground">產品詳細資料</p>
         </div>
       </div>
 
@@ -126,7 +126,7 @@ export default function ProductDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              Product Images
+              產品圖片
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -178,7 +178,7 @@ export default function ProductDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Tag className="h-5 w-5" />
-                Basic Information
+                基本資訊
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -188,15 +188,15 @@ export default function ProductDetailPage() {
                   <p className="text-foreground">{product.sku || 'N/A'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Category</label>
+                  <label className="text-sm font-medium text-muted-foreground">分類</label>
                   <p className="text-foreground">{product.categoryName || 'N/A'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Unit of Measure</label>
+                  <label className="text-sm font-medium text-muted-foreground">單位</label>
                   <p className="text-foreground">{product.unitOfMeasure || 'N/A'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Current Stock</label>
+                  <label className="text-sm font-medium text-muted-foreground">庫存</label>
                   <div className="flex items-center gap-2">
                     <p className="text-foreground font-medium">{product.stock}</p>
                     {isLowStock && (
@@ -216,17 +216,17 @@ export default function ProductDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
-                Pricing
+                定價
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Selling Price</label>
+                  <label className="text-sm font-medium text-muted-foreground">銷售價格</label>
                   <p className="text-2xl font-bold text-foreground">{formatCurrency(product.price)}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Cost Price</label>
+                  <label className="text-sm font-medium text-muted-foreground">成本價格</label>
                   <p className="text-xl font-semibold text-muted-foreground">{formatCurrency(product.cost ?? 0)}</p>
                 </div>
               </div>
@@ -238,12 +238,12 @@ export default function ProductDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                Expiry & Alerts
+                到期 & 警示
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Expiry Date</label>
+                <label className="text-sm font-medium text-muted-foreground">到期日期</label>
                 <div className="flex items-center gap-2">
                   <p className="text-foreground">{product.expiryDate ? formatToYYYYMMDD(product.expiryDate) : 'N/A'}</p>
                   {expiryStatus === 'expired' && (
@@ -261,8 +261,8 @@ export default function ProductDetailPage() {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Low Stock Threshold</label>
-                <p className="text-foreground">{product.lowStockThreshold ?? 'Not set'}</p>
+                <label className="text-sm font-medium text-muted-foreground">低庫存門檻</label>
+                <p className="text-foreground">{product.lowStockThreshold ?? '未設定'}</p>
               </div>
             </CardContent>
           </Card>
@@ -275,7 +275,7 @@ export default function ProductDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Layers className="h-5 w-5" />
-              Product Description
+              產品描述
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -290,11 +290,11 @@ export default function ProductDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Layers className="h-5 w-5" />
-              Product Description
+              產品描述
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground italic">No description available for this product.</p>
+            <p className="text-muted-foreground italic">此產品沒有描述。</p>
           </CardContent>
         </Card>
       )}
@@ -312,7 +312,7 @@ export default function ProductDetailPage() {
           variant="outline"
           onClick={() => router.push('/products')}
         >
-          Back to Products
+          返回產品列表
         </Button>
       </div>
     </div>

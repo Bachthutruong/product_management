@@ -1,4 +1,3 @@
-
 'use server';
 
 import clientPromise from '@/lib/mongodb';
@@ -44,7 +43,7 @@ export async function getOverallSalesSummary(): Promise<SalesSummary> {
       totalRevenueAllTime,
     };
   } catch (error) {
-    console.error('Error fetching overall sales summary:', error);
+    console.error('無法取得整體銷售總結:', error);
     return { totalOrdersAllTime: 0, totalRevenueAllTime: 0 };
   }
 }
@@ -89,7 +88,7 @@ export async function getReportsPageInventoryAlerts(): Promise<InventoryAlerts> 
         return { lowStockProducts, expiringSoonProducts };
 
     } catch (error) {
-        console.error('Error fetching inventory alerts for reports page:', error);
+        console.error('無法取得報告頁面庫存警示:', error);
         return { lowStockProducts: [], expiringSoonProducts: [] };
     }
 }

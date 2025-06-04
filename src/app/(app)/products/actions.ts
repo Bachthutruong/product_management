@@ -147,18 +147,18 @@ export async function getProductById(id: string): Promise<Product | null> {
       cost: productDoc.cost ?? 0,
     }) as Product;
   } catch (error) {
-    console.error(`Failed to fetch product ${id}:`, error);
+    console.error(`無法取得產品 ${id}:`, error);
     return null;
   }
 }
 
 const AddProductServerSchema = ProductFormInputSchemaValidation.omit({ expiryDate: true }).extend({
   changedByUserId: z.string().min(1),
-  price: z.coerce.number().min(0, "Price must be a positive number"),
-  cost: z.coerce.number().min(0, "Cost must be non-negative").optional().default(0),
-  stock: z.coerce.number().int("Stock must be an integer").min(0, "Stock must be non-negative"),
+  price: z.coerce.number().min(0, "價格必須是非負數"),
+  cost: z.coerce.number().min(0, "成本必須是非負數").optional().default(0),
+  stock: z.coerce.number().int("庫存必須是整數").min(0, "庫存必須是非負數"),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
-  expiryDate: z.coerce.date({ message: "Expiry date is required" }),
+  expiryDate: z.coerce.date({ message: "到期日期是必需的" }),
 });
 
 
@@ -269,7 +269,7 @@ export async function addProduct(
 
     if (!result.insertedId) {
       for (const img of uploadedImages) { await deleteImageFromCloudinary(img.publicId); }
-      return { success: false, error: 'Failed to insert product into database.' };
+      return { success: false, error: '無法將產品插入資料庫。' };
     }
 
     const productForReturn = {
@@ -287,7 +287,7 @@ export async function addProduct(
       console.error('Data that failed parsing:', productForReturn);
       revalidatePath('/products');
       revalidatePath('/dashboard');
-      return { success: true, error: "Product added, but there was an issue preparing its data for immediate display. Please refresh to see the new product." };
+      return { success: true, error: "產品已新增，但在準備顯示資料時發生問題。請重新整理以查看新產品。" };
     }
 
   } catch (error: any) {
@@ -296,24 +296,24 @@ export async function addProduct(
       try { await deleteImageFromCloudinary(img.publicId); } catch (deleteError) { console.error('Failed to delete uploaded image after error:', deleteError); }
     }
     if (error instanceof z.ZodError) {
-      return { success: false, error: "Data validation error after processing.", errors: error.errors };
+      return { success: false, error: "處理後資料驗證錯誤。", errors: error.errors };
     }
-    return { success: false, error: error.message || 'An unexpected error occurred while adding the product.' };
+    return { success: false, error: error.message || '新增產品時發生意外錯誤。' };
   }
 }
 
 export async function deleteProduct(id: string, userRole: UserRole): Promise<{ success: boolean; error?: string }> {
   if (userRole !== 'admin') {
-    return { success: false, error: 'Permission denied. Only admins can delete products.' };
+    return { success: false, error: '權限不足。只有管理員可以刪除產品。' };
   }
   if (!ObjectId.isValid(id)) {
-    return { success: false, error: 'Invalid product ID format.' };
+    return { success: false, error: '無效的產品 ID 格式。' };
   }
   try {
     const db = await getDb();
     const productToDeleteDoc = await db.collection(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(id) });
 
-    if (!productToDeleteDoc) { return { success: false, error: 'Product not found.' }; }
+    if (!productToDeleteDoc) { return { success: false, error: '找不到產品。' }; }
 
     const productToDelete = ProductSchema.parse({ ...productToDeleteDoc, _id: productToDeleteDoc._id.toString() }) as Product;
 
@@ -326,13 +326,13 @@ export async function deleteProduct(id: string, userRole: UserRole): Promise<{ s
     }
 
     const result = await db.collection(PRODUCTS_COLLECTION).deleteOne({ _id: new ObjectId(id) });
-    if (result.deletedCount === 0) { return { success: false, error: 'Product not found or already deleted.' }; }
+    if (result.deletedCount === 0) { return { success: false, error: '找不到產品或產品已被刪除。' }; }
     revalidatePath('/products');
     revalidatePath('/dashboard');
     return { success: true };
   } catch (error) {
     console.error('Failed to delete product:', error);
-    return { success: false, error: 'An unexpected error occurred.' };
+    return { success: false, error: '發生意外錯誤。' };
   }
 }
 
@@ -342,19 +342,19 @@ export async function updateProductStock(
   session?: any
 ): Promise<{ success: boolean, error?: string }> {
   if (!ObjectId.isValid(productId)) {
-    return { success: false, error: 'Invalid product ID.' };
+    return { success: false, error: '無效的產品 ID。' };
   }
   const db = await getDb();
   const productDoc = await db.collection(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(productId) }, { session });
 
   if (!productDoc) {
-    return { success: false, error: 'Product not found for stock update.' };
+    return { success: false, error: '找不到要更新庫存的產品。' };
   }
   const product = ProductSchema.parse({ ...productDoc, _id: productDoc._id.toString() }) as Product;
 
   const newStock = product.stock + quantityChange;
   if (newStock < 0) {
-    return { success: false, error: `Stock cannot be negative. Current: ${product.stock}, Change: ${quantityChange}` };
+    return { success: false, error: `庫存不能為負數。目前: ${product.stock}, 變更: ${quantityChange}` };
   }
 
   const result = await db.collection(PRODUCTS_COLLECTION).updateOne(
@@ -364,7 +364,7 @@ export async function updateProductStock(
   );
 
   if (result.modifiedCount === 0 && result.matchedCount === 0) {
-    return { success: false, error: 'Product not found during stock update operation.' };
+    return { success: false, error: '在更新庫存操作期間找不到產品。' };
   }
 
   return { success: true };
@@ -376,14 +376,14 @@ export async function updateProductStockWithBatches(
   session?: any
 ): Promise<{ success: boolean; error?: string; usedBatches?: Array<{ batchId: string; expiryDate: Date; quantityUsed: number }> }> {
   if (!ObjectId.isValid(productId)) {
-    return { success: false, error: 'Invalid product ID.' };
+    return { success: false, error: '無效的產品 ID。' };
   }
   
   const db = await getDb();
   const productDoc = await db.collection(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(productId) }, { session });
 
   if (!productDoc) {
-    return { success: false, error: 'Product not found for stock update.' };
+    return { success: false, error: '找不到要更新庫存的產品。' };
   }
 
   // Clean up batches data to handle null values
@@ -413,7 +413,7 @@ export async function updateProductStockWithBatches(
   if (totalAvailableStock < quantityToReduce) {
     return { 
       success: false, 
-      error: `Insufficient stock. Available: ${totalAvailableStock}, Requested: ${quantityToReduce}` 
+      error: `庫存不足。可用數量: ${totalAvailableStock}, 要求數量: ${quantityToReduce}` 
     };
   }
 
@@ -459,7 +459,7 @@ export async function updateProductStockWithBatches(
   );
 
   if (result.modifiedCount === 0) {
-    return { success: false, error: 'Failed to update product stock.' };
+    return { success: false, error: '更新產品庫存失敗。' };
   }
 
   return { success: true, usedBatches };
@@ -467,11 +467,11 @@ export async function updateProductStockWithBatches(
 
 const UpdateProductServerSchema = ProductFormInputSchemaValidation.omit({ expiryDate: true }).extend({
   changedByUserId: z.string().min(1),
-  price: z.coerce.number().min(0, "Price must be a positive number"),
-  cost: z.coerce.number().min(0, "Cost must be non-negative").optional().default(0),
-  stock: z.coerce.number().int("Stock must be an integer").min(0, "Stock must be non-negative"),
+  price: z.coerce.number().min(0, "價格必須是非負數"),
+  cost: z.coerce.number().min(0, "成本必須是非負數").optional().default(0),
+  stock: z.coerce.number().int("庫存必須是整數").min(0, "庫存必須是非負數"),
   lowStockThreshold: z.coerce.number().int().min(0).optional().default(0),
-  expiryDate: z.coerce.date({ message: "Expiry date is required" }),
+  expiryDate: z.coerce.date({ message: "到期日期是必需的" }),
   imagesToDelete: z.array(z.string()).optional(), // Array of public_ids for images to delete
 });
 
@@ -482,13 +482,13 @@ export async function updateProduct(
   currentUser: AuthUser
 ): Promise<{ success: boolean; product?: Product; error?: string; errors?: z.ZodIssue[] }> {
   if (!ObjectId.isValid(productId)) {
-    return { success: false, error: 'Invalid product ID.' };
+    return { success: false, error: '無效的產品 ID。' };
   }
 
   const db = await getDb();
   const existingProductDoc = await db.collection(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(productId) });
   if (!existingProductDoc) {
-    return { success: false, error: 'Product not found.' };
+    return { success: false, error: '找不到產品。' };
   }
   
   // Handle legacy products that might have null expiryDate
@@ -548,7 +548,7 @@ export async function updateProduct(
   if (!validation.success) {
     console.log("Update Product - Server Validation errors:", validation.error.flatten().fieldErrors);
     console.log("Raw form data submitted to updateProduct server action:", rawFormData);
-    return { success: false, error: "Validation failed on server for update", errors: validation.error.errors };
+    return { success: false, error: "更新的伺服器驗證失敗", errors: validation.error.errors };
   }
 
   const { changedByUserId, ...updateDataFromZod } = validation.data;
@@ -628,7 +628,7 @@ export async function updateProduct(
     }
 
     if (!hasMeaningfulChanges && Object.keys(finalUpdateOps.$set).length === 0 && !finalUpdateOps.$pull && !(finalUpdateOps.$push && (finalUpdateOps.$push.images || finalUpdateOps.$push.priceHistory))) {
-      return { success: true, product: existingProduct, error: "No changes detected." };
+      return { success: true, product: existingProduct, error: "未偵測到變更。" };
     }
 
     finalUpdateOps.$set.updatedAt = new Date();
@@ -646,7 +646,7 @@ export async function updateProduct(
       for (const img of newUploadedImages) {
         try { await deleteImageFromCloudinary(img.publicId); } catch (e) { console.error("Cleanup failed for", img.publicId, e); }
       }
-      return { success: false, error: 'Failed to update product in database or product not found.' };
+      return { success: false, error: '在資料庫中更新產品失敗或找不到產品。' };
     }
 
     // updateResult is the updated document from the DB, _id is ObjectId
@@ -708,9 +708,9 @@ export async function updateProduct(
       try { await deleteImageFromCloudinary(img.publicId); } catch (deleteError) { console.error('Failed to delete newly uploaded image after update error:', deleteError); }
     }
     if (error instanceof z.ZodError) {
-      return { success: false, error: "Data validation error during product update internal processing.", errors: error.errors };
+      return { success: false, error: "產品更新內部處理期間的資料驗證錯誤。", errors: error.errors };
     }
-    return { success: false, error: error.message || 'An unexpected error occurred while updating the product.' };
+    return { success: false, error: error.message || '更新產品時發生意外錯誤。' };
   }
 }
 
