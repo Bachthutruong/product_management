@@ -167,14 +167,14 @@ export default function InventoryPage() {
         <h1 className="text-3xl font-bold text-foreground">庫存管理</h1>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 gap-6">
         <div className="md:col-span-1">
           <StockInForm onStockInRecorded={handleStockOperationRecorded} />
         </div>
         <div className="md:col-span-1">
           <StockAdjustmentForm onStockAdjusted={handleStockOperationRecorded} />
         </div>
-        <div className="md:col-span-1">
+        {/* <div className="md:col-span-1">
           <Card className="shadow-lg h-full">
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -186,7 +186,7 @@ export default function InventoryPage() {
               <p className="text-muted-foreground">這個空間保留給其他庫存操作。</p>
             </CardContent>
           </Card>
-        </div>
+        </div> */}
       </div>
 
       <Card className="shadow-lg md:col-span-3">
@@ -357,9 +357,23 @@ export default function InventoryPage() {
             </div>
           </form>
 
-          {isLoading && movements.length === 0 && totalMovements === 0 ? (
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          {isLoading && movements.length === 0 ? (
+            <div className="space-y-3">
+              {/* Skeleton table */}
+              <div className="animate-pulse">
+                <div className="grid grid-cols-9 gap-4 py-2 border-b">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
+                    <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="grid grid-cols-9 gap-4 py-3">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(j => (
+                      <div key={j} className="h-4 bg-gray-200 rounded"></div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : !isLoading && movements.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">

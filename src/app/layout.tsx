@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'StockPilot',
+  title: 'Annie\'s Way',
   description: '全面的庫存管理系統',
 };
 

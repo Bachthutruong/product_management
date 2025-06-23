@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
+import logoImg from '@/assets/Annie\'s-Way-LOGO-new.png';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import {
@@ -83,10 +85,16 @@ export function SidebarNavigation() {
   return (
     <Sidebar collapsible="icon" variant="sidebar" defaultOpen={true} side="left">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 p-2">
-          <PackageSearch className="h-8 w-8 text-sidebar-primary" />
-          <span className="text-xl font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-            StockPilot
+        <div className="flex flex-col items-center">
+          <Image 
+            src={logoImg}
+            alt="Annie's Way Logo" 
+            width={128}
+            height={128}
+            className="w-full h-full object-contain flex-shrink-0" 
+          />
+          <span className="text-2xl -mt-6 font-bold text-sidebar-foreground group-data-[collapsible=icon]:hidden text-center">
+            Annie's Way
           </span>
         </div>
       </SidebarHeader>

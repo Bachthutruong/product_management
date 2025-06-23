@@ -1,4 +1,3 @@
-
 "use client";
 
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -32,14 +31,14 @@ export default function AppLayout({
 
   return (
     <SidebarProvider defaultOpen>
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen w-full">
         <SidebarNavigation />
-        <main className="flex-1 flex flex-col bg-background">
+        <main className="flex-1 flex flex-col bg-background w-full">
           {/* Placeholder for a potential top header bar */}
           {/* <header className="h-16 border-b flex items-center px-6 sticky top-0 bg-background/95 backdrop-blur z-10">
             Page Title or User Menu
           </header> */}
-          <div className="flex-1 p-6 overflow-auto">
+          <div className="flex-1 p-4 overflow-auto w-full max-w-none">
             {children}
           </div>
         </main>

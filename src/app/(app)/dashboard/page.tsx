@@ -53,23 +53,29 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchData() {
-      setLoadingStats(true);
-      setLoadingActivity(true);
-      setLoadingAlerts(true);
-
       try {
-        const [statsData, activityData, alertsData] = await Promise.all([
-          getDashboardOverviewStats(),
-          getRecentActivity(),
-          getDashboardInventoryAlerts()
-        ]);
-        setStats(statsData);
-        setRecentActivity(activityData);
-        setInventoryAlerts(alertsData);
+        // Fetch stats first as they're most important
+        const statsPromise = getDashboardOverviewStats().then(data => {
+          setStats(data);
+          setLoadingStats(false);
+        });
+
+        // Fetch other data in parallel but don't block stats
+        const activityPromise = getRecentActivity().then(data => {
+          setRecentActivity(data);
+          setLoadingActivity(false);
+        });
+
+        const alertsPromise = getDashboardInventoryAlerts().then(data => {
+          setInventoryAlerts(data);
+          setLoadingAlerts(false);
+        });
+
+        // Don't wait for all to complete - let each update as they finish
+        await Promise.allSettled([statsPromise, activityPromise, alertsPromise]);
       } catch (error) {
         console.error("Failed to load dashboard data", error);
-        // Optionally set an error state to show a message to the user
-      } finally {
+        // Set loading states to false even on error
         setLoadingStats(false);
         setLoadingActivity(false);
         setLoadingAlerts(false);
@@ -79,23 +85,23 @@ export default function DashboardPage() {
   }, []);
 
   const statCardsData = [
-    { title: "總商品數量", value: stats?.totalProducts ?? "N/A", icon: Package, color: "text-primary", loading: loadingStats },
-    { title: "活躍訂單", value: stats?.activeOrders ?? "N/A", icon: ShoppingCart, color: "text-accent", loading: loadingStats },
-    { title: "總客戶數量", value: stats?.totalCustomers ?? "N/A", icon: Users, color: "text-green-500", loading: loadingStats },
-    { title: "本月收入", value: formatCurrency(stats?.currentMonthRevenue ?? 0), icon: BarChart3, color: "text-blue-500", loading: loadingStats },
+    { title: "總商品數量", value: stats?.totalProducts ?? "0", icon: Package, color: "text-primary", loading: loadingStats },
+    { title: "活躍訂單", value: stats?.activeOrders ?? "0", icon: ShoppingCart, color: "text-accent", loading: loadingStats },
+    { title: "總客戶數量", value: stats?.totalCustomers ?? "0", icon: Users, color: "text-green-500", loading: loadingStats },
+    { title: "本月收入", value: stats ? formatCurrency(stats.currentMonthRevenue ?? 0) : "NT$0", icon: BarChart3, color: "text-blue-500", loading: loadingStats },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-none space-y-4">
       <h1 className="text-3xl font-bold text-foreground">儀表板</h1>
       
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {statCardsData.map((stat) => (
           <StatCard key={stat.title} {...stat} />
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center"><History className="mr-2 h-5 w-5 text-primary" />最近活動</CardTitle>
@@ -103,8 +109,23 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {loadingActivity ? (
-              <div className="flex justify-center items-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="space-y-4">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="space-y-2">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-3 bg-gray-200 rounded w-full"></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="space-y-2">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-3 bg-gray-200 rounded w-full"></div>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -136,7 +157,7 @@ export default function DashboardPage() {
                     <ul className="space-y-2">
                       {recentActivity.recentMovements.map(move => (
                         <li key={move._id} className="text-sm text-foreground border-b border-border pb-1 last:border-b-0">
-                           {move.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} of <span className="font-semibold text-primary">{move.productName}</span> (Qty: {move.quantity})
+                           {move.type ? move.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Unknown'} of <span className="font-semibold text-primary">{move.productName}</span> (Qty: {move.quantity})
                            <span className="text-xs text-muted-foreground ml-2">({formatToYYYYMMDDWithTime(move.movementDate)})</span>
                         </li>
                       ))}
@@ -156,8 +177,23 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {loadingAlerts ? (
-               <div className="flex justify-center items-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="space-y-4">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                  <div className="space-y-2">
+                    {[1, 2].map(i => (
+                      <div key={i} className="h-3 bg-gray-200 rounded w-full"></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                  <div className="space-y-2">
+                    {[1, 2].map(i => (
+                      <div key={i} className="h-3 bg-gray-200 rounded w-full"></div>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">

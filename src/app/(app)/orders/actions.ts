@@ -386,8 +386,8 @@ export async function updateOrderStatus(
     if (newStatus === 'delivered' && order.status !== 'shipped') {
       return { success: false, error: `Order cannot be marked as delivered if not yet shipped.` };
     }
-    if (newStatus === 'completed' && order.status !== 'delivered') {
-      return { success: false, error: `Order cannot be marked as completed if not yet delivered.` };
+    if (newStatus === 'completed' && !['shipped', 'delivered'].includes(order.status)) {
+      return { success: false, error: `Order cannot be marked as completed from '${order.status}' status.` };
     }
 
 

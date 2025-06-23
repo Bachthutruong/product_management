@@ -22,18 +22,24 @@ export default function ReportsPage() {
 
   useEffect(() => {
     async function fetchData() {
-      setLoadingSales(true);
-      setLoadingAlerts(true);
       try {
-        const [summaryData, alertsData] = await Promise.all([
-          getOverallSalesSummary(),
-          getReportsPageInventoryAlerts()
-        ]);
-        setSalesSummary(summaryData);
-        setInventoryAlerts(alertsData);
+        // Fetch sales data first as it's most important
+        const salesPromise = getOverallSalesSummary().then(data => {
+          setSalesSummary(data);
+          setLoadingSales(false);
+        });
+
+        // Fetch alerts data separately so it doesn't block sales data
+        const alertsPromise = getReportsPageInventoryAlerts().then(data => {
+          setInventoryAlerts(data);
+          setLoadingAlerts(false);
+        });
+
+        // Don't wait for all to complete - let each update as they finish
+        await Promise.allSettled([salesPromise, alertsPromise]);
       } catch (error) {
         console.error("Failed to load reports data", error);
-      } finally {
+        // Set loading states to false even on error
         setLoadingSales(false);
         setLoadingAlerts(false);
       }
@@ -55,8 +61,16 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             {loadingSales ? (
-              <div className="flex justify-center items-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="space-y-3 animate-pulse">
+                <div className="flex items-center justify-between">
+                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                  <div className="h-6 bg-gray-200 rounded w-16"></div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                  <div className="h-6 bg-gray-200 rounded w-20"></div>
+                </div>
+                <div className="h-32 bg-gray-200 rounded"></div>
               </div>
             ) : salesSummary ? (
               <div className="space-y-3">
@@ -93,8 +107,23 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             {loadingAlerts ? (
-              <div className="flex justify-center items-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="space-y-4 animate-pulse">
+                <div>
+                  <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+                  <div className="space-y-1">
+                    {[1, 2].map(i => (
+                      <div key={i} className="h-3 bg-gray-200 rounded w-full"></div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                  <div className="space-y-1">
+                    {[1, 2].map(i => (
+                      <div key={i} className="h-3 bg-gray-200 rounded w-full"></div>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : inventoryAlerts ? (
               <div className="space-y-4">

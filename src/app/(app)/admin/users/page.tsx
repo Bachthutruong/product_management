@@ -126,13 +126,7 @@ export default function UserManagementPage() {
     }
   }, [user, authLoading, router]);
 
-  if (authLoading || (isLoadingUsers && user?.role === 'admin')) {
-    return (
-      <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // Remove the blocking full-page loader
 
   if (!user || user.role !== 'admin') { // Ensure user object exists before checking role
     return (
@@ -178,9 +172,23 @@ export default function UserManagementPage() {
         </CardHeader>
         <CardContent>
           {isLoadingUsers && users.length === 0 ? (
-             <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-             </div>
+            <div className="space-y-3">
+              {/* Skeleton table */}
+              <div className="animate-pulse">
+                <div className="grid grid-cols-5 gap-4 py-2 border-b">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="grid grid-cols-5 gap-4 py-3">
+                    {[1, 2, 3, 4, 5].map(j => (
+                      <div key={j} className="h-4 bg-gray-200 rounded"></div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : filteredUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <UserX className="w-16 h-16 text-muted-foreground mb-4" />

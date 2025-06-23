@@ -56,7 +56,7 @@ export function LoginForm() {
         <div className="mb-4 flex items-center justify-center">
             <PackageSearch className="h-12 w-12 text-primary" />
         </div>
-        <CardTitle className="text-3xl font-bold">StockPilot</CardTitle>
+        <CardTitle className="text-3xl font-bold">Annie's Way</CardTitle>
         <CardDescription>登入以管理您的庫存</CardDescription>
       </CardHeader>
       <CardContent>

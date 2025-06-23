@@ -55,6 +55,19 @@ import { cn } from '@/lib/utils';
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 20, 50];
 const DEFAULT_ITEMS_PER_PAGE = ITEMS_PER_PAGE_OPTIONS[1]; // Default to 10
 
+// Helper function to get Chinese status text
+const getChineseStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'pending': '待付款',
+    'processing': '處理中',
+    'shipped': '已出貨', 
+    'delivered': '已到貨',
+    'completed': '完成',
+    'cancelled': '已取消'
+  };
+  return statusMap[status] || status;
+};
+
 interface OrderFilters {
   searchTerm: string;
   status: OrderStatus | 'all';
@@ -124,21 +137,6 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
       <Button
         variant="outline"
         size="sm"
-        onClick={() => openConfirmationDialog('delivered')}
-        disabled={isUpdatingStatus}
-        className="text-xs bg-green-500 hover:bg-green-600 text-white"
-      >
-        {isUpdatingStatus && targetStatus === 'delivered' ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle className="mr-1 h-3 w-3" />}
-        確認已送達
-      </Button>
-    );
-    dialogTitle = `確認將訂單 ${order.orderNumber} 變更為已送達?`;
-    dialogDescription = "這將會將訂單狀態變更為 '已送達'。確認嗎？";
-  } else if (order.status === 'delivered') {
-    actionButton = (
-      <Button
-        variant="outline"
-        size="sm"
         onClick={() => openConfirmationDialog('completed')}
         disabled={isUpdatingStatus}
         className="text-xs bg-teal-500 hover:bg-teal-600 text-white"
@@ -172,14 +170,12 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
             disabled={isUpdatingStatus}
             className={
               targetStatus === 'shipped' ? 'bg-blue-500 hover:bg-blue-600' :
-                targetStatus === 'delivered' ? 'bg-green-500 hover:bg-green-600' :
-                  targetStatus === 'completed' ? 'bg-teal-500 hover:bg-teal-600' : ''
+                targetStatus === 'completed' ? 'bg-teal-500 hover:bg-teal-600' : ''
             }
           >
             {isUpdatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> :
               (targetStatus === 'shipped' ? <Truck className="mr-2 h-4 w-4" /> :
-                targetStatus === 'delivered' ? <CheckCircle className="mr-2 h-4 w-4" /> :
-                  targetStatus === 'completed' ? <ThumbsUp className="mr-2 h-4 w-4" /> : null
+                targetStatus === 'completed' ? <ThumbsUp className="mr-2 h-4 w-4" /> : null
               )
             }
             確認
@@ -301,7 +297,7 @@ function OrderDetailsDialog({ order }: { order: Order }) {
                             order.status === 'cancelled' ? 'bg-red-500 text-white border-red-600' : ''
                 }
               >
-                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                {getChineseStatus(order.status)}
               </Badge>
             </div>
             <div>
@@ -428,7 +424,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
           size="icon"
           className="text-muted-foreground hover:text-primary"
           disabled={isEditDisabledForEmployee}
-          title={isEditDisabledForEmployee ? `無法編輯處於 '${order.status}' 狀態的訂單` : `編輯訂單 ${order.orderNumber}`}
+                        title={isEditDisabledForEmployee ? `無法編輯處於 '${getChineseStatus(order.status)}' 狀態的訂單` : `編輯訂單 ${order.orderNumber}`}
         >
           <Edit3 className="h-4 w-4" />
           <span className="sr-only">編輯訂單 {order.orderNumber}</span>
@@ -560,7 +556,7 @@ export default function OrdersPage() {
   const handlePrintOrder = (order: Order) => {
     const printWindow = window.open('', '_blank', 'height=700,width=900');
     if (printWindow) {
-      printWindow.document.write('<html><head><title>訂單發票 - ' + order.orderNumber + '</title>');
+      printWindow.document.write('<html><head><title>訂單資料 - ' + order.orderNumber + '</title>');
       printWindow.document.write(`
         <style>
           body { font-family: 'Arial', sans-serif; margin: 20px; color: #333; }
@@ -602,24 +598,24 @@ export default function OrdersPage() {
 
       // Header
       printWindow.document.write('<div class="header">');
-      printWindow.document.write('<h1>您的公司名稱</h1>'); // Placeholder
-      printWindow.document.write('<p>123 Main Street, Anytown, CA 90210</p>'); // Placeholder
-      printWindow.document.write('<p>Phone: (123) 456-7890 | Email: contact@yourcompany.com</p>'); // Placeholder
+      printWindow.document.write('<h1>Annie\'s Way  安妮絲薇</h1>'); // Placeholder
+      printWindow.document.write('<p>客服專線：07-373-0202 | Email：sales@anniesway.com.tw</p>'); // Placeholder
+      printWindow.document.write('<p>地址：高雄市仁武區八德南路468號</p>'); // Placeholder
       printWindow.document.write('</div>');
 
       // Company & Invoice Details
       printWindow.document.write('<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">');
       printWindow.document.write('<div class="invoice-details" style="width: 48%;">');
-      printWindow.document.write('<h3>訂單發票</h3>');
+      printWindow.document.write('<h3>訂單資料</h3>');
       printWindow.document.write('<div class="details-grid">');
       printWindow.document.write('<strong>訂單編號:</strong><span>' + order.orderNumber + '</span>');
       printWindow.document.write('<strong>訂單日期:</strong><span>' + (isValid(new Date(order.orderDate)) ? formatToYYYYMMDDWithTime(order.orderDate) : 'Invalid Date') + '</span>');
-      printWindow.document.write('<strong>狀態:</strong><span>' + (order.status.charAt(0).toUpperCase() + order.status.slice(1)) + '</span>');
+      printWindow.document.write('<strong>狀態:</strong><span>' + getChineseStatus(order.status) + '</span>');
       printWindow.document.write('</div>');
       printWindow.document.write('</div>');
 
       printWindow.document.write('<div class="customer-details" style="width: 48%;">');
-      printWindow.document.write('<h3>Bill To</h3>');
+      printWindow.document.write('<h3>顧客資料</h3>');
       printWindow.document.write('<div class="details-grid">');
       printWindow.document.write('<strong>姓名:</strong><span>' + order.customerName + '</span>');
       // @ts-expect-error customerEmail is not in Order model but might be added dynamically
@@ -688,7 +684,7 @@ export default function OrdersPage() {
       // Print Button
       printWindow.document.write(`
         <div class="print-button-container">
-          <button onclick="window.print()">列印發票</button>
+          <button onclick="window.print()">列印訂單</button>
           <button onclick="window.close()">關閉</button>
         </div>
       `);
@@ -704,13 +700,7 @@ export default function OrdersPage() {
     }
   };
 
-  if (authLoading && isLoading && orders.length === 0) {
-    return (
-      <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // Remove the blocking full-page loader
 
   return (
     <div className="space-y-6">
@@ -783,7 +773,7 @@ export default function OrdersPage() {
                     <SelectItem value="all">所有狀態</SelectItem>
                     {AllOrderStatusOptions.map(statusValue => (
                       <SelectItem key={statusValue} value={statusValue}>
-                        {statusValue.charAt(0).toUpperCase() + statusValue.slice(1)}
+                        {getChineseStatus(statusValue)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -848,9 +838,23 @@ export default function OrdersPage() {
           <CardDescription>管理及追蹤所有客戶訂單。</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && orders.length === 0 && totalOrders === 0 ? (
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      {isLoading && orders.length === 0 ? (
+            <div className="space-y-3">
+              {/* Skeleton table */}
+              <div className="animate-pulse">
+                <div className="grid grid-cols-8 gap-4 py-2 border-b">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                    <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="grid grid-cols-8 gap-4 py-3">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(j => (
+                      <div key={j} className="h-4 bg-gray-200 rounded"></div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : !isLoading && orders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -916,7 +920,7 @@ export default function OrdersPage() {
                                           order.status === 'cancelled' ? 'bg-red-500 text-white border-red-600' : ''
                               }
                             >
-                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                              {getChineseStatus(order.status)}
                             </Badge>
                           </TableCell>
                           {user?.role === 'admin' && (

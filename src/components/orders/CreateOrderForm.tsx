@@ -314,10 +314,19 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                                 <CommandEmpty>找不到產品。</CommandEmpty>
                                 <CommandGroup>
                                   {products
-                                    .filter(p =>
-                                      p.name.toLowerCase().includes((productSearches[index] || '').toLowerCase()) ||
-                                      (p.sku && p.sku.toLowerCase().includes((productSearches[index] || '').toLowerCase()))
-                                    )
+                                    .filter(p => {
+                                      // Filter by search term
+                                      const matchesSearch = p.name.toLowerCase().includes((productSearches[index] || '').toLowerCase()) ||
+                                        (p.sku && p.sku.toLowerCase().includes((productSearches[index] || '').toLowerCase()));
+                                      
+                                      // Filter out products with stock <= 0
+                                      const hasStock = p.stock > 0;
+                                      
+                                      // Filter out products already added to the order
+                                      const alreadyAdded = watchedItems.some(item => item.productId === p._id);
+                                      
+                                      return matchesSearch && hasStock && !alreadyAdded;
+                                    })
                                     .map((product) => (
                                       <CommandItem
                                         key={product._id}
@@ -327,10 +336,6 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                                           handleProductSelect(index, product._id);
                                           setOpenProductPopovers(prev => ({...prev, [index]: false}));
                                         }}
-                                        disabled={product.stock <= 0}
-                                        className={cn(
-                                          product.stock <= 0 && "opacity-50"
-                                        )}
                                       >
                                         <CheckIcon
                                           className={cn(
@@ -344,7 +349,6 @@ export function CreateOrderForm({ onOrderCreated, closeDialog }: CreateOrderForm
                                           <span>{product.name} (SKU: {product.sku || 'N/A'})</span>
                                           <span className="text-xs text-muted-foreground">
                                             庫存: {product.stock} - 價格: {formatCurrency(product.price)}
-                                            {product.stock <= 0 && " (無庫存)"}
                                           </span>
                                         </div>
                                       </CommandItem>
