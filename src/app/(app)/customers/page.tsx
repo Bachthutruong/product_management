@@ -125,10 +125,8 @@ export default function CustomersPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!authLoading) { 
-      fetchCustomers(searchTerm);
-    }
-  }, [user, authLoading, fetchCustomers, searchTerm]);
+    fetchCustomers(searchTerm);
+  }, [fetchCustomers, searchTerm]);
 
   const handleEditCustomer = (customer: Customer) => {
     setEditingCustomer(customer);
@@ -141,15 +139,6 @@ export default function CustomersPage() {
     setEditingCustomer(null);
   };
 
-
-  if (authLoading) {
-    return (
-      <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
   const filteredCustomers = customers; 
 
   return (
@@ -181,9 +170,29 @@ export default function CustomersPage() {
         </CardHeader>
         <CardContent>
           {isLoadingCustomers && customers.length === 0 ? (
-             <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-             </div>
+            <div className="space-y-3">
+              {/* Skeleton table */}
+              <div className="animate-pulse">
+                <div className="grid grid-cols-6 gap-4 py-2 border-b">
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </div>
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="grid grid-cols-6 gap-4 py-3">
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : filteredCustomers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <UserX className="w-16 h-16 text-muted-foreground mb-4" />

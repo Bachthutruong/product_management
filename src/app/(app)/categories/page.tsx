@@ -251,9 +251,23 @@ export default function CategoriesPage() {
                     <CardDescription>管理您的產品分類。</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {isLoading && categories.length === 0 && totalCategories === 0 ? (
-                        <div className="flex items-center justify-center py-10">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    {isLoading && categories.length === 0 ? (
+                        <div className="space-y-3">
+                            {/* Skeleton table */}
+                            <div className="animate-pulse">
+                                <div className="grid grid-cols-4 gap-4 py-2 border-b">
+                                    {[1, 2, 3, 4].map(i => (
+                                        <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                                    ))}
+                                </div>
+                                {[1, 2, 3, 4, 5].map(i => (
+                                    <div key={i} className="grid grid-cols-4 gap-4 py-3">
+                                        {[1, 2, 3, 4].map(j => (
+                                            <div key={j} className="h-4 bg-gray-200 rounded"></div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     ) : !isLoading && categories.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-10 text-center">

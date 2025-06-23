@@ -261,13 +261,7 @@ export default function DeletedOrdersPage() {
     setCurrentPage(1); // Reset to first page when changing page size
   };
 
-  if (authLoading || (isLoadingOrders && user?.role === 'admin')) {
-    return (
-      <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // Remove the blocking full-page loader
 
   if (!user || user.role !== 'admin') {
     return (
@@ -396,8 +390,22 @@ export default function DeletedOrdersPage() {
         </CardHeader>
         <CardContent>
           {isLoadingOrders ? (
-            <div className="flex items-center justify-center h-32">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="space-y-3">
+              {/* Skeleton table */}
+              <div className="animate-pulse">
+                <div className="grid grid-cols-8 gap-4 py-2 border-b">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                    <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="grid grid-cols-8 gap-4 py-3">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(j => (
+                      <div key={j} className="h-4 bg-gray-200 rounded"></div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : orders.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">

@@ -1,4 +1,4 @@
-# **App Name**: StockPilot
+# **App Name**: Annie's Way
 
 ## Core Features:
 

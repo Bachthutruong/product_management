@@ -44,6 +44,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
   const [openCustomerPopover, setOpenCustomerPopover] = useState(false);
   const [productSearches, setProductSearches] = useState<{[key: number]: string}>({});
   const [openProductPopovers, setOpenProductPopovers] = useState<{[key: number]: boolean}>({});
+  const [updateCounter, setUpdateCounter] = useState(0);
 
   const form = useForm<CreateOrderFormValues>({
     resolver: zodResolver(CreateOrderFormSchema),
@@ -128,6 +129,11 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
   const watchedDiscountValueInput = form.watch("discountValueInput");
   const watchedShippingFeeInput = form.watch("shippingFeeInput");
 
+  // Function to trigger recalculation
+  const triggerRecalculation = useCallback(() => {
+    setUpdateCounter(prev => prev + 1);
+  }, []);
+
   const { subtotal, discountAmount, totalAmount } = useMemo(() => {
     let currentSubtotal = 0;
     watchedItems.forEach(item => {
@@ -153,7 +159,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
       discountAmount: currentDiscountAmount,
       totalAmount: currentTotalAmount
     };
-  }, [watchedItems, watchedDiscountType, watchedDiscountValueInput, watchedShippingFeeInput]);
+  }, [watchedItems, watchedDiscountType, watchedDiscountValueInput, watchedShippingFeeInput, updateCounter]);
 
   async function onSubmit(data: CreateOrderFormValues) {
     if (!user) {
@@ -226,11 +232,22 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
     return customers.find(c => c._id === form.watch('customerId'));
   };
 
-  const getFilteredProducts = (searchTerm: string) => {
-    return products.filter(product =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.sku || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const getFilteredProducts = (searchTerm: string, currentIndex: number) => {
+    return products.filter(product => {
+      // Filter by search term
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.sku || '').toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Filter out products with stock <= 0
+      const hasStock = product.stock > 0;
+      
+      // Filter out products already added to the order (except the current item being edited)
+      const alreadyAdded = watchedItems.some((item, itemIndex) => 
+        item.productId === product._id && itemIndex !== currentIndex
+      );
+      
+      return matchesSearch && hasStock && !alreadyAdded;
+    });
   };
 
   return (
@@ -392,7 +409,7 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                                           <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                                         </div>
                                       ) : (
-                                        getFilteredProducts(productSearches[index] || '').map((product) => (
+                                        getFilteredProducts(productSearches[index] || '', index).map((product) => (
                                           <CommandItem
                                             value={product._id}
                                             key={product._id}
@@ -447,6 +464,8 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                                       qtyField.onChange(numValue);
                                     }
                                   }
+                                  // Trigger recalculation immediately
+                                  triggerRecalculation();
                                 }}
                                 onBlur={(e) => {
                                   // Ensure we have a valid number on blur
@@ -473,7 +492,17 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                           <FormItem>
                             <FormLabel>單價 *</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" min="0" {...priceField} />
+                              <Input 
+                                type="number" 
+                                step="0.01" 
+                                min="0" 
+                                {...priceField}
+                                onChange={(e) => {
+                                  priceField.onChange(e);
+                                  // Trigger recalculation immediately
+                                  triggerRecalculation();
+                                }}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -546,7 +575,11 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>折扣類型</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(value === 'none' ? null : value)} value={field.value || 'none'}>
+                        <Select onValueChange={(value) => {
+                          field.onChange(value === 'none' ? null : value);
+                          // Trigger recalculation immediately
+                          triggerRecalculation();
+                        }} value={field.value || 'none'}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="選擇折扣類型" />
@@ -580,7 +613,11 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                               max={watchedDiscountType === 'percentage' ? '100' : undefined}
                               placeholder={watchedDiscountType === 'percentage' ? '0.00' : '0.00'}
                               value={field.value || ''}
-                              onChange={field.onChange}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                // Trigger recalculation immediately
+                                triggerRecalculation();
+                              }}
                               onBlur={field.onBlur}
                               name={field.name}
                               ref={field.ref}
@@ -614,7 +651,11 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                           min="0"
                           placeholder="0.00"
                           value={field.value || ''}
-                          onChange={field.onChange}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            // Trigger recalculation immediately
+                            triggerRecalculation();
+                          }}
                           onBlur={field.onBlur}
                           name={field.name}
                           ref={field.ref}

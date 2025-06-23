@@ -291,13 +291,7 @@ export default function ProductsPage() {
     }
   };
 
-  if (authLoading && isLoading && products.length === 0) {
-    return (
-      <div className="flex h-[calc(100vh-8rem)] items-center justify-center p-6">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // Remove the blocking full-page loader
 
   return (
     <div className="space-y-6">
@@ -400,9 +394,23 @@ export default function ProductsPage() {
           <CardDescription>您的產品目錄。低庫存和即將到期的警告。</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && products.length === 0 && totalProducts === 0 ? (
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          {isLoading && products.length === 0 ? (
+            <div className="space-y-3">
+              {/* Skeleton table */}
+              <div className="animate-pulse">
+                <div className="grid grid-cols-11 gap-4 py-2 border-b">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => (
+                    <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="grid grid-cols-11 gap-4 py-3">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(j => (
+                      <div key={j} className="h-4 bg-gray-200 rounded"></div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : !isLoading && products.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">

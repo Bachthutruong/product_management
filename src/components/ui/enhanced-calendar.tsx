@@ -44,9 +44,15 @@ function DatePickerCalendar({ selected, onSelect, disabled, className }: DatePic
   }, []);
 
   const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    "1 月", "2 月", "3 月", "4 月", "5 月", "6 月",
+    "7 月", "8 月", "9 月", "10 月", "11 月", "12 月"
   ];
+
+  // Custom formatter for weekday headers in Traditional Chinese
+  const formatWeekdayName = (date: Date) => {
+    const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+    return weekdays[date.getDay()];
+  };
 
   return (
     <div className="bg-background border border-border rounded-lg shadow-lg p-4 space-y-4">
@@ -88,6 +94,9 @@ function DatePickerCalendar({ selected, onSelect, disabled, className }: DatePic
         month={currentMonth}
         onMonthChange={setCurrentMonth}
         className={cn("", className)}
+        formatters={{
+          formatWeekdayName: formatWeekdayName,
+        }}
         classNames={{
           day: "h-10 w-10 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground transition-colors",
           day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-md font-medium",

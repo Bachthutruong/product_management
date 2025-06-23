@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 208 100% 97%; /* #F0F8FF - Very light greenish-blue */
+    --background: 350 100% 97%; /* #FDF0F5 - Very light pink */
     --foreground: 222.2 84% 4.9%; /* Default dark foreground for readability */
 
     --card: 0 0% 100%; /* White cards */
@@ -13,13 +13,13 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 180 100% 25%; /* #008080 - Strong teal */
-    --primary-foreground: 0 0% 100%; /* White text on teal */
+    --primary: 350 100% 75%; /* #FFC0CB - Pink */
+    --primary-foreground: 0 0% 20%; /* Dark text on pink */
 
-    --secondary: 200 50% 92%; /* Lighter greenish-blue for secondary elements */
-    --secondary-foreground: 180 50% 20%; /* Darker teal text on secondary */
+    --secondary: 350 50% 92%; /* Lighter pink for secondary elements */
+    --secondary-foreground: 350 50% 20%; /* Darker pink text on secondary */
 
-    --muted: 210 40% 96.1%; /* Light gray for muted elements */
+    --muted: 350 40% 96.1%; /* Light pink-gray for muted elements */
     --muted-foreground: 215.4 16.3% 46.9%; /* Muted text color */
 
     --accent: 33 100% 50%; /* #FF8C00 - Complementary orange */
@@ -28,51 +28,51 @@
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 200 50% 88%; /* Border color harmonized with background */
-    --input: 200 50% 88%; /* Input border harmonized */
-    --ring: 180 100% 30%; /* Slightly lighter teal for rings */
+    --border: 350 50% 88%; /* Border color harmonized with pink background */
+    --input: 350 50% 88%; /* Input border harmonized */
+    --ring: 350 100% 70%; /* Pink for rings */
 
     --radius: 0.5rem;
 
     /* Sidebar specific theme */
-    --sidebar-background: 180 80% 22%; /* Darker, saturated teal for sidebar */
-    --sidebar-foreground: 180 20% 95%; /* Off-white text for sidebar */
+    --sidebar-background: 350 80% 35%; /* Darker pink for sidebar */
+    --sidebar-foreground: 350 20% 95%; /* Off-white text for sidebar */
 
     --sidebar-primary: 33 100% 53%; /* Orange for active/selected items in sidebar */
     --sidebar-primary-foreground: 0 0% 100%; /* White text on orange */
 
-    --sidebar-accent: 180 70% 28%; /* Lighter teal for hover/accent in sidebar */
+    --sidebar-accent: 350 70% 45%; /* Medium pink for hover/accent in sidebar */
     --sidebar-accent-foreground: 0 0% 100%; /* White text on hover */
 
-    --sidebar-border: 180 70% 18%; /* Darker border for sidebar elements */
+    --sidebar-border: 350 70% 25%; /* Darker pink border for sidebar elements */
     --sidebar-ring: 33 100% 53%; /* Orange for focus rings in sidebar */
 
-    --chart-1: 180 76% 61%;
+    --chart-1: 350 76% 61%;
     --chart-2: 33 78% 59%;
-    --chart-3: 200 57% 54%;
-    --chart-4: 170 64% 46%;
+    --chart-3: 340 57% 54%;
+    --chart-4: 330 64% 46%;
     --chart-5: 43 87% 67%;
   }
 
   .dark {
     /* Dark mode theme - adjusted for contrast and professional feel */
-    --background: 220 20% 10%; /* Dark blue-gray */
-    --foreground: 180 10% 90%; /* Light tealish-gray text */
+    --background: 350 20% 10%; /* Dark pink-gray */
+    --foreground: 350 10% 90%; /* Light pinkish-gray text */
 
-    --card: 220 20% 13%; /* Slightly lighter dark blue-gray for cards */
-    --card-foreground: 180 10% 90%;
+    --card: 350 20% 13%; /* Slightly lighter dark pink-gray for cards */
+    --card-foreground: 350 10% 90%;
 
-    --popover: 220 20% 13%;
-    --popover-foreground: 180 10% 90%;
+    --popover: 350 20% 13%;
+    --popover-foreground: 350 10% 90%;
 
-    --primary: 180 100% 35%; /* Brighter teal for dark mode */
-    --primary-foreground: 0 0% 100%;
+    --primary: 350 100% 65%; /* Brighter pink for dark mode */
+    --primary-foreground: 0 0% 10%;
 
-    --secondary: 220 20% 18%; /* Darker secondary */
-    --secondary-foreground: 180 10% 80%;
+    --secondary: 350 20% 18%; /* Darker secondary */
+    --secondary-foreground: 350 10% 80%;
 
-    --muted: 220 20% 18%;
-    --muted-foreground: 180 10% 60%;
+    --muted: 350 20% 18%;
+    --muted-foreground: 350 10% 60%;
 
     --accent: 33 100% 55%; /* Brighter orange for dark mode */
     --accent-foreground: 0 0% 10%; /* Dark text for contrast on bright orange */
@@ -80,27 +80,27 @@
     --destructive: 0 70% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
-    --ring: 180 100% 40%;
+    --border: 350 20% 20%;
+    --input: 350 20% 20%;
+    --ring: 350 100% 60%;
 
     /* Sidebar dark theme */
-    --sidebar-background: 220 25% 8%; /* Even darker for sidebar */
-    --sidebar-foreground: 180 15% 85%;
+    --sidebar-background: 350 25% 8%; /* Even darker pink for sidebar */
+    --sidebar-foreground: 350 15% 85%;
 
     --sidebar-primary: 33 100% 58%; /* Orange for active items */
     --sidebar-primary-foreground: 0 0% 10%;
 
-    --sidebar-accent: 220 20% 15%; /* Accent for hover */
-    --sidebar-accent-foreground: 180 15% 95%;
+    --sidebar-accent: 350 20% 15%; /* Accent for hover */
+    --sidebar-accent-foreground: 350 15% 95%;
 
-    --sidebar-border: 220 20% 12%;
+    --sidebar-border: 350 20% 12%;
     --sidebar-ring: 33 100% 58%;
 
-    --chart-1: 180 70% 50%;
+    --chart-1: 350 70% 50%;
     --chart-2: 33 80% 55%;
-    --chart-3: 200 60% 45%;
-    --chart-4: 170 70% 60%;
+    --chart-3: 340 60% 45%;
+    --chart-4: 330 70% 60%;
     --chart-5: 43 75% 55%;
   }
 }
