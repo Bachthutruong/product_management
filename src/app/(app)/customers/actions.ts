@@ -31,12 +31,78 @@ export async function getCustomers(searchTerm?: string): Promise<Customer[]> {
       .sort({ createdAt: -1 })
       .toArray();
     
-    return customersFromDb.map(customerDoc => CustomerSchema.parse({
-      ...customerDoc,
-      _id: customerDoc._id.toString(),
-      createdAt: customerDoc.createdAt ? new Date(customerDoc.createdAt) : undefined,
-      updatedAt: customerDoc.updatedAt ? new Date(customerDoc.updatedAt) : undefined,
-    }) as Customer);
+    const validCustomers: Customer[] = [];
+    
+    for (const customerDoc of customersFromDb) {
+      try {
+        // Prepare the customer data
+        const customerData = {
+          ...customerDoc,
+          _id: customerDoc._id.toString(),
+          createdAt: customerDoc.createdAt ? new Date(customerDoc.createdAt) : undefined,
+          updatedAt: customerDoc.updatedAt ? new Date(customerDoc.updatedAt) : undefined,
+        };
+        
+        // Use safeParse to avoid throwing errors
+        const parseResult = CustomerSchema.safeParse(customerData);
+        
+        if (parseResult.success) {
+          validCustomers.push(parseResult.data as Customer);
+        } else {
+          console.warn(`Skipping invalid customer with ID ${customerDoc._id}:`, parseResult.error.errors);
+          
+          // Try to fix missing categoryId
+          if (!customerDoc.categoryId) {
+            try {
+              // Get the first available customer category as default
+              const defaultCategory = await db.collection('customer_categories')
+                .findOne({ isActive: true }, { sort: { createdAt: 1 } });
+              
+              if (defaultCategory) {
+                const defaultCategoryId = defaultCategory._id.toString();
+                const defaultCategoryName = defaultCategory.name;
+                
+                // Update the customer in database with default category
+                await db.collection(CUSTOMERS_COLLECTION).updateOne(
+                  { _id: customerDoc._id },
+                  { 
+                    $set: { 
+                      categoryId: defaultCategoryId,
+                      categoryName: defaultCategoryName,
+                      updatedAt: new Date() 
+                    } 
+                  }
+                );
+                
+                console.log(`Added default category "${defaultCategoryName}" (${defaultCategoryId}) to customer ID ${customerDoc._id}`);
+                
+                // Try parsing again with fixed data
+                const fixedCustomerData = {
+                  ...customerData,
+                  categoryId: defaultCategoryId,
+                  categoryName: defaultCategoryName,
+                };
+                
+                const fixedParseResult = CustomerSchema.safeParse(fixedCustomerData);
+                if (fixedParseResult.success) {
+                  validCustomers.push(fixedParseResult.data as Customer);
+                } else {
+                  console.error(`Still invalid after fixing categoryId for customer ID ${customerDoc._id}:`, fixedParseResult.error.errors);
+                }
+              } else {
+                console.error(`No default category found for customer ID ${customerDoc._id}`);
+              }
+            } catch (fixError) {
+              console.error(`Failed to fix categoryId for customer ID ${customerDoc._id}:`, fixError);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing customer with ID ${customerDoc._id}:`, error);
+      }
+    }
+    
+    return validCustomers;
   } catch (error) {
     console.error('Failed to fetch customers:', error);
     return [];
@@ -49,15 +115,22 @@ export async function addCustomer(data: CreateCustomerInput): Promise<{ success:
     return { success: false, error: "Validation failed", errors: validation.error.errors };
   }
 
-  const { name, email, phone, address } = validation.data;
+  const { name, email, phone, address, categoryId } = validation.data;
 
   try {
     const db = await getDb();
+    
+    // Get category name for display
+    const category = await db.collection('customer_categories').findOne({ _id: new ObjectId(categoryId) });
+    const categoryName = category?.name || '';
+
     const newCustomerDbData = {
       name,
       email: email || null,
       phone: phone || null,
       address: address || null,
+      categoryId,
+      categoryName,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -67,10 +140,18 @@ export async function addCustomer(data: CreateCustomerInput): Promise<{ success:
       return { success: false, error: 'Failed to insert customer into database.' };
     }
     
-    const insertedCustomer = CustomerSchema.parse({
+    const customerData = {
         ...newCustomerDbData,
         _id: result.insertedId.toString(),
-    }) as Customer;
+    };
+    
+    const parseResult = CustomerSchema.safeParse(customerData);
+    if (!parseResult.success) {
+      console.error('Failed to parse inserted customer:', parseResult.error.errors);
+      return { success: false, error: 'Failed to validate inserted customer data.' };
+    }
+    
+    const insertedCustomer = parseResult.data as Customer;
 
     revalidatePath('/customers');
     revalidatePath('/orders'); 
@@ -137,9 +218,15 @@ export async function updateCustomer(
      return { success: false, error: 'No data provided for update and customer not found.' };
   }
 
-
   try {
     const db = await getDb();
+    
+    // If categoryId is being updated, also update categoryName
+    if (updatePayload.categoryId) {
+      const category = await db.collection('customer_categories').findOne({ _id: new ObjectId(updatePayload.categoryId) });
+      updatePayload.categoryName = category?.name || '';
+    }
+    
     const updateDataWithTimestamp = { ...updatePayload, updatedAt: new Date() };
 
     const result = await db.collection(CUSTOMERS_COLLECTION).findOneAndUpdate(
@@ -152,10 +239,18 @@ export async function updateCustomer(
       return { success: false, error: 'Customer not found or failed to update.' };
     }
     
-    const updatedCustomer = CustomerSchema.parse({
+    const customerData = {
         ...result,
         _id: result._id.toString(),
-    }) as Customer;
+    };
+    
+    const parseResult = CustomerSchema.safeParse(customerData);
+    if (!parseResult.success) {
+      console.error('Failed to parse updated customer:', parseResult.error.errors);
+      return { success: false, error: 'Failed to validate updated customer data.' };
+    }
+    
+    const updatedCustomer = parseResult.data as Customer;
 
     revalidatePath('/customers');
     revalidatePath(`/customers/${customerId}`); 
@@ -182,12 +277,70 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
     if (!customerDoc) {
       return null;
     }
-    return CustomerSchema.parse({
+    
+    const customerData = {
       ...customerDoc,
       _id: customerDoc._id.toString(),
       createdAt: customerDoc.createdAt ? new Date(customerDoc.createdAt) : undefined,
       updatedAt: customerDoc.updatedAt ? new Date(customerDoc.updatedAt) : undefined,
-    }) as Customer;
+    };
+    
+    // Use safeParse to avoid throwing errors
+    const parseResult = CustomerSchema.safeParse(customerData);
+    
+    if (parseResult.success) {
+      return parseResult.data as Customer;
+    } else {
+      console.warn(`Invalid customer with ID ${id}:`, parseResult.error.errors);
+      
+      // Try to fix missing categoryId
+      if (!customerDoc.categoryId) {
+        try {
+          // Get the first available customer category as default
+          const defaultCategory = await db.collection('customer_categories')
+            .findOne({ isActive: true }, { sort: { createdAt: 1 } });
+          
+          if (defaultCategory) {
+            const defaultCategoryId = defaultCategory._id.toString();
+            const defaultCategoryName = defaultCategory.name;
+            
+            // Update the customer in database with default category
+            await db.collection(CUSTOMERS_COLLECTION).updateOne(
+              { _id: customerDoc._id },
+              { 
+                $set: { 
+                  categoryId: defaultCategoryId,
+                  categoryName: defaultCategoryName,
+                  updatedAt: new Date() 
+                } 
+              }
+            );
+            
+            console.log(`Added default category "${defaultCategoryName}" (${defaultCategoryId}) to customer ID ${id}`);
+            
+            // Try parsing again with fixed data
+            const fixedCustomerData = {
+              ...customerData,
+              categoryId: defaultCategoryId,
+              categoryName: defaultCategoryName,
+            };
+            
+            const fixedParseResult = CustomerSchema.safeParse(fixedCustomerData);
+            if (fixedParseResult.success) {
+              return fixedParseResult.data as Customer;
+            } else {
+              console.error(`Still invalid after fixing categoryId for customer ID ${id}:`, fixedParseResult.error.errors);
+            }
+          } else {
+            console.error(`No default category found for customer ID ${id}`);
+          }
+        } catch (fixError) {
+          console.error(`Failed to fix categoryId for customer ID ${id}:`, fixError);
+        }
+      }
+      
+      return null;
+    }
   } catch (error) {
     console.error(`Failed to fetch customer ${id}:`, error);
     return null;

@@ -93,7 +93,7 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full max-w-none space-y-4">
-      <h1 className="text-3xl font-bold text-foreground">儀表板</h1>
+      <h1 className="text-3xl font-bold text-foreground">總覽概況</h1>
       
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {statCardsData.map((stat) => (
@@ -105,7 +105,7 @@ export default function DashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center"><History className="mr-2 h-5 w-5 text-primary" />最近活動</CardTitle>
-            <CardDescription>最近庫存移動和訂單的概覽。</CardDescription>
+            <CardDescription>最近庫存變動和訂單的狀況</CardDescription>
           </CardHeader>
           <CardContent>
             {loadingActivity ? (
@@ -142,7 +142,7 @@ export default function DashboardPage() {
                           >
                             {order.orderNumber}
                           </Link>
-                          {' '}for {order.customerName} ({formatCurrency(order.totalAmount)})
+                          {' '}: {order.customerName} ({formatCurrency(order.totalAmount)})
                           <span className="text-xs text-muted-foreground ml-2">({formatToYYYYMMDDWithTime(order.orderDate)})</span>
                         </li>
                       ))}
@@ -152,12 +152,12 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <div>
-                  <h4 className="font-medium text-foreground mb-2">最新庫存移動</h4>
+                  <h4 className="font-medium text-foreground mb-2">庫存變動狀況</h4>
                   {recentActivity?.recentMovements && recentActivity.recentMovements.length > 0 ? (
                     <ul className="space-y-2">
                       {recentActivity.recentMovements.map(move => (
                         <li key={move._id} className="text-sm text-foreground border-b border-border pb-1 last:border-b-0">
-                           {move.type ? move.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Unknown'} of <span className="font-semibold text-primary">{move.productName}</span> (Qty: {move.quantity})
+                           {move.type ? move.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Unknown'} : <span className="font-semibold text-primary">{move.productName}</span> (數量: {move.quantity})
                            <span className="text-xs text-muted-foreground ml-2">({formatToYYYYMMDDWithTime(move.movementDate)})</span>
                         </li>
                       ))}
@@ -172,8 +172,8 @@ export default function DashboardPage() {
         </Card>
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5 text-orange-500" />庫存警報</CardTitle>
-            <CardDescription>需要關注的商品庫存水平或過期日期。</CardDescription>
+            <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5 text-orange-500" />商品警告</CardTitle>
+            <CardDescription>需要關注的商品庫存數量或到期日期</CardDescription>
           </CardHeader>
           <CardContent>
             {loadingAlerts ? (
@@ -198,7 +198,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium text-foreground mb-2">低庫存</h4>
+                  <h4 className="font-medium text-foreground mb-2">庫存數量低於安全值警告</h4>
                   {inventoryAlerts?.lowStockProducts && inventoryAlerts.lowStockProducts.length > 0 ? (
                     <ul className="space-y-2">
                       {inventoryAlerts.lowStockProducts.map(product => (
@@ -213,7 +213,7 @@ export default function DashboardPage() {
                   )}
                 </div>
                  <div>
-                  <h4 className="font-medium text-foreground mb-2">即將過期 (未來30天)</h4>
+                  <h4 className="font-medium text-foreground mb-2">1年內到期</h4>
                   {inventoryAlerts?.expiringSoonProducts && inventoryAlerts.expiringSoonProducts.length > 0 ? (
                     <ul className="space-y-2">
                       {inventoryAlerts.expiringSoonProducts.map(product => (

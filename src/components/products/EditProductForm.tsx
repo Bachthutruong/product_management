@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ProductFormInputSchema, type Product, type ProductImage } from '@/models/Product';
 import { type Category } from '@/models/Category';
+import { type UserRole } from '@/models/User';
 import { updateProduct } from '@/app/(app)/products/actions';
 import { getCategories } from '@/app/(app)/categories/actions';
 import { useAuth } from '@/hooks/useAuth';
@@ -40,11 +41,12 @@ type EditFormValuesType = z.infer<typeof EditProductFormResolverSchema>;
 interface EditProductFormProps {
   product: Product;
   userId: string;
+  userRole?: UserRole;
   onProductUpdated?: (updatedProduct: Product) => void;
   onCancel?: () => void;
 }
 
-export function EditProductForm({ product, userId, onProductUpdated, onCancel }: EditProductFormProps) {
+export function EditProductForm({ product, userId, userRole, onProductUpdated, onCancel }: EditProductFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<ProductImage[]>(product.images || []);
@@ -54,6 +56,9 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
+  
+  // Check if user is admin
+  const isAdmin = userRole === 'admin';
 
   const form = useForm<EditFormValuesType>({
     resolver: zodResolver(EditProductFormResolverSchema),
@@ -175,6 +180,17 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
 
     const formData = new FormData();
     Object.entries(data).forEach(([key, value]) => {
+      // For admin-only fields, if user is not admin, use original product values
+      if (!isAdmin && (key === 'price' || key === 'cost' || key === 'stock')) {
+        const originalValue = key === 'price' ? product.price : 
+                             key === 'cost' ? product.cost : 
+                             key === 'stock' ? product.stock : value;
+        if (originalValue !== undefined && originalValue !== null) {
+          formData.append(key, String(originalValue));
+        }
+        return;
+      }
+      
       if (key === 'expiryDate' && value instanceof Date) {
         formData.append(key, value.toISOString());
       } else if (value !== undefined && value !== null && value !== '') {
@@ -185,6 +201,7 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
     });
     formData.append('changedByUserId', userId);
 
+    // Handle images for all users
     if (newRawFiles && newRawFiles.length > 0) {
       console.log("[CLIENT] EditProductForm onSubmit: newRawFiles has files. Length:", newRawFiles.length);
       for (let i = 0; i < newRawFiles.length; i++) {
@@ -303,9 +320,16 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               name="price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>價格</FormLabel>
+                  <FormLabel>價格 {!isAdmin && <span className="text-muted-foreground text-sm">(僅限管理員)</span>}</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="decimal" placeholder="例如：19.99" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
+                    <Input 
+                      type="text" 
+                      inputMode="decimal" 
+                      placeholder="例如：19.99" 
+                      {...field} 
+                      onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)}
+                      disabled={!isAdmin}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -316,9 +340,16 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               name="cost"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>成本 (選填)</FormLabel>
+                  <FormLabel>成本 {!isAdmin && <span className="text-muted-foreground text-sm">(僅限管理員)</span>}</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="decimal" placeholder="例如：9.99" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
+                    <Input 
+                      type="text" 
+                      inputMode="decimal" 
+                      placeholder="例如：9.99" 
+                      {...field} 
+                      onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)}
+                      disabled={!isAdmin}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -329,9 +360,16 @@ export function EditProductForm({ product, userId, onProductUpdated, onCancel }:
               name="stock"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>庫存數量</FormLabel>
+                  <FormLabel>庫存數量 {!isAdmin && <span className="text-muted-foreground text-sm">(僅限管理員)</span>}</FormLabel>
                   <FormControl>
-                    <Input type="text" inputMode="numeric" placeholder="例如：100" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} />
+                    <Input 
+                      type="text" 
+                      inputMode="numeric" 
+                      placeholder="例如：100" 
+                      {...field} 
+                      onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)}
+                      disabled={!isAdmin}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -124,7 +124,7 @@ function OrderStatusActionButton({ order, onStatusUpdated }: OrderStatusActionBu
         size="sm"
         onClick={() => openConfirmationDialog('shipped')}
         disabled={isUpdatingStatus}
-        className="text-xs bg-blue-500 hover:bg-blue-600 text-white"
+        className="text-xs bg-[#c3223d] hover:bg-[#c3223d]/90 text-white"
       >
         {isUpdatingStatus && targetStatus === 'shipped' ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Truck className="mr-1 h-3 w-3" />}
         確認已出貨
@@ -217,7 +217,7 @@ function DeleteOrderButton({ orderId, orderNumber, onOrderDeleted }: { orderId: 
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" title={`Delete order ${orderNumber}`}>
+        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white hover:bg-[#c3223d]" title={`Delete order ${orderNumber}`}>
           <Trash2 className="h-4 w-4" />
           <span className="sr-only">刪除訂單 {orderNumber}</span>
         </Button>
@@ -260,7 +260,7 @@ function OrderDetailsDialog({ order }: { order: Order }) {
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-primary"
+          className="text-muted-foreground hover:text-white hover:bg-[#c3223d]"
           title={`查看訂單詳細資料 ${order.orderNumber}`}
         >
           <Eye className="h-4 w-4" />
@@ -422,7 +422,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-primary"
+          className="text-muted-foreground hover:text-white hover:bg-[#c3223d]"
           disabled={isEditDisabledForEmployee}
                         title={isEditDisabledForEmployee ? `無法編輯處於 '${getChineseStatus(order.status)}' 狀態的訂單` : `編輯訂單 ${order.orderNumber}`}
         >
@@ -745,11 +745,11 @@ export default function OrdersPage() {
         <CardHeader>
           <CardTitle className="flex items-center text-xl">
             <Filter className="mr-2 h-5 w-5 text-primary" />
-            過濾及搜尋訂單
+            查詢訂單
           </CardTitle>
-          <CardDescription>
+          {/* <CardDescription>
             精簡您的訂單檢視。 {isLoading && totalOrders === 0 ? "載入中..." : `${totalOrders} 筆訂單已找到。`}
-          </CardDescription>
+          </CardDescription> */}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleApplyFilters} className="space-y-4">
@@ -821,7 +821,7 @@ export default function OrdersPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+              <Button type="submit" className="bg-[#c3223d] hover:bg-primary/90 text-white" disabled={isLoading}>
                 <Search className="mr-2 h-4 w-4" /> 套用
               </Button>
               <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isLoading}>
@@ -898,7 +898,13 @@ export default function OrdersPage() {
                               {order.orderNumber}
                             </Link>
                           </TableCell>
-                          <TableCell>{order.customerName}</TableCell>
+                          <TableCell 
+                            className="font-medium text-primary hover:text-primary/80 cursor-pointer transition-colors" 
+                            onClick={() => router.push(`/customers/${order.customerId}/orders`)}
+                            title={`查看 ${order.customerName} 的訂單`}
+                          >
+                            {order.customerName}
+                          </TableCell>
                           <TableCell>{isValid(new Date(order.orderDate)) ? formatToYYYYMMDDWithTime(order.orderDate) : 'Invalid Date'}</TableCell>
                           <TableCell>{order.createdByName || 'N/A'}</TableCell>
                           <TableCell className="text-right">{formatCurrency(order.totalAmount)}</TableCell>
@@ -939,7 +945,7 @@ export default function OrdersPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-muted-foreground hover:text-primary"
+                                className="text-muted-foreground hover:text-white hover:bg-[#c3223d]"
                                 onClick={() => handlePrintOrder(order)}
                                 title={`Print order ${order.orderNumber}`}
                               >

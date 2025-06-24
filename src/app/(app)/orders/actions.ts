@@ -264,6 +264,8 @@ export async function getOrders(filters: {
       limit = 10 // Default items per page
     } = filters;
 
+    console.log('[getOrders] Filters received:', { searchTerm, customerId, status, dateFrom, dateTo, page, limit });
+
 
     if (searchTerm) {
       const regex = { $regex: searchTerm, $options: 'i' };
@@ -275,7 +277,9 @@ export async function getOrders(filters: {
         ]
       });
     }
-    if (customerId && ObjectId.isValid(customerId)) {
+    if (customerId) {
+      // For customer ID filtering, we need to match the string representation
+      // since customerId in orders is stored as string (customer._id.toString())
       query.customerId = customerId;
     }
     if (status && status !== 'all') {
@@ -292,7 +296,11 @@ export async function getOrders(filters: {
     }
 
     const skip = (page - 1) * limit;
+    
+    console.log('[getOrders] Final query:', JSON.stringify(query, null, 2));
+    
     const totalCount = await db.collection(ORDERS_COLLECTION).countDocuments(query);
+    console.log('[getOrders] Total count found:', totalCount);
 
     const ordersFromDb = await db.collection(ORDERS_COLLECTION)
       .find(query)
@@ -300,6 +308,8 @@ export async function getOrders(filters: {
       .skip(skip)
       .limit(limit)
       .toArray();
+    
+    console.log('[getOrders] Orders fetched:', ordersFromDb.length);
 
     const parsedOrders = ordersFromDb.map(orderDoc => OrderSchema.parse({
       ...orderDoc,
@@ -737,9 +747,52 @@ export async function deleteOrder(orderId: string, userRole: string, currentUser
       
       customerIdForRevalidation = orderToDelete.customerId;
 
-      console.warn(`Order ${orderId} soft deleted. Stock reversal for items not yet implemented.`);
+      // Restore stock for incomplete orders (pending, processing)
+      if (['pending', 'processing'].includes(orderToDelete.status)) {
+        console.log(`Restoring stock for incomplete order ${orderToDelete.orderNumber} with status: ${orderToDelete.status}`);
+        
+        for (const item of orderToDelete.items) {
+          const product = await db.collection(PRODUCTS_COLLECTION).findOne({ _id: new ObjectId(item.productId) }, { session });
+          if (product) {
+            // Restore stock using simple addition
+            await db.collection(PRODUCTS_COLLECTION).updateOne(
+              { _id: new ObjectId(item.productId) },
+              { 
+                $inc: { stock: item.quantity },
+                $set: { updatedAt: new Date() }
+              },
+              { session }
+            );
 
-      // Soft delete instead of hard delete
+            // Record inventory movement for stock restoration
+            const restorationMovement: Omit<InventoryMovement, '_id'> = {
+              productId: item.productId,
+              productName: item.productName,
+              type: 'adjustment-add',
+              quantity: item.quantity,
+              movementDate: new Date(),
+              userId: currentUser?._id || 'system',
+              userName: currentUser?.name || 'System',
+              relatedOrderId: orderId,
+              notes: `Stock restoration from deleted order ${orderToDelete.orderNumber}`,
+              stockBefore: product.stock,
+              stockAfter: product.stock + item.quantity,
+            };
+
+            await db.collection(INVENTORY_MOVEMENTS_COLLECTION).insertOne({
+              ...restorationMovement,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }, { session });
+
+            console.log(`Restored ${item.quantity} units of ${item.productName} to stock`);
+          }
+        }
+      } else {
+        console.log(`Order ${orderToDelete.orderNumber} has status ${orderToDelete.status} - stock will not be restored as order was already processed`);
+      }
+
+      // Soft delete the order
       const result = await db.collection(ORDERS_COLLECTION).updateOne(
         { _id: new ObjectId(orderId) }, 
         { 
@@ -760,6 +813,8 @@ export async function deleteOrder(orderId: string, userRole: string, currentUser
     });
 
     revalidatePath('/orders');
+    revalidatePath('/products');
+    revalidatePath('/inventory');
     if (customerIdForRevalidation) {
       revalidatePath(`/customers/${customerIdForRevalidation}/orders`);
     }

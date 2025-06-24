@@ -63,7 +63,7 @@ function DeleteUserButton({ userId, userName, onUserDeleted }: { userId: string,
   return (
     <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting}>
+        <Button variant="ghost" size="icon" className="text-destructive hover:text-white hover:bg-[#c3223d]" disabled={isDeleting}>
           {isDeleting && isAlertOpen ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           <span className="sr-only">刪除 {userName}</span>
         </Button>
