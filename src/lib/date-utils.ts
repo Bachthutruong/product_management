@@ -27,14 +27,14 @@ export function formatToYYYYMMDDWithTime(date: Date | string | null | undefined)
 }
 
 /**
- * 格式化日期以供日曆選擇器顯示 (仍使用 PPP 以提高可讀性)
+ * 格式化日期以供日曆選擇器顯示 (中文格式)
  */
 export function formatForCalendarDisplay(date: Date | null | undefined): string {
   if (!date) return '';
   
   if (!isValid(date)) return '無效日期'; // 翻譯: Invalid Date
   
-  return format(date, 'PPP');
+  return format(date, 'yyyy年MM月dd日');
 }
 
 /**

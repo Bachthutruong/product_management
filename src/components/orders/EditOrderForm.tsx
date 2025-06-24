@@ -6,8 +6,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { CreateOrderFormSchema, type CreateOrderFormValues, type CreateOrderInput, DiscountTypeSchema, type Order } from '@/models/Order';
 import type { Product } from '@/models/Product';
 import type { Customer } from '@/models/Customer';
+import type { Category } from '@/models/Category';
 import { getProducts } from '@/app/(app)/products/actions';
 import { getCustomers } from '@/app/(app)/customers/actions';
+import { getCustomerCategories } from '@/app/(app)/customer-categories/actions';
+import { getCategories } from '@/app/(app)/categories/actions';
 import { updateOrder } from '@/app/(app)/orders/actions';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -18,12 +21,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ShoppingCart, Users, Percent, DollarSign, Truck, CheckIcon, ChevronsUpDown } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, ShoppingCart, Users, Percent, DollarSign, Truck, CheckIcon, ChevronsUpDown, FolderTree } from 'lucide-react';
 import { AddCustomerDialog } from '@/components/customers/AddCustomerDialog';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/utils';
+import { type CustomerCategory } from '@/models/CustomerCategory';
 
 interface EditOrderFormProps {
   order: Order;
@@ -36,15 +40,20 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerCategories, setCustomerCategories] = useState<CustomerCategory[]>([]);
+  const [productCategories, setProductCategories] = useState<Category[]>([]);
+  const [selectedCustomerCategoryId, setSelectedCustomerCategoryId] = useState<string>('');
+  const [selectedProductCategoryIds, setSelectedProductCategoryIds] = useState<{[key: number]: string}>({});
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [customerSearch, setCustomerSearch] = useState('');
-  const [openCustomerPopover, setOpenCustomerPopover] = useState(false);
+
   const [productSearches, setProductSearches] = useState<{[key: number]: string}>({});
-  const [openProductPopovers, setOpenProductPopovers] = useState<{[key: number]: boolean}>({});
-  const [updateCounter, setUpdateCounter] = useState(0);
+  const [showProductSelections, setShowProductSelections] = useState<{[key: number]: boolean}>({});
+  const [showCustomerSelection, setShowCustomerSelection] = useState(false);
+  const [forceUpdateCounter, setForceUpdateCounter] = useState(0);
 
   const form = useForm<CreateOrderFormValues>({
     resolver: zodResolver(CreateOrderFormSchema),
@@ -74,20 +83,32 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
   const fetchInitialData = useCallback(async () => {
     setIsLoadingProducts(true);
     setIsLoadingCustomers(true);
+    setIsLoadingCategories(true);
     try {
-      const [fetchedProductsResult, fetchedCustomersResult] = await Promise.all([
-        getProducts(),
+      const [fetchedProductsResult, fetchedCustomersResult, fetchedCustomerCategoriesResult, fetchedProductCategoriesResult] = await Promise.all([
+        getProducts({ limit: 1000 }), // Get more products to show all
         getCustomers(),
+        getCustomerCategories(),
+        getCategories({ limit: 500 }),
       ]);
       setProducts(fetchedProductsResult.products);
       setCustomers(fetchedCustomersResult);
+      setCustomerCategories(fetchedCustomerCategoriesResult.filter(cat => cat.isActive));
+      setProductCategories(fetchedProductCategoriesResult.categories);
+      
+      // Set initial category based on current customer
+      const currentCustomer = fetchedCustomersResult.find(c => c._id === order.customerId);
+      if (currentCustomer && currentCustomer.categoryId) {
+        setSelectedCustomerCategoryId(currentCustomer.categoryId);
+      }
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Could not load products or customers." });
+      toast({ variant: "destructive", title: "Error", description: "Could not load data." });
     } finally {
       setIsLoadingProducts(false);
       setIsLoadingCustomers(false);
+      setIsLoadingCategories(false);
     }
-  }, [toast]);
+  }, [toast, order.customerId]);
 
   useEffect(() => {
     fetchInitialData();
@@ -129,11 +150,6 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
   const watchedDiscountValueInput = form.watch("discountValueInput");
   const watchedShippingFeeInput = form.watch("shippingFeeInput");
 
-  // Function to trigger recalculation
-  const triggerRecalculation = useCallback(() => {
-    setUpdateCounter(prev => prev + 1);
-  }, []);
-
   const { subtotal, discountAmount, totalAmount } = useMemo(() => {
     let currentSubtotal = 0;
     watchedItems.forEach(item => {
@@ -159,17 +175,18 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
       discountAmount: currentDiscountAmount,
       totalAmount: currentTotalAmount
     };
-  }, [watchedItems, watchedDiscountType, watchedDiscountValueInput, watchedShippingFeeInput, updateCounter]);
+  }, [watchedItems, watchedDiscountType, watchedDiscountValueInput, watchedShippingFeeInput, forceUpdateCounter]);
 
   async function onSubmit(data: CreateOrderFormValues) {
     if (!user) {
-      toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in." });
+      toast({ variant: "destructive", title: "認證錯誤", description: "您必須登入。" });
       return;
     }
     setIsSubmitting(true);
 
     const orderInput: CreateOrderInput = {
       customerId: data.customerId,
+      //@ts-expect-error batchesUsed is not in CreateOrderInput
       items: data.items.map(item => ({
         productId: item.productId,
         productName: item.productName,
@@ -178,7 +195,6 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
         unitPrice: Number(item.unitPrice),
         cost: Number(item.cost || 0),
         notes: item.notes,
-        batchesUsed: [], // Will be populated by the updateOrder function
       })),
       discountType: data.discountType,
       discountValue: data.discountValueInput ? parseFloat(data.discountValueInput) : undefined,
@@ -190,16 +206,16 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
       const result = await updateOrder(order._id, orderInput, user);
       if (result.success) {
         toast({
-          title: 'Order Updated',
-          description: `Order ${order.orderNumber} has been successfully updated.`,
+          title: '訂單已更新',
+          description: `訂單 ${order.orderNumber} 已成功更新。`,
         });
         if (onOrderUpdated && result.order) onOrderUpdated(result.order._id);
         if (closeDialog) closeDialog();
       } else {
         toast({
           variant: 'destructive',
-          title: 'Error Updating Order',
-          description: result.error || 'An unknown error occurred.',
+          title: '更新訂單錯誤',
+          description: result.error || '發生未知錯誤。',
         });
         if (result.errors) {
           console.error("Order update Zod errors:", result.errors);
@@ -208,8 +224,8 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Submission Error',
-        description: 'An unexpected error occurred while updating the order.',
+        title: '提交錯誤',
+        description: '更新訂單時發生意外錯誤。',
       });
     } finally {
       setIsSubmitting(false);
@@ -219,326 +235,480 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
   const handleCustomerAdded = (newCustomer: Customer) => {
     setCustomers(prev => [...prev, newCustomer]);
     form.setValue('customerId', newCustomer._id);
-    setCustomerSearch(newCustomer.name);
-    setOpenCustomerPopover(false);
+    toast({ title: "客戶已選取", description: `${newCustomer.name} 現已選取此訂單。` });
   };
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    (customer.email?.toLowerCase() || '').includes(customerSearch.toLowerCase())
-  );
-
-  const getSelectedCustomer = () => {
-    return customers.find(c => c._id === form.watch('customerId'));
+  const handleCustomerCategoryChange = (categoryId: string) => {
+    setSelectedCustomerCategoryId(categoryId);
+    // Reset customer selection when category changes
+    form.setValue('customerId', '');
+    setCustomerSearch('');
   };
 
-  const getFilteredProducts = (searchTerm: string, currentIndex: number) => {
-    return products.filter(product => {
-      // Filter by search term
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.sku || '').toLowerCase().includes(searchTerm.toLowerCase());
-      
-      // Filter out products with stock <= 0
-      const hasStock = product.stock > 0;
-      
-      // Filter out products already added to the order (except the current item being edited)
-      const alreadyAdded = watchedItems.some((item, itemIndex) => 
-        item.productId === product._id && itemIndex !== currentIndex
-      );
-      
-      return matchesSearch && hasStock && !alreadyAdded;
-    });
+  const handleProductCategoryChange = (categoryId: string, itemIndex: number) => {
+    setSelectedProductCategoryIds(prev => ({...prev, [itemIndex]: categoryId}));
+    // Reset product selection for this specific item
+    form.setValue(`items.${itemIndex}.productId`, '');
+    form.setValue(`items.${itemIndex}.productName`, '');
+    form.setValue(`items.${itemIndex}.productSku`, '');
   };
+
+  // Filter customers by selected category
+  const filteredCustomers = useMemo(() => {
+    // If no category selected, return all customers
+    if (!selectedCustomerCategoryId) return customers;
+    return customers.filter(customer => customer.categoryId === selectedCustomerCategoryId);
+  }, [customers, selectedCustomerCategoryId]);
+
+  // Filter products by selected category for specific item
+  const getFilteredProductsForItem = useCallback((itemIndex: number) => {
+    const categoryId = selectedProductCategoryIds[itemIndex];
+    // If no category selected or "all" selected for this item, return all products
+    if (!categoryId || categoryId === 'all') return products;
+    return products.filter(product => product.categoryId === categoryId);
+  }, [products, selectedProductCategoryIds]);
+
+  if (isLoadingProducts || isLoadingCustomers || isLoadingCategories) {
+    return <div className="flex justify-center items-center p-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
 
   return (
-    <Card className="w-full max-w-6xl mx-auto shadow-xl">
-      <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg">
-        <div className="flex items-center gap-3">
-          <ShoppingCart className="h-6 w-6" />
-          <div>
-            <CardTitle className="text-2xl font-bold">編輯訂單 - {order.orderNumber}</CardTitle>
-            <CardDescription className="text-blue-100 mt-1">更新訂單詳細資訊和明細項目</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <CardContent className="p-6 space-y-6">
-            
-            {/* Customer Selection */}
-            <div className="bg-slate-50 p-4 rounded-lg border">
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="h-5 w-5 text-blue-600" />
-                <h3 className="text-lg font-semibold text-gray-800">客戶資訊</h3>
-              </div>
-              
-              <FormField
-                control={form.control}
-                name="customerId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>客戶 *</FormLabel>
-                    <div className="flex gap-2">
-                      <Popover open={openCustomerPopover} onOpenChange={setOpenCustomerPopover}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className={cn("flex-1 justify-between", !field.value && "text-muted-foreground")}
-                            >
-                              {field.value
-                                ? getSelectedCustomer()?.name || "選擇客戶"
-                                : "選擇客戶"
-                              }
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[400px] p-0">
-                          <Command>
-                            <CommandInput 
-                              placeholder="搜尋客戶..." 
-                              value={customerSearch}
-                              onValueChange={setCustomerSearch}
-                            />
-                            <CommandEmpty>找不到客戶。</CommandEmpty>
-                            <CommandGroup>
-                              <CommandList className="max-h-48">
-                                {isLoadingCustomers ? (
-                                  <div className="p-2 text-center">
-                                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                  </div>
-                                ) : (
-                                  filteredCustomers.map((customer) => (
-                                    <CommandItem
-                                      value={customer._id}
-                                      key={customer._id}
-                                      onSelect={() => {
-                                        form.setValue("customerId", customer._id);
-                                        setCustomerSearch(customer.name);
-                                        setOpenCustomerPopover(false);
-                                      }}
-                                    >
-                                      <CheckIcon
-                                        className={cn("mr-2 h-4 w-4", customer._id === field.value ? "opacity-100" : "opacity-0")}
-                                      />
-                                      <div>
-                                        <p className="font-medium">{customer.name}</p>
-                                        <p className="text-sm text-muted-foreground">{customer.email}</p>
-                                      </div>
-                                    </CommandItem>
-                                  ))
-                                )}
-                              </CommandList>
-                            </CommandGroup>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <AddCustomerDialog onCustomerAdded={handleCustomerAdded} />
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+          {/* Customer Category Selection */}
+          <div className="flex flex-col space-y-2">
+            <label htmlFor="customerCategory" className="text-sm font-medium">
+              客戶分類 (可選擇，若無則顯示全部)
+            </label>
+            <div className="flex items-center gap-2">
+              <FolderTree className="h-4 w-4 text-muted-foreground" />
+              <Select
+                value={selectedCustomerCategoryId}
+                onValueChange={handleCustomerCategoryChange}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="選擇客戶分類 (可留空顯示全部)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customerCategories
+                    .filter(category => category._id && category._id.trim() !== '') // Filter out empty IDs
+                    .map((category) => (
+                    <SelectItem key={category._id} value={category._id!}>
+                      {category.name} ({category.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
 
-            {/* Order Items */}
-            <div className="bg-slate-50 p-4 rounded-lg border">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">訂單明細</h3>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddProductLine}
-                  className="flex items-center gap-2"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  新增項目
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                      
-                      {/* Product Selection */}
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.productId`}
-                        render={({ field: productField }) => (
-                          <FormItem className="md:col-span-2">
-                            <FormLabel>產品 *</FormLabel>
-                            <Popover 
-                              open={openProductPopovers[index] || false} 
-                              onOpenChange={(open) => setOpenProductPopovers(prev => ({ ...prev, [index]: open }))}
+          {/* Customer Selection */}
+          <FormField
+            control={form.control}
+            name="customerId"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>客戶 *</FormLabel>
+                <div className="space-y-2">
+                   {/* Customer selection and Add Customer button on same row */}
+                   <div className="flex gap-2">
+                     <div className="flex-1">
+                       {/* Display Selected Customer */}
+                       {field.value && (
+                         <div className="p-1 bg-green-50 border border-green-200 rounded-md">
+                           <div className="flex items-center justify-between">
+                             <div>
+                               <span className="font-medium text-green-900">
+                                 {filteredCustomers.find(c => c._id === field.value)?.name || '已選客戶'}
+                               </span>
+                               <span className="text-sm text-green-700 ml-2">
+                                 ({filteredCustomers.find(c => c._id === field.value)?.phone || 
+                                   filteredCustomers.find(c => c._id === field.value)?.email || '無聯絡資訊'})
+                               </span>
+                             </div>
+                             <Button
+                               type="button"
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => {
+                                 form.setValue("customerId", '');
+                                 setCustomerSearch('');
+                                 setShowCustomerSelection(false);
+                               }}
+                               className="text-green-600 hover:text-green-800"
+                             >
+                               更換
+                             </Button>
+                           </div>
+                         </div>
+                       )}
+                       
+                       {/* Select Customer Button */}
+                       {!field.value && !showCustomerSelection && (
+                         <Button
+                           type="button"
+                           variant="outline"
+                           onClick={() => setShowCustomerSelection(true)}
+                           className="w-full"
+                         >
+                           選擇客戶
+                         </Button>
+                       )}
+                     </div>
+                     
+                     {/* Add Customer Button */}
+                     <AddCustomerDialog
+                      onCustomerAdded={handleCustomerAdded}
+                      triggerButton={<Button type="button" variant="outline" size="icon"><Users className="h-4 w-4" /></Button>}
+                    />
+                   </div>
+                   
+                   {/* Customer Search and Selection */}
+                   {!field.value && showCustomerSelection && (
+                     <div className="space-y-2">
+                       <div className="flex gap-2">
+                         <Input
+                           placeholder="搜尋客戶 (姓名、電話、Email)..."
+                           value={customerSearch}
+                           onChange={(e) => setCustomerSearch(e.target.value)}
+                           className="flex-1"
+                         />
+                         <Button
+                           type="button"
+                           variant="outline"
+                           size="sm"
+                           onClick={() => {
+                             setShowCustomerSelection(false);
+                             setCustomerSearch('');
+                           }}
+                         >
+                           取消
+                         </Button>
+                       </div>
+                      <div 
+                        style={{ 
+                          height: '200px',
+                          overflowY: 'auto',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          backgroundColor: 'white'
+                        }}
+                      >
+                        {(() => {
+                          const filteredItems = filteredCustomers.filter(c => 
+                            c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                            (c.phone && c.phone.toLowerCase().includes(customerSearch.toLowerCase())) ||
+                            (c.email && c.email.toLowerCase().includes(customerSearch.toLowerCase()))
+                          );
+                          
+                          if (filteredItems.length === 0) {
+                            return (
+                              <div style={{ padding: '16px', textAlign: 'center', color: '#6b7280' }}>
+                                {filteredCustomers.length === 0 
+                                  ? (selectedCustomerCategoryId ? "此分類下沒有客戶。" : "沒有客戶資料。")
+                                  : "找不到符合的客戶。"}
+                              </div>
+                            );
+                          }
+                          
+                          return filteredItems.map((customer) => (
+                            <div
+                              key={customer._id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '12px',
+                                cursor: 'pointer',
+                                backgroundColor: customer._id === field.value ? '#dcfce7' : 'transparent',
+                                borderBottom: '1px solid #f3f4f6'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (customer._id !== field.value) {
+                                  e.currentTarget.style.backgroundColor = '#f9fafb';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (customer._id !== field.value) {
+                                  e.currentTarget.style.backgroundColor = 'transparent';
+                                }
+                              }}
+                              onClick={() => {
+                                 form.setValue("customerId", customer._id);
+                                 setShowCustomerSelection(false);
+                                 setCustomerSearch('');
+                               }}
                             >
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    className={cn("w-full justify-between", !productField.value && "text-muted-foreground")}
-                                  >
-                                    {productField.value
-                                      ? products.find(p => p._id === productField.value)?.name || "選擇產品"
-                                      : "選擇產品"
-                                    }
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-[400px] p-0">
-                                <Command>
-                                  <CommandInput 
-                                    placeholder="搜尋產品..." 
-                                    value={productSearches[index] || ''}
-                                    onValueChange={(value) => setProductSearches(prev => ({ ...prev, [index]: value }))}
-                                  />
-                                  <CommandEmpty>找不到產品。</CommandEmpty>
-                                  <CommandGroup>
-                                    <CommandList className="max-h-48">
-                                      {isLoadingProducts ? (
-                                        <div className="p-2 text-center">
-                                          <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                        </div>
-                                      ) : (
-                                        getFilteredProducts(productSearches[index] || '', index).map((product) => (
-                                          <CommandItem
-                                            value={product._id}
-                                            key={product._id}
-                                            onSelect={() => {
-                                              handleProductSelect(index, product._id);
-                                              setOpenProductPopovers(prev => ({ ...prev, [index]: false }));
-                                              setProductSearches(prev => ({ ...prev, [index]: '' }));
-                                            }}
-                                          >
-                                            <CheckIcon
-                                              className={cn("mr-2 h-4 w-4", product._id === productField.value ? "opacity-100" : "opacity-0")}
-                                            />
-                                            <div>
-                                              <p className="font-medium">{product.name}</p>
-                                              <p className="text-sm text-muted-foreground">SKU: {product.sku} | 庫存: {product.stock} | 價格: ${product.price}</p>
-                                            </div>
-                                          </CommandItem>
-                                        ))
-                                      )}
-                                    </CommandList>
-                                  </CommandGroup>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                              <CheckIcon
+                                style={{
+                                  width: '16px',
+                                  height: '16px',
+                                  opacity: customer._id === field.value ? 1 : 0,
+                                  color: '#22c55e'
+                                }}
+                              />
+                              <span>{customer.name} ({customer.phone || customer.email || '無聯絡資訊'})</span>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                   )}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-                      {/* Quantity */}
+          {/* Order Items */}
+          <div className="space-y-3">
+            <FormLabel>訂單明細</FormLabel>
+            {fields.map((item, index) => {
+              const filteredProductsForItem = getFilteredProductsForItem(index);
+              return (
+              <Card key={item.id} className="p-4 space-y-3 bg-muted/30">
+                {/* Product Category Selection for this item */}
+                <div className="flex flex-col space-y-2">
+                  <label className="text-sm font-medium">
+                    產品分類 (可選擇，若無則顯示全部)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <FolderTree className="h-4 w-4 text-muted-foreground" />
+                    <Select
+                      value={selectedProductCategoryIds[index] || 'all'}
+                      onValueChange={(categoryId) => handleProductCategoryChange(categoryId, index)}
+                      disabled={isLoadingCategories}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder={isLoadingCategories ? "載入中..." : "選擇產品分類 (可留空顯示全部)"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">所有分類</SelectItem>
+                        {productCategories
+                          .filter(category => category._id && category._id.trim() !== '') // Filter out empty IDs
+                          .map((category) => (
+                          <SelectItem key={category._id} value={category._id!}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-[2fr_auto] gap-3 items-center">
+                  <FormField
+                    control={form.control}
+                    name={`items.${index}.productId`}
+                    render={({ field: productField }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>產品 *</FormLabel>
+                        
+                        {/* Display Selected Product */}
+                        {productField.value && (
+                          <div className="p-1 bg-blue-50 border border-blue-200 rounded-md">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="font-medium text-blue-900">
+                                  {filteredProductsForItem.find(p => p._id === productField.value)?.name || '已選產品'}
+                                </span>
+                                <span className="text-sm text-blue-700 ml-2">
+                                  (SKU: {filteredProductsForItem.find(p => p._id === productField.value)?.sku || 'N/A'})
+                                </span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  productField.onChange('');
+                                  form.setValue(`items.${index}.productName`, '');
+                                  form.setValue(`items.${index}.productSku`, '');
+                                  form.setValue(`items.${index}.unitPrice`, 0);
+                                  setShowProductSelections(prev => ({...prev, [index]: false}));
+                                }}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                更換
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Select Product Button */}
+                        {!productField.value && !showProductSelections[index] && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowProductSelections(prev => ({...prev, [index]: true}))}
+                            className="w-full"
+                          >
+                            選擇產品
+                          </Button>
+                        )}
+                        
+                        {/* Product Search and Selection */}
+                        {!productField.value && showProductSelections[index] && (
+                          <div className="space-y-2">
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="搜尋產品 (名稱、SKU)..."
+                                value={productSearches[index] || ''}
+                                onChange={(e) => setProductSearches(prev => ({...prev, [index]: e.target.value}))}
+                                className="flex-1"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setShowProductSelections(prev => ({...prev, [index]: false}));
+                                  setProductSearches(prev => ({...prev, [index]: ''}));
+                                }}
+                              >
+                                取消
+                              </Button>
+                            </div>
+                            <div 
+                              style={{ 
+                                height: '250px',
+                                overflowY: 'auto',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                backgroundColor: 'white'
+                              }}
+                            >
+                            {(() => {
+                              const filteredItems = filteredProductsForItem.filter(p => {
+                                // Filter by search term
+                                const matchesSearch = !productSearches[index] || 
+                                  p.name.toLowerCase().includes((productSearches[index] || '').toLowerCase()) ||
+                                  (p.sku && p.sku.toLowerCase().includes((productSearches[index] || '').toLowerCase()));
+                                
+                                // Filter out products already added to the order (but allow current selection)
+                                const alreadyAdded = watchedItems.some((item, itemIndex) => 
+                                  item.productId === p._id && itemIndex !== index
+                                );
+                                
+                                return matchesSearch && !alreadyAdded;
+                              });
+                              
+                              if (filteredItems.length === 0) {
+                                return (
+                                  <div style={{ padding: '16px', textAlign: 'center', color: '#6b7280' }}>
+                                    {filteredProductsForItem.length === 0 
+                                      ? (selectedProductCategoryIds[index] && selectedProductCategoryIds[index] !== 'all' ? "此分類下沒有產品。" : "沒有產品資料。")
+                                      : "找不到符合的產品。"}
+                                  </div>
+                                );
+                              }
+                              
+                              return filteredItems.map((product) => (
+                                <div
+                                  key={product._id}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '12px',
+                                    cursor: 'pointer',
+                                    backgroundColor: product._id === productField.value ? '#dbeafe' : 'transparent',
+                                    borderBottom: '1px solid #f3f4f6'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (product._id !== productField.value) {
+                                      e.currentTarget.style.backgroundColor = '#f9fafb';
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (product._id !== productField.value) {
+                                      e.currentTarget.style.backgroundColor = 'transparent';
+                                    }
+                                  }}
+                                  onClick={() => {
+                                    productField.onChange(product._id);
+                                    handleProductSelect(index, product._id);
+                                    setShowProductSelections(prev => ({...prev, [index]: false}));
+                                    setProductSearches(prev => ({...prev, [index]: ''}));
+                                  }}
+                                >
+                                  <CheckIcon
+                                    style={{
+                                      width: '16px',
+                                      height: '16px',
+                                      opacity: product._id === productField.value ? 1 : 0,
+                                      color: '#3b82f6'
+                                    }}
+                                  />
+                                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                                    <span style={{ color: product.stock <= 0 ? '#ef4444' : '#111827' }}>
+                                      {product.name} (SKU: {product.sku || 'N/A'})
+                                      {product.stock <= 0 && <span style={{ color: '#ef4444', marginLeft: '4px' }}>[缺貨]</span>}
+                                    </span>
+                                    <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                                      庫存: <span style={{ color: product.stock <= 0 ? '#ef4444' : '#6b7280', fontWeight: product.stock <= 0 ? '500' : 'normal' }}>{product.stock}</span> - 價格: {formatCurrency(product.price)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ));
+                            })()}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Quantity and Delete Button on same row */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col space-y-1">
+                      <FormLabel className="text-xs text-muted-foreground">數量</FormLabel>
                       <FormField
                         control={form.control}
                         name={`items.${index}.quantity`}
-                        render={({ field: qtyField }) => (
+                        render={({ field: quantityField }) => (
                           <FormItem>
-                            <FormLabel>數量 *</FormLabel>
                             <FormControl>
-                              <Input 
-                                type="text" 
-                                inputMode="numeric" 
-                                placeholder="例如：1, 2, 10"
-                                value={qtyField.value || ''}
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="數量"
+                                value={quantityField.value || ''}
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   // Allow empty string for easier editing
                                   if (value === '') {
-                                    qtyField.onChange('');
+                                    quantityField.onChange('');
                                   } else {
                                     // Only allow positive integers
                                     const numValue = parseInt(value, 10);
                                     if (!isNaN(numValue) && numValue > 0) {
-                                      qtyField.onChange(numValue);
+                                      quantityField.onChange(numValue);
+                                      // Trigger form validation and recalculation immediately
+                                      form.trigger(`items.${index}.quantity`);
                                     }
                                   }
-                                  // Trigger recalculation immediately
-                                  triggerRecalculation();
+                                  // Force update totals
+                                  setForceUpdateCounter(prev => prev + 1);
                                 }}
                                 onBlur={(e) => {
                                   // Ensure we have a valid number on blur
                                   const value = e.target.value;
                                   if (value === '' || isNaN(parseInt(value, 10))) {
-                                    qtyField.onChange(1); // Default to 1 if invalid
+                                    quantityField.onChange(1); // Default to 1 if invalid
                                   }
-                                  qtyField.onBlur();
+                                  quantityField.onBlur();
+                                  // Trigger recalculation on blur as well
+                                  form.trigger(`items.${index}.quantity`);
+                                  // Force update totals
+                                  setForceUpdateCounter(prev => prev + 1);
                                 }}
-                                name={qtyField.name}
-                                ref={qtyField.ref}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      {/* Unit Price */}
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.unitPrice`}
-                        render={({ field: priceField }) => (
-                          <FormItem>
-                            <FormLabel>單價 *</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                step="0.01" 
-                                min="0" 
-                                {...priceField}
-                                onChange={(e) => {
-                                  priceField.onChange(e);
-                                  // Trigger recalculation immediately
-                                  triggerRecalculation();
-                                }}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      {/* Remove Button */}
-                      <div className="flex items-end">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => remove(index)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    <div className="mt-4">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.notes`}
-                        render={({ field: notesField }) => (
-                          <FormItem>
-                            <FormLabel>項目備註</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="此項目的選項備註"
-                                value={notesField.value || ''}
-                                onChange={notesField.onChange}
-                                onBlur={notesField.onBlur}
-                                name={notesField.name}
-                                ref={notesField.ref}
+                                name={quantityField.name}
+                                ref={quantityField.ref}
+                                className="w-20"
                               />
                             </FormControl>
                             <FormMessage />
@@ -546,119 +716,126 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                         )}
                       />
                     </div>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => {
+                        remove(index);
+                        // Clean up states for this index
+                        setShowProductSelections(prev => {
+                          const newState = {...prev};
+                          delete newState[index];
+                          return newState;
+                        });
+                        setProductSearches(prev => {
+                          const newState = {...prev};
+                          delete newState[index];
+                          return newState;
+                        });
+                      }}
+                      className="text-destructive hover:text-destructive/80 shrink-0 mt-5"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
                   </div>
-                ))}
-              </div>
-
-              {fields.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <ShoppingCart className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>尚未新增項目。點擊「新增項目」開始建立訂單。</p>
                 </div>
-              )}
-            </div>
-
-            {/* Discount and Shipping */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Discount Section */}
-              <div className="bg-slate-50 p-4 rounded-lg border">
-                <div className="flex items-center gap-2 mb-3">
-                  <Percent className="h-5 w-5 text-green-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">折扣</h3>
-                </div>
-                
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="discountType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>折扣類型</FormLabel>
-                        <Select onValueChange={(value) => {
-                          field.onChange(value === 'none' ? null : value);
-                          // Trigger recalculation immediately
-                          triggerRecalculation();
-                        }} value={field.value || 'none'}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="選擇折扣類型" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="none">無折扣</SelectItem>
-                            <SelectItem value="percentage">百分比</SelectItem>
-                            <SelectItem value="fixed">固定金額</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {watchedDiscountType && (
-                    <FormField
-                      control={form.control}
-                      name="discountValueInput"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            {watchedDiscountType === 'percentage' ? '折扣百分比' : '折扣金額 ($)'}
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step={watchedDiscountType === 'percentage' ? '0.01' : '0.01'}
-                              min="0"
-                              max={watchedDiscountType === 'percentage' ? '100' : undefined}
-                              placeholder={watchedDiscountType === 'percentage' ? '0.00' : '0.00'}
-                              value={field.value || ''}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                // Trigger recalculation immediately
-                                triggerRecalculation();
-                              }}
-                              onBlur={field.onBlur}
-                              name={field.name}
-                              ref={field.ref}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                <FormField
+                  control={form.control}
+                  name={`items.${index}.notes`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="sr-only">項目備註</FormLabel>
+                      <FormControl>
+                        {/* @ts-expect-error Input is not in FormControl */}
+                        <Input placeholder="此項目的備註 (選填)" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
-              </div>
+                />
+              </Card>
+              );
+            })}
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleAddProductLine} 
+              className="w-full"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> 
+              新增產品到訂單
+            </Button>
+            {form.formState.errors.items && typeof form.formState.errors.items === 'object' && !Array.isArray(form.formState.errors.items) && (
+              <FormMessage>{(form.formState.errors.items as any).message || "請至少新增一個項目。"}</FormMessage>
+            )}
+          </div>
 
-              {/* Shipping Section */}
-              <div className="bg-slate-50 p-4 rounded-lg border">
-                <div className="flex items-center gap-2 mb-3">
-                  <Truck className="h-5 w-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">運費</h3>
-                </div>
-                
+          {/* Discount */}
+          <Card className="p-4 bg-muted/30">
+            <FormLabel className="text-base font-medium">折扣與運費</FormLabel>
+            <div className="grid md:grid-cols-2 gap-4 mt-2">
+              <FormField
+                control={form.control}
+                name="discountType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>折扣類型</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="選擇折扣類型" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="percentage">百分比 (%)</SelectItem>
+                        <SelectItem value="fixed">固定金額 ($)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="discountValueInput"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>折扣金額</FormLabel>
+                    <FormControl>
+                      {/* @ts-expect-error Input is not in FormControl */}
+                      <Input
+                        type="number"
+                        placeholder="例如：10 或 5.50"
+                        {...field}
+                        disabled={!watchedDiscountType}
+                        min="0"
+                        step={watchedDiscountType === 'percentage' ? "0.1" : "0.01"}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            {/* Shipping Fee */}
+            <div className="mt-4">
+              <FormLabel className="text-base font-medium">運費</FormLabel>
+              <div className="mt-2">
                 <FormField
                   control={form.control}
                   name="shippingFeeInput"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>運費 ($)</FormLabel>
+                      <FormLabel className="sr-only">運費 ($)</FormLabel>
                       <FormControl>
+                        {/* @ts-expect-error Input is not in FormControl */}
                         <Input
                           type="number"
-                          step="0.01"
+                          placeholder="例如：5.00"
+                          {...field}
                           min="0"
-                          placeholder="0.00"
-                          value={field.value || ''}
-                          onChange={(e) => {
-                            field.onChange(e);
-                            // Trigger recalculation immediately
-                            triggerRecalculation();
-                          }}
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          ref={field.ref}
+                          step="0.01"
                         />
                       </FormControl>
                       <FormMessage />
@@ -667,94 +844,71 @@ export function EditOrderForm({ order, onOrderUpdated, closeDialog }: EditOrderF
                 />
               </div>
             </div>
+          </Card>
 
-            {/* Order Totals */}
-            <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-lg border-2 border-blue-200">
-              <div className="flex items-center gap-2 mb-4">
-                <DollarSign className="h-6 w-6 text-blue-600" />
-                <h3 className="text-xl font-bold text-gray-800">訂單總結</h3>
+          {/* Order Summary (Totals) */}
+          <Card className="p-4 bg-muted/30">
+            <FormLabel className="text-base font-medium">訂單總結</FormLabel>
+            <div className="space-y-2 mt-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">小計:</span>
+                <span className="font-semibold">{formatCurrency(subtotal)}</span>
               </div>
-              
-              <div className="space-y-2 text-lg">
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span className="text-muted-foreground">折扣:</span>
+                  <span className="font-semibold">-{formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+              {parseFloat(watchedShippingFeeInput || '0') > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">小計:</span>
-                  <span className="font-semibold">{formatCurrency(subtotal)}</span>
+                  <span className="text-muted-foreground">運費:</span>
+                  <span className="font-semibold">{formatCurrency(parseFloat(watchedShippingFeeInput || '0'))}</span>
                 </div>
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>折扣:</span>
-                    <span className="font-semibold">-{formatCurrency(discountAmount)}</span>
-                  </div>
-                )}
-                {parseFloat(watchedShippingFeeInput || '0') > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">運費:</span>
-                    <span className="font-semibold">{formatCurrency(parseFloat(watchedShippingFeeInput || '0'))}</span>
-                  </div>
-                )}
-                <hr className="border-gray-300" />
-                <div className="flex justify-between text-xl font-bold text-blue-700">
-                  <span>總計:</span>
-                  <span>{formatCurrency(totalAmount)}</span>
-                </div>
+              )}
+              <hr className="border-border" />
+              <div className="flex justify-between text-lg font-bold">
+                <span>總計:</span>
+                <span>{formatCurrency(totalAmount)}</span>
               </div>
             </div>
+          </Card>
 
-            {/* Order Notes */}
-            <div className="bg-slate-50 p-4 rounded-lg border">
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>訂單備註</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="新增此訂單的任何額外備註..."
-                        className="min-h-[100px]"
-                        value={field.value || ''}
-                        onChange={field.onChange}
-                        onBlur={field.onBlur}
-                        name={field.name}
-                        ref={field.ref}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </CardContent>
-
-          <CardFooter className="bg-gray-50 rounded-b-lg p-6">
-            <div className="flex gap-3 w-full">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={closeDialog}
-                disabled={isSubmitting}
-                className="flex-1"
-              >
-                取消
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || fields.length === 0}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    正在更新訂單...
-                  </>
-                ) : (
-                  "更新訂單"
-                )}
-              </Button>
-            </div>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
+          {/* Order Notes */}
+          <Card className="p-4 bg-muted/30">
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>訂單備註 (選填)</FormLabel>
+                  <FormControl>
+                    {/* @ts-expect-error Textarea is not in FormControl */}
+                    <Textarea placeholder="輸入訂單的備註..." {...field} className="min-h-[80px]" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </Card>
+        </div>
+        <CardFooter className="flex justify-end gap-3 border-t p-4">
+          <Button type="button" variant="outline" onClick={closeDialog}>取消</Button>
+          <Button type="submit" disabled={isSubmitting || fields.length === 0}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                正在更新訂單...
+              </>
+            ) : (
+              <>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                更新訂單
+              </>
+            )}
+          </Button>
+        </CardFooter>
+      </form>
+    </Form>
   );
 } 

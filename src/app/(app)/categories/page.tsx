@@ -69,6 +69,7 @@ export default function CategoriesPage() {
     const [itemsPerPage, setItemsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
 
     const fetchCategories = useCallback(async () => {
+        console.log('fetchCategories called with:', { currentPage, itemsPerPage, appliedSearchTerm });
         setIsLoading(true);
         try {
             const result = await getCategories({
@@ -76,9 +77,13 @@ export default function CategoriesPage() {
                 limit: itemsPerPage,
                 searchTerm: appliedSearchTerm
             });
+            console.log('fetchCategories result:', result);
+            
             setCategories(result.categories);
             setTotalPages(result.totalPages);
             setTotalCategories(result.totalCount);
+            
+            console.log('Categories state updated, count:', result.categories.length);
         } catch (error) {
             console.error("Failed to fetch categories:", error);
             toast({ variant: "destructive", title: "載入錯誤", description: "無法載入分類。" });
@@ -92,29 +97,42 @@ export default function CategoriesPage() {
     }, [fetchCategories]);
 
     const handleFormSubmit = async (data: CategoryFormInput) => {
+        console.log('handleFormSubmit called with data:', data);
+        console.log('editingCategory:', editingCategory);
+        
         setIsSubmittingForm(true);
         try {
             let result;
             if (editingCategory) {
+                console.log('Updating category:', editingCategory._id);
                 result = await updateCategory(editingCategory._id, data);
                 if (result.success && result.category) {
+                    console.log('Category updated successfully:', result.category);
                     toast({ title: "分類已更新", description: `分類 "${result.category.name}" 已更新。` });
                 }
             } else {
+                console.log('Adding new category');
                 result = await addCategory(data);
                 if (result.success && result.category) {
+                    console.log('Category added successfully:', result.category);
                     toast({ title: "分類已新增", description: `分類 "${result.category.name}" 已新增。` });
                 }
             }
 
+            console.log('Operation result:', result);
+
             if (result.success) {
-                fetchCategories();
+                console.log('Success! Fetching categories...');
+                await fetchCategories();
                 setIsFormDialogOpen(false);
                 setEditingCategory(null);
+                console.log('Dialog closed and form reset');
             } else {
+                console.error('Operation failed:', result.error, result.errors);
                 toast({ variant: "destructive", title: result.error || "提交錯誤", description: result.errors?.map(e => e.message).join(", ") || "發生未知錯誤。" });
             }
         } catch (error) {
+            console.error('Exception in handleFormSubmit:', error);
             toast({ variant: "destructive", title: "提交錯誤", description: "發生未知錯誤。" });
         } finally {
             setIsSubmittingForm(false);
@@ -189,7 +207,7 @@ export default function CategoriesPage() {
                     if (!isOpen) setEditingCategory(null);
                 }}>
                     <DialogTrigger asChild>
-                        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={openAddDialog}>
+                        <Button className="bg-[#c3223d] hover:bg-[#c3223d]/90 text-white" onClick={openAddDialog}>
                             <PlusCircle className="mr-2 h-5 w-5" /> 添加分類
                         </Button>
                     </DialogTrigger>
@@ -234,7 +252,7 @@ export default function CategoriesPage() {
                             />
                         </div>
                         <div className="flex flex-wrap gap-2 items-center pt-4 md:pt-0">
-                            <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+                            <Button type="submit" className="bg-[#c3223d] hover:bg-[#c3223d]/90 text-white" disabled={isLoading}>
                                 <Search className="mr-2 h-4 w-4" /> 應用
                             </Button>
                             <Button type="button" variant="outline" onClick={handleClearSearch} disabled={isLoading || !appliedSearchTerm && !searchTermInput}>
@@ -302,7 +320,7 @@ export default function CategoriesPage() {
                                                             size="icon"
                                                             onClick={() => openEditDialog(category)}
                                                             title={`Edit ${category.name}`}
-                                                            className="text-muted-foreground hover:text-primary"
+                                                            className="text-muted-foreground hover:text-white hover:bg-[#c3223d]"
                                                         >
                                                             <Edit3 className="h-4 w-4" />
                                                         </Button>
@@ -311,7 +329,7 @@ export default function CategoriesPage() {
                                                             size="icon"
                                                             onClick={() => openDeleteDialog(category._id)}
                                                             title={`Delete ${category.name}`}
-                                                            className="text-destructive hover:text-destructive/80"
+                                                            className="text-destructive hover:text-white hover:bg-[#c3223d]"
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>

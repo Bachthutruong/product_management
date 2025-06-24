@@ -193,14 +193,21 @@ export async function getInventoryMovements(filters: {
       .limit(limit)
       .toArray();
 
-    const parsedMovements = movementsFromDb.map(movementDoc => InventoryMovementSchema.parse({
+    const parsedMovements = movementsFromDb.map(movementDoc => ({
       ...movementDoc,
       _id: movementDoc._id.toString(),
       productId: movementDoc.productId.toString(),
       userId: movementDoc.userId.toString(),
       movementDate: new Date(movementDoc.movementDate),
       batchExpiryDate: movementDoc.batchExpiryDate ? new Date(movementDoc.batchExpiryDate) : null,
-    }) as InventoryMovement);
+      // Preserve all additional fields like isUndone, undoNotes, etc.
+      isUndone: movementDoc.isUndone || false,
+      undoNotes: movementDoc.undoNotes || undefined,
+      undoneAt: movementDoc.undoneAt || undefined,
+      undoneBy: movementDoc.undoneBy || undefined,
+      undoneByName: movementDoc.undoneByName || undefined,
+      originalStockAfter: movementDoc.originalStockAfter || undefined,
+    } as unknown as InventoryMovement));
 
     return {
       movements: parsedMovements,
@@ -216,6 +223,239 @@ export async function getInventoryMovements(filters: {
   }
 }
 
+
+export async function undoInventoryMovement(
+  movementId: string,
+  currentUser: AuthUser
+): Promise<{ success: boolean; error?: string }> {
+  // Check if user is admin
+  if (currentUser.role !== 'admin') {
+    return { success: false, error: "只有管理員可以撤銷庫存移動。" };
+  }
+
+  try {
+    const db = await getDb();
+    const movementObjectId = new ObjectId(movementId);
+    
+    // Find the movement to undo
+    const movement = await db.collection(INVENTORY_MOVEMENTS_COLLECTION).findOne({ _id: movementObjectId });
+    if (!movement) {
+      return { success: false, error: "找不到要撤銷的庫存移動記錄。" };
+    }
+
+    // Don't allow undoing sales (order-related movements)
+    if (movement.type === 'sale') {
+      return { success: false, error: "無法撤銷銷售記錄，請通過訂單管理進行處理。" };
+    }
+
+    const productObjectId = new ObjectId(movement.productId);
+    //@ts-expect-error _id is not in Product model but might be added dynamically
+    const product = await db.collection<Product>(PRODUCTS_COLLECTION).findOne({ _id: productObjectId });
+
+    if (!product) {
+      return { success: false, error: "找不到相關商品。" };
+    }
+
+    const currentStock = product.stock;
+    let newStock = currentStock;
+    let undoNotes = '';
+
+    // Calculate the reverse operation
+    switch (movement.type) {
+      case 'stock-in':
+        newStock = currentStock - movement.quantity;
+        undoNotes = `撤銷入庫操作 (原數量: +${movement.quantity})`;
+        
+        // Remove the batch that was added
+        if (product.batches && product.batches.length > 0) {
+          const updatedBatches = product.batches.filter(batch => 
+            !movement.notes.includes(batch.batchId)
+          );
+          await db.collection(PRODUCTS_COLLECTION).updateOne(
+            { _id: productObjectId },
+            { $set: { batches: updatedBatches } }
+          );
+        }
+        break;
+        
+      case 'adjustment-add':
+        newStock = currentStock - movement.quantity;
+        undoNotes = `撤銷庫存增加調整 (原數量: +${movement.quantity})`;
+        break;
+        
+      case 'adjustment-remove':
+        newStock = currentStock - movement.quantity; // movement.quantity is negative, so this adds back
+        undoNotes = `撤銷庫存減少調整 (原數量: ${movement.quantity})`;
+        break;
+        
+      case 'stock-out':
+        newStock = currentStock - movement.quantity; // movement.quantity is negative, so this adds back
+        undoNotes = `撤銷出庫操作 (原數量: ${movement.quantity})`;
+        break;
+        
+      default:
+        return { success: false, error: `不支援撤銷此類型的庫存移動: ${movement.type}` };
+    }
+
+    if (newStock < 0) {
+      return { success: false, error: `撤銷操作會導致庫存為負 (${newStock})。無法執行撤銷。` };
+    }
+
+    // Update product stock
+    await db.collection(PRODUCTS_COLLECTION).updateOne(
+      { _id: productObjectId },
+      { $set: { stock: newStock, updatedAt: new Date() } }
+    );
+
+    // Mark the original movement as undone (no new movement record created)
+    await db.collection(INVENTORY_MOVEMENTS_COLLECTION).updateOne(
+      { _id: movementObjectId },
+      { 
+        $set: { 
+          isUndone: true,
+          undoneAt: new Date(),
+          undoneBy: currentUser._id,
+          undoneByName: currentUser.name,
+          originalStockAfter: movement.stockAfter, // Store original stockAfter for redo
+          undoNotes: undoNotes
+        } 
+      }
+    );
+
+    revalidatePath('/inventory');
+    revalidatePath('/products');
+    revalidatePath('/dashboard');
+    
+    return { success: true };
+
+  } catch (error: any) {
+    console.error('Failed to undo inventory movement:', error);
+    return { success: false, error: error.message || '撤銷庫存移動時發生錯誤。' };
+  }
+}
+
+export async function redoInventoryMovement(
+  movementId: string,
+  currentUser: AuthUser
+): Promise<{ success: boolean; error?: string }> {
+  // Check if user is admin
+  if (currentUser.role !== 'admin') {
+    return { success: false, error: "只有管理員可以重做庫存移動。" };
+  }
+
+  try {
+    const db = await getDb();
+    const movementObjectId = new ObjectId(movementId);
+    
+    // Find the undone movement to redo
+    const movement = await db.collection(INVENTORY_MOVEMENTS_COLLECTION).findOne({ 
+      _id: movementObjectId,
+      isUndone: true 
+    });
+    
+    if (!movement) {
+      return { success: false, error: "找不到要重做的已撤銷庫存移動記錄。" };
+    }
+
+    // Don't allow redoing sales (order-related movements)
+    if (movement.type === 'sale') {
+      return { success: false, error: "無法重做銷售記錄，請通過訂單管理進行處理。" };
+    }
+
+    const productObjectId = new ObjectId(movement.productId);
+    //@ts-expect-error _id is not in Product model but might be added dynamically
+    const product = await db.collection<Product>(PRODUCTS_COLLECTION).findOne({ _id: productObjectId });
+
+    if (!product) {
+      return { success: false, error: "找不到相關商品。" };
+    }
+
+    const currentStock = product.stock;
+    let newStock = currentStock;
+
+    // Recalculate the original operation (restore the effect of the original movement)
+    switch (movement.type) {
+      case 'stock-in':
+        newStock = currentStock + movement.quantity;
+        
+        // Re-add the batch if it was a stock-in
+        if (movement.batchExpiryDate) {
+          const newBatch = {
+            batchId: `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            expiryDate: movement.batchExpiryDate,
+            initialQuantity: movement.quantity,
+            remainingQuantity: movement.quantity,
+            costPerUnit: product.cost || 0,
+            createdAt: new Date(),
+            supplier: undefined,
+            notes: `重做入庫 by ${currentUser.name}`,
+          };
+          
+          const existingBatches = product.batches || [];
+          const updatedBatches = [...existingBatches, newBatch];
+          
+          await db.collection(PRODUCTS_COLLECTION).updateOne(
+            { _id: productObjectId },
+            { $set: { batches: updatedBatches } }
+          );
+        }
+        break;
+        
+      case 'adjustment-add':
+        newStock = currentStock + movement.quantity;
+        break;
+        
+      case 'adjustment-remove':
+        newStock = currentStock + movement.quantity; // movement.quantity is negative, so this subtracts
+        break;
+        
+      case 'stock-out':
+        newStock = currentStock + movement.quantity; // movement.quantity is negative, so this subtracts
+        break;
+        
+      default:
+        return { success: false, error: `不支援重做此類型的庫存移動: ${movement.type}` };
+    }
+
+    if (newStock < 0) {
+      return { success: false, error: `重做操作會導致庫存為負 (${newStock})。無法執行重做。` };
+    }
+
+    // Update product stock to restore the original effect
+    await db.collection(PRODUCTS_COLLECTION).updateOne(
+      { _id: productObjectId },
+      { $set: { stock: newStock, updatedAt: new Date() } }
+    );
+
+    // Restore the original movement (remove undo status completely)
+    await db.collection(INVENTORY_MOVEMENTS_COLLECTION).updateOne(
+      { _id: movementObjectId },
+      { 
+        $unset: { 
+          isUndone: "",
+          undoneAt: "",
+          undoneBy: "",
+          undoneByName: "",
+          originalStockAfter: "",
+          undoNotes: "",
+          redoneAt: "",
+          redoneBy: "",
+          redoneByName: ""
+        }
+      }
+    );
+
+    revalidatePath('/inventory');
+    revalidatePath('/products');
+    revalidatePath('/dashboard');
+    
+    return { success: true };
+
+  } catch (error: any) {
+    console.error('Failed to redo inventory movement:', error);
+    return { success: false, error: error.message || '重做庫存移動時發生錯誤。' };
+  }
+}
 
 export async function recordStockAdjustment(
   data: RecordStockAdjustmentInput,

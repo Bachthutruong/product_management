@@ -42,21 +42,34 @@ export default function CustomerOrdersPage() {
       setIsLoading(false);
       return;
     }
+    
+    console.log('[CustomerOrdersPage] Fetching data for customerId:', customerId);
     setIsLoading(true);
+    
     try {
-      const [fetchedCustomer, fetchedOrders] = await Promise.all([
+      const [fetchedCustomer, fetchedOrdersResult] = await Promise.all([
         getCustomerById(customerId),
         getOrders({ customerId: customerId })
       ]);
+
+      console.log('[CustomerOrdersPage] Fetched customer:', fetchedCustomer);
+      console.log('[CustomerOrdersPage] Fetched orders result:', fetchedOrdersResult);
 
       if (!fetchedCustomer) {
         toast({ variant: "destructive", title: "錯誤", description: "客戶未找到。" });
       }
       setCustomer(fetchedCustomer);
-      if (Array.isArray(fetchedOrders)) {
-        setOrders(fetchedOrders as Order[]);
+      
+      // getOrders returns an object with orders array, not direct array
+      if (fetchedOrdersResult && Array.isArray(fetchedOrdersResult.orders)) {
+        console.log('[CustomerOrdersPage] Setting orders:', fetchedOrdersResult.orders.length, 'orders found');
+        setOrders(fetchedOrdersResult.orders);
+      } else if (Array.isArray(fetchedOrdersResult)) {
+        // Fallback if it's a direct array (old API)
+        console.log('[CustomerOrdersPage] Setting orders (direct array):', fetchedOrdersResult.length, 'orders found');
+        setOrders(fetchedOrdersResult as Order[]);
       } else {
-        console.error("Fetched orders is not an array:", fetchedOrders);
+        console.error("Fetched orders result is not in expected format:", fetchedOrdersResult);
         setOrders([]);
       }
     } catch (error) {

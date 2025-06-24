@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CreateCustomerInputSchema, type CreateCustomerInput } from '@/models/Customer';
 import { addCustomer } from '@/app/(app)/customers/actions';
+import { getCustomerCategories } from '@/app/(app)/customer-categories/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,7 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, UserPlus } from 'lucide-react';
+import { type CustomerCategory } from '@/models/CustomerCategory';
 
 interface AddCustomerDialogProps {
   onCustomerAdded?: (newCustomer: CreateCustomerInput & { _id: string }) => void;
@@ -30,6 +33,8 @@ interface AddCustomerDialogProps {
 export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustomerDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customerCategories, setCustomerCategories] = useState<CustomerCategory[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const { toast } = useToast();
 
   const form = useForm<CreateCustomerInput>({
@@ -39,8 +44,32 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
       email: '',
       phone: '',
       address: '',
+      categoryId: '',
     },
   });
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setIsLoadingCategories(true);
+        const categories = await getCustomerCategories();
+        setCustomerCategories(categories.filter(cat => cat.isActive));
+      } catch (error) {
+        console.error('Error loading customer categories:', error);
+        toast({
+          title: "載入失敗",
+          description: "無法載入客戶分類資料。",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+
+    if (isOpen) {
+      loadCategories();
+    }
+  }, [isOpen, toast]);
 
   async function onSubmit(data: CreateCustomerInput) {
     setIsSubmitting(true);
@@ -103,10 +132,38 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
             <FormField
               control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>客戶分類 *</FormLabel>
+                  <FormControl>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={isSubmitting || isLoadingCategories}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={isLoadingCategories ? "載入中..." : "選擇客戶分類"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customerCategories.map((category) => (
+                          <SelectItem key={category._id} value={category._id!}>
+                            {category.name} ({category.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>全名</FormLabel>
+                  <FormLabel>全名 *</FormLabel>
                   <FormControl>
                     <Input placeholder="王小明" {...field} disabled={isSubmitting} />
                   </FormControl>

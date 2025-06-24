@@ -5,11 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation"; 
 import { useAuth } from "@/hooks/useAuth";
 import { getCustomers, deleteCustomer } from "@/app/(app)/customers/actions";
+import { getCustomerCategories } from "@/app/(app)/customer-categories/actions";
 import type { Customer } from "@/models/Customer";
+import type { CustomerCategory } from "@/models/CustomerCategory";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -30,7 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { EditCustomerDialog } from "@/components/customers/EditCustomerDialog";
-import { Loader2, Search, Trash2, UserPlus, UserX, Edit3, ListOrdered } from "lucide-react";
+import { Loader2, Search, Trash2, UserPlus, UserX, Edit3, ListOrdered, Filter, FolderTree } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { formatToYYYYMMDD } from '@/lib/date-utils';
 
@@ -70,7 +74,7 @@ function DeleteCustomerButton({ customerId, customerName, onCustomerDeleted }: {
   return (
     <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting}>
+        <Button variant="ghost" size="icon" className="text-destructive hover:text-white hover:bg-[#c3223d]" disabled={isDeleting}>
           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           <span className="sr-only">刪除 {customerName}</span>
         </Button>
@@ -101,16 +105,19 @@ export default function CustomersPage() {
   const router = useRouter(); 
 
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerCategories, setCustomerCategories] = useState<CustomerCategory[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isEditDialogVisible, setIsEditDialogVisible] = useState(false);
 
 
-  const fetchCustomers = useCallback(async (term?: string) => {
+  const fetchCustomers = useCallback(async () => {
     setIsLoadingCustomers(true);
     try {
-      const fetchedCustomers = await getCustomers(term);
+      const fetchedCustomers = await getCustomers();
       setCustomers(fetchedCustomers);
     } catch (error) {
       console.error("Failed to fetch customers:", error);
@@ -125,8 +132,28 @@ export default function CustomersPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchCustomers(searchTerm);
-  }, [fetchCustomers, searchTerm]);
+    fetchCustomers();
+  }, [fetchCustomers]);
+
+  useEffect(() => {
+    async function fetchCustomerCategories() {
+      setIsLoadingCategories(true);
+      try {
+        const categories = await getCustomerCategories();
+        setCustomerCategories(categories.filter(cat => cat.isActive));
+      } catch (error) {
+        console.error("Failed to fetch customer categories:", error);
+        toast({
+          variant: "destructive",
+          title: "載入錯誤",
+          description: "無法載入客戶分類。請稍後再試。",
+        });
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    }
+    fetchCustomerCategories();
+  }, [toast]);
 
   const handleEditCustomer = (customer: Customer) => {
     setEditingCustomer(customer);
@@ -134,12 +161,23 @@ export default function CustomersPage() {
   };
 
   const handleCustomerUpdated = () => {
-    fetchCustomers(searchTerm); 
+    fetchCustomers(); 
     setIsEditDialogVisible(false);
     setEditingCustomer(null);
   };
 
-  const filteredCustomers = customers; 
+  const filteredCustomers = customers.filter(customer => {
+    // Apply search term filter
+    const matchesSearch = !searchTerm || 
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (customer.phone && customer.phone.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // Apply category filter
+    const matchesCategory = selectedCategoryId === 'all' || customer.categoryId === selectedCategoryId;
+
+    return matchesSearch && matchesCategory;
+  }); 
 
   return (
     <div className="space-y-6">
@@ -147,8 +185,8 @@ export default function CustomersPage() {
         <h1 className="text-3xl font-bold text-foreground flex items-center">
           <UserPlus className="mr-3 h-8 w-8 text-primary" /> 客戶管理
         </h1>
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <form onSubmit={(e) => { e.preventDefault(); fetchCustomers(searchTerm); }} className="relative flex-grow md:flex-grow-0 md:w-64">
+        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+          <form onSubmit={(e) => { e.preventDefault(); fetchCustomers(); }} className="relative flex-grow md:flex-grow-0 md:w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               type="search" 
@@ -158,22 +196,59 @@ export default function CustomersPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </form>
+          
+          {/* Category Filter */}
+          <div className="flex items-center gap-2 min-w-[200px]">
+            <FolderTree className="h-4 w-4 text-muted-foreground" />
+            <Select
+              value={selectedCategoryId}
+              onValueChange={setSelectedCategoryId}
+              disabled={isLoadingCategories}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={isLoadingCategories ? "載入中..." : "選擇分類"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">所有分類</SelectItem>
+                {customerCategories
+                  .filter(category => category._id && category._id.trim() !== '') // Filter out empty IDs
+                  .map((category) => (
+                  <SelectItem key={category._id} value={category._id!}>
+                    {category.name} ({category.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
           {/* Add Customer button is available to all logged-in users */}
-          <AddCustomerDialog onCustomerAdded={() => fetchCustomers(searchTerm)} />
+          <AddCustomerDialog onCustomerAdded={() => fetchCustomers()} />
         </div>
       </div>
       
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>客戶目錄</CardTitle>
-          <CardDescription>查看和管理您的客戶資訊。</CardDescription>
+          <CardDescription>
+            查看和管理您的客戶資訊。
+            {!isLoadingCustomers && (
+              <span className="ml-2">
+                {selectedCategoryId === 'all' 
+                  ? `共 ${customers.length} 位客戶` 
+                  : `在此分類中找到 ${filteredCustomers.length} / ${customers.length} 位客戶`
+                }
+                {searchTerm && ` (搜尋: "${searchTerm}")`}
+              </span>
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingCustomers && customers.length === 0 ? (
             <div className="space-y-3">
               {/* Skeleton table */}
               <div className="animate-pulse">
-                <div className="grid grid-cols-6 gap-4 py-2 border-b">
+                <div className="grid grid-cols-7 gap-4 py-2 border-b">
+                  <div className="h-4 bg-gray-200 rounded"></div>
                   <div className="h-4 bg-gray-200 rounded"></div>
                   <div className="h-4 bg-gray-200 rounded"></div>
                   <div className="h-4 bg-gray-200 rounded"></div>
@@ -182,7 +257,8 @@ export default function CustomersPage() {
                   <div className="h-4 bg-gray-200 rounded"></div>
                 </div>
                 {[1, 2, 3, 4, 5].map(i => (
-                  <div key={i} className="grid grid-cols-6 gap-4 py-3">
+                  <div key={i} className="grid grid-cols-7 gap-4 py-3">
+                    <div className="h-4 bg-gray-200 rounded"></div>
                     <div className="h-4 bg-gray-200 rounded"></div>
                     <div className="h-4 bg-gray-200 rounded"></div>
                     <div className="h-4 bg-gray-200 rounded"></div>
@@ -207,6 +283,7 @@ export default function CustomersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>姓名</TableHead>
+                    <TableHead>分類</TableHead>
                     <TableHead>電子郵件</TableHead>
                     <TableHead>電話</TableHead>
                     <TableHead>地址</TableHead>
@@ -217,7 +294,22 @@ export default function CustomersPage() {
                 <TableBody>
                   {filteredCustomers.map((cust) => (
                     <TableRow key={cust._id}>
-                      <TableCell className="font-medium">{cust.name}</TableCell>
+                      <TableCell 
+                        className="font-medium text-primary hover:text-primary/80 cursor-pointer transition-colors" 
+                        onClick={() => router.push(`/customers/${cust._id}/orders`)}
+                        title={`查看 ${cust.name} 的訂單`}
+                      >
+                        {cust.name}
+                      </TableCell>
+                      <TableCell>
+                        {cust.categoryName ? (
+                          <Badge variant="outline" className="text-xs">
+                            {cust.categoryName}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">未分類</span>
+                        )}
+                      </TableCell>
                       <TableCell>{cust.email || 'N/A'}</TableCell>
                       <TableCell>{cust.phone || 'N/A'}</TableCell>
                       <TableCell className="max-w-xs truncate">{cust.address || 'N/A'}</TableCell>
@@ -228,7 +320,7 @@ export default function CustomersPage() {
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="text-muted-foreground hover:text-primary" 
+                                className="text-muted-foreground hover:text-white hover:bg-[#c3223d]" 
                                 onClick={() => handleEditCustomer(cust)}
                                 title={`編輯 ${cust.name}`}
                                 >
@@ -237,12 +329,12 @@ export default function CustomersPage() {
                             </Button>
                             {/* Delete button remains admin-only */}
                             {user?.role === 'admin' && (
-                                <DeleteCustomerButton customerId={cust._id} customerName={cust.name} onCustomerDeleted={() => fetchCustomers(searchTerm)} />
+                                <DeleteCustomerButton customerId={cust._id} customerName={cust.name} onCustomerDeleted={() => fetchCustomers()} />
                             )}
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="text-muted-foreground hover:text-primary" 
+                                className="text-muted-foreground hover:text-white hover:bg-[#c3223d]" 
                                 onClick={() => router.push(`/customers/${cust._id}/orders`)} 
                                 title={`查看 ${cust.name} 的訂單`}
                                 >

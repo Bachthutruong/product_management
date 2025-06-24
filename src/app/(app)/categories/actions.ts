@@ -20,15 +20,21 @@ async function getDb() {
 export async function addCategory(
     formData: CategoryFormInput
 ): Promise<{ success: boolean; category?: Category; error?: string; errors?: z.ZodIssue[] }> {
+    console.log('addCategory called with data:', formData);
+    
     const validation = CategoryFormInputSchema.safeParse(formData);
     if (!validation.success) {
+        console.error('Category validation failed:', validation.error.errors);
         return { success: false, error: "Validation failed", errors: validation.error.errors };
     }
 
     try {
         const db = await getDb();
+        console.log('Database connection established');
+        
         const existingCategory = await db.collection(CATEGORIES_COLLECTION).findOne({ name: validation.data.name });
         if (existingCategory) {
+            console.log('Category with same name already exists:', validation.data.name);
             return { success: false, error: `Category with name "${validation.data.name}" already exists.` };
         }
 
@@ -38,15 +44,22 @@ export async function addCategory(
             updatedAt: new Date(),
         };
 
+        console.log('Inserting new category:', newCategoryData);
         const result = await db.collection(CATEGORIES_COLLECTION).insertOne(newCategoryData);
+        
         if (!result.insertedId) {
+            console.error('Failed to get insertedId');
             return { success: false, error: 'Failed to insert category into database.' };
         }
+
+        console.log('Category inserted with ID:', result.insertedId.toString());
 
         const categoryForReturn = {
             ...newCategoryData,
             _id: result.insertedId.toString(),
         } as Category;
+
+        console.log('Category created successfully:', categoryForReturn);
 
         revalidatePath('/categories');
         revalidatePath('/products'); // Products might use categories in filters/forms
@@ -66,37 +79,58 @@ export async function getCategories(params?: { page?: number, limit?: number, se
     currentPage: number;
 }> {
     const { page = 1, limit = 10, searchTerm } = params || {};
+    console.log('getCategories called with params:', { page, limit, searchTerm });
+    
     try {
         const db = await getDb();
+        console.log('Database connection established for getCategories');
+        
         const query: any = {};
         if (searchTerm) {
             query.name = { $regex: searchTerm, $options: 'i' };
         }
 
         const skip = (page - 1) * limit;
+        console.log('MongoDB query:', query, 'skip:', skip, 'limit:', limit);
+        
         const totalCount = await db.collection(CATEGORIES_COLLECTION).countDocuments(query);
+        console.log('Total categories count:', totalCount);
+        
         const categoriesFromDb = await db.collection(CATEGORIES_COLLECTION)
             .find(query)
-            .sort({ name: 1 })
+            .sort({ createdAt: -1 }) // Changed to sort by creation date descending (newest first)
             .skip(skip)
             .limit(limit)
             .toArray();
 
+        console.log('Raw categories from DB:', categoriesFromDb.length, 'categories found');
+        console.log('First category sample:', categoriesFromDb[0] || 'No categories');
+
         const parsedCategories = categoriesFromDb.map(catDoc => {
-            return CategorySchema.parse({
-                ...catDoc,
-                _id: catDoc._id.toString(),
-                createdAt: catDoc.createdAt ? new Date(catDoc.createdAt) : undefined,
-                updatedAt: catDoc.updatedAt ? new Date(catDoc.updatedAt) : undefined,
-            }) as Category;
+            try {
+                return CategorySchema.parse({
+                    ...catDoc,
+                    _id: catDoc._id.toString(),
+                    createdAt: catDoc.createdAt ? new Date(catDoc.createdAt) : undefined,
+                    updatedAt: catDoc.updatedAt ? new Date(catDoc.updatedAt) : undefined,
+                }) as Category;
+            } catch (parseError) {
+                console.error('Error parsing category:', catDoc, parseError);
+                throw parseError;
+            }
         });
 
-        return {
+        console.log('Parsed categories:', parsedCategories.length);
+
+        const result = {
             categories: parsedCategories,
             totalCount,
             totalPages: Math.ceil(totalCount / limit),
             currentPage: page,
         };
+        
+        console.log('getCategories result:', result);
+        return result;
     } catch (error) {
         console.error('Failed to fetch categories:', error);
         return { categories: [], totalCount: 0, totalPages: 1, currentPage: 1 };

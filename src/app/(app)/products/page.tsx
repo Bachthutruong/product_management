@@ -101,7 +101,7 @@ function DeleteProductButton({
   return (
     <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" disabled={isDeleting} title={`刪除 ${productName}`}>
+        <Button variant="ghost" size="icon" className="text-destructive hover:text-white hover:bg-[#c3223d]" disabled={isDeleting} title={`刪除 ${productName}`}>
           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           <span className="sr-only">刪除 {productName}</span>
         </Button>
@@ -518,7 +518,7 @@ export default function ProductsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-muted-foreground hover:text-primary"
+                                className="text-muted-foreground hover:text-white hover:bg-[#c3223d]"
                                 onClick={() => openStockInHistoryDialog(product)}
                                 title={`檢視 ${product.name} 的入庫歷史`}
                               >
@@ -528,7 +528,7 @@ export default function ProductsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-muted-foreground hover:text-primary"
+                                className="text-muted-foreground hover:text-white hover:bg-[#c3223d]"
                                 onClick={() => openEditDialog(product)}
                                 title={`編輯 ${product.name}`}
                                 disabled={!user}
@@ -611,11 +611,17 @@ export default function ProductsPage() {
               </DialogNativeTitle>
               <DialogNativeDescription>
                 修改產品詳細資訊。完成後點擊「儲存變更」。
+                {user?.role !== 'admin' && (
+                  <span className="block mt-1 text-amber-600 font-medium">
+                    注意：僅管理員可以修改價格、成本和庫存數量。
+                  </span>
+                )}
               </DialogNativeDescription>
             </DialogNativeHeader>
             <EditProductForm
               product={editingProduct}
               userId={user._id || ''}
+              userRole={user.role}
               onProductUpdated={handleProductAddedOrUpdated}
               onCancel={() => {
                 setIsEditProductDialogOpen(false);
