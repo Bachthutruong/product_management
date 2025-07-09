@@ -91,6 +91,7 @@ export async function getProducts(filters: {
         expiryDate: expiryDate,
         createdAt: productDoc.createdAt ? new Date(productDoc.createdAt) : undefined,
         updatedAt: productDoc.updatedAt ? new Date(productDoc.updatedAt) : undefined,
+        price: Math.max(productDoc.price ?? 0, 0),
         lowStockThreshold: productDoc.lowStockThreshold ?? 0,
         cost: productDoc.cost ?? 0,
       }) as Product;
@@ -143,6 +144,7 @@ export async function getProductById(id: string): Promise<Product | null> {
       expiryDate: expiryDate,
       createdAt: productDoc.createdAt ? new Date(productDoc.createdAt) : undefined,
       updatedAt: productDoc.updatedAt ? new Date(productDoc.updatedAt) : undefined,
+      price: Math.max(productDoc.price ?? 0, 0),
       lowStockThreshold: productDoc.lowStockThreshold ?? 0,
       cost: productDoc.cost ?? 0,
     }) as Product;
@@ -514,6 +516,7 @@ export async function updateProduct(
     expiryDate: expiryDate,
     createdAt: existingProductDoc.createdAt ? new Date(existingProductDoc.createdAt) : undefined,
     updatedAt: existingProductDoc.updatedAt ? new Date(existingProductDoc.updatedAt) : undefined,
+    price: Math.max(existingProductDoc.price ?? 0, 0),
     lowStockThreshold: existingProductDoc.lowStockThreshold ?? 0,
     cost: existingProductDoc.cost ?? 0,
   }) as Product;
@@ -695,7 +698,7 @@ export async function updateProduct(
         // Or, the form should always provide both categoryId and categoryName from a select.
         // If only ID is passed and it's invalid, it might be better to reject or clear.
         console.warn(`Category ID ${updateDataFromZod.categoryId} not found during product update. Category name might be stale if not provided directly.`);
-        // If categoryName wasn't in validatedData, this might leave it undefined or as the old value.
+        // If categoryName wasn't in validatedData, this might leave it as the old value.
         // A robust solution would involve ensuring form sends both or has a clear strategy.
       }
     }
@@ -714,3 +717,60 @@ export async function updateProduct(
   }
 }
 
+export async function createProductDuringImport(
+  productData: {
+    name: string;
+    sku: string;
+    price: number;
+    stock: number;
+  },
+  userId: string
+): Promise<Product | null> {
+    const db = await getDb();
+    try {
+        const defaultCategory = await db.collection('categories').findOne({});
+        if (!defaultCategory) {
+            console.error("Auto-create Product: No default category found.");
+            return null;
+        }
+
+        const productToInsert = {
+            name: productData.name,
+            sku: productData.sku,
+            categoryId: defaultCategory._id.toString(),
+            categoryName: defaultCategory.name,
+            description: "自動導入的產品",
+            price: productData.price,
+            cost: 0,
+            stock: productData.stock,
+            lowStockThreshold: 10,
+            unitOfMeasure: '個',
+            expiryDate: new Date('2030-12-31T00:00:00Z'),
+            images: [],
+            priceHistory: [{ price: productData.price, changedAt: new Date(), changedBy: userId }],
+            batches: [{
+                batchId: `IMPORT-${Date.now()}`,
+                expiryDate: new Date('2030-12-31T00:00:00Z'),
+                initialQuantity: productData.stock,
+                remainingQuantity: productData.stock,
+                costPerUnit: 0,
+                createdAt: new Date(),
+            }],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            stockInHistory: [], // Add missing required field
+        };
+
+        const result = await db.collection(PRODUCTS_COLLECTION).insertOne(productToInsert);
+        if (!result.insertedId) {
+            return null;
+        }
+
+        // We can safely cast here as we've just created it with all necessary fields.
+        return { ...productToInsert, _id: result.insertedId.toString() } as Product;
+
+    } catch (e) {
+        console.error(`Auto-create Product Failed for SKU ${productData.sku}:`, e);
+        return null;
+    }
+}

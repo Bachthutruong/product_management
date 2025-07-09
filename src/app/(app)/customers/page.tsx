@@ -34,9 +34,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { EditCustomerDialog } from "@/components/customers/EditCustomerDialog";
-import { Loader2, Search, Trash2, UserPlus, UserX, Edit3, ListOrdered, Filter, FolderTree } from "lucide-react";
+import { ImportCustomersDialog } from "@/components/customers/ImportCustomersDialog";
+import { Loader2, Search, Trash2, UserPlus, UserX, Edit3, ListOrdered, Filter, FolderTree, ArrowLeft, ArrowRight, X } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { formatToYYYYMMDD } from '@/lib/date-utils';
+import { Label } from "@/components/ui/label";
+
+const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const DEFAULT_ITEMS_PER_PAGE = ITEMS_PER_PAGE_OPTIONS[0]; // Default to 10
 
 function DeleteCustomerButton({ customerId, customerName, onCustomerDeleted }: { customerId: string, customerName: string, onCustomerDeleted: () => void }) {
   const { toast } = useToast();
@@ -106,19 +111,40 @@ export default function CustomersPage() {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerCategories, setCustomerCategories] = useState<CustomerCategory[]>([]);
-  const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCustomers, setTotalCustomers] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
+  
+  // Filter Inputs
+  const [searchTermInput, setSearchTermInput] = useState('');
+  const [categoryIdInput, setCategoryIdInput] = useState<string>('all');
+
+  // Applied Filters for API call
+  const [appliedFilters, setAppliedFilters] = useState({
+    searchTerm: '',
+    categoryId: 'all',
+  });
+
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isEditDialogVisible, setIsEditDialogVisible] = useState(false);
 
 
   const fetchCustomers = useCallback(async () => {
-    setIsLoadingCustomers(true);
+    setIsLoading(true);
     try {
-      const fetchedCustomers = await getCustomers();
-      setCustomers(fetchedCustomers);
+      const result = await getCustomers({
+        page: currentPage,
+        limit: itemsPerPage,
+        searchTerm: appliedFilters.searchTerm,
+        categoryId: appliedFilters.categoryId,
+      });
+      setCustomers(result.customers);
+      setTotalCustomers(result.totalCount);
+      setTotalPages(result.totalPages);
     } catch (error) {
       console.error("Failed to fetch customers:", error);
       toast({
@@ -127,9 +153,9 @@ export default function CustomersPage() {
         description: "無法載入客戶資料。請稍後再試。",
       });
     } finally {
-      setIsLoadingCustomers(false);
+      setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, currentPage, itemsPerPage, appliedFilters]);
 
   useEffect(() => {
     fetchCustomers();
@@ -154,6 +180,25 @@ export default function CustomersPage() {
     }
     fetchCustomerCategories();
   }, [toast]);
+  
+  const handleApplyFilters = (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) e.preventDefault();
+    setAppliedFilters({
+      searchTerm: searchTermInput,
+      categoryId: categoryIdInput,
+    });
+    setCurrentPage(1);
+  };
+  
+  const handleClearFilters = () => {
+    setSearchTermInput('');
+    setCategoryIdInput('all');
+    setAppliedFilters({
+      searchTerm: '',
+      categoryId: 'all',
+    });
+    setCurrentPage(1);
+  };
 
   const handleEditCustomer = (customer: Customer) => {
     setEditingCustomer(customer);
@@ -165,19 +210,17 @@ export default function CustomersPage() {
     setIsEditDialogVisible(false);
     setEditingCustomer(null);
   };
+  
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
+      setCurrentPage(newPage);
+    }
+  };
 
-  const filteredCustomers = customers.filter(customer => {
-    // Apply search term filter
-    const matchesSearch = !searchTerm || 
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (customer.phone && customer.phone.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    // Apply category filter
-    const matchesCategory = selectedCategoryId === 'all' || customer.categoryId === selectedCategoryId;
-
-    return matchesSearch && matchesCategory;
-  }); 
+  const handleItemsPerPageChange = (newSize: string) => {
+    setItemsPerPage(parseInt(newSize, 10));
+    setCurrentPage(1);
+  };
 
   return (
     <div className="space-y-6">
@@ -186,42 +229,7 @@ export default function CustomersPage() {
           <UserPlus className="mr-3 h-8 w-8 text-primary" /> 客戶管理
         </h1>
         <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
-          <form onSubmit={(e) => { e.preventDefault(); fetchCustomers(); }} className="relative flex-grow md:flex-grow-0 md:w-64">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              type="search" 
-              placeholder="搜尋姓名、電子郵件、電話..." 
-              className="pl-8 w-full" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </form>
-          
-          {/* Category Filter */}
-          <div className="flex items-center gap-2 min-w-[200px]">
-            <FolderTree className="h-4 w-4 text-muted-foreground" />
-            <Select
-              value={selectedCategoryId}
-              onValueChange={setSelectedCategoryId}
-              disabled={isLoadingCategories}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={isLoadingCategories ? "載入中..." : "選擇分類"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">所有分類</SelectItem>
-                {customerCategories
-                  .filter(category => category._id && category._id.trim() !== '') // Filter out empty IDs
-                  .map((category) => (
-                  <SelectItem key={category._id} value={category._id!}>
-                    {category.name} ({category.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Add Customer button is available to all logged-in users */}
+          {user?.role === 'admin' && <ImportCustomersDialog onCustomersImported={() => fetchCustomers()} />}
           <AddCustomerDialog onCustomerAdded={() => fetchCustomers()} />
         </div>
       </div>
@@ -231,123 +239,198 @@ export default function CustomersPage() {
           <CardTitle>客戶目錄</CardTitle>
           <CardDescription>
             查看和管理您的客戶資訊。
-            {!isLoadingCustomers && (
-              <span className="ml-2">
-                {selectedCategoryId === 'all' 
-                  ? `共 ${customers.length} 位客戶` 
-                  : `在此分類中找到 ${filteredCustomers.length} / ${customers.length} 位客戶`
-                }
-                {searchTerm && ` (搜尋: "${searchTerm}")`}
-              </span>
-            )}
+            {isLoading && totalCustomers === 0 ? " 載入中..." : ` 共找到 ${totalCustomers} 位客戶。`}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoadingCustomers && customers.length === 0 ? (
+          {/* Filters Form */}
+          <form onSubmit={handleApplyFilters} className="mb-6 space-y-4 p-4 border rounded-lg shadow-sm bg-card">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+              <div>
+                  <Label htmlFor="searchTerm" className="block text-sm font-medium text-muted-foreground mb-1">搜尋</Label>
+                  <Input 
+                    id="searchTerm"
+                    type="search" 
+                    placeholder="姓名、電子郵件、電話..." 
+                    value={searchTermInput}
+                    onChange={(e) => setSearchTermInput(e.target.value)}
+                  />
+              </div>
+              <div className="min-w-[200px]">
+                  <Label htmlFor="categoryFilter" className="block text-sm font-medium text-muted-foreground mb-1">分類</Label>
+                  <Select
+                    value={categoryIdInput}
+                    onValueChange={setCategoryIdInput}
+                    disabled={isLoadingCategories}
+                  >
+                    <SelectTrigger id="categoryFilter">
+                      <SelectValue placeholder={isLoadingCategories ? "載入中..." : "選擇分類"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">所有分類</SelectItem>
+                      {customerCategories
+                        .filter(category => category._id && category._id.trim() !== '') 
+                        .map((category) => (
+                        <SelectItem key={category._id} value={category._id!}>
+                          {category.name} ({category.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+                  <Search className="mr-2 h-4 w-4" /> 應用搜尋 & 過濾
+                </Button>
+                <Button type="button" variant="outline" onClick={handleClearFilters} disabled={isLoading}>
+                  <X className="mr-2 h-4 w-4" /> 清除所有
+                </Button>
+              </div>
+            </div>
+          </form>
+          
+          {isLoading && customers.length === 0 ? (
             <div className="space-y-3">
               {/* Skeleton table */}
               <div className="animate-pulse">
-                <div className="grid grid-cols-7 gap-4 py-2 border-b">
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
+                <div className="grid grid-cols-8 gap-4 py-2 border-b">
+                  {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-4 bg-gray-200 rounded"></div>)}
                 </div>
-                {[1, 2, 3, 4, 5].map(i => (
-                  <div key={i} className="grid grid-cols-7 gap-4 py-3">
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded"></div>
+                {[...Array(itemsPerPage)].map((_, i) => (
+                  <div key={i} className="grid grid-cols-8 gap-4 py-3">
+                    {Array.from({ length: 8 }).map((_, j) => <div key={j} className="h-4 bg-gray-200 rounded"></div>)}
                   </div>
                 ))}
               </div>
             </div>
-          ) : filteredCustomers.length === 0 ? (
+          ) : !isLoading && customers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <UserX className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-foreground">沒有找到客戶</h3>
               <p className="text-muted-foreground">
-                {searchTerm ? "沒有客戶符合您的搜尋。" : "目前沒有客戶。添加一個開始。"}
+                {appliedFilters.searchTerm || (appliedFilters.categoryId !== 'all') 
+                  ? "沒有客戶符合您的搜尋或篩選條件。" 
+                  : "目前沒有客戶。添加一個開始。"}
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>姓名</TableHead>
-                    <TableHead>分類</TableHead>
-                    <TableHead>電子郵件</TableHead>
-                    <TableHead>電話</TableHead>
-                    <TableHead>地址</TableHead>
-                    <TableHead>加入日期</TableHead>
-                    <TableHead className="text-center">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCustomers.map((cust) => (
-                    <TableRow key={cust._id}>
-                      <TableCell 
-                        className="font-medium text-primary hover:text-primary/80 cursor-pointer transition-colors" 
-                        onClick={() => router.push(`/customers/${cust._id}/orders`)}
-                        title={`查看 ${cust.name} 的訂單`}
-                      >
-                        {cust.name}
-                      </TableCell>
-                      <TableCell>
-                        {cust.categoryName ? (
-                          <Badge variant="outline" className="text-xs">
-                            {cust.categoryName}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground">未分類</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{cust.email || 'N/A'}</TableCell>
-                      <TableCell>{cust.phone || 'N/A'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{cust.address || 'N/A'}</TableCell>
-                      <TableCell>{cust.createdAt ? formatToYYYYMMDD(cust.createdAt) : 'N/A'}</TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex justify-center items-center space-x-1">
-                            {/* Edit button is now available to all logged-in users */}
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-muted-foreground hover:text-white hover:bg-[#c3223d]" 
-                                onClick={() => handleEditCustomer(cust)}
-                                title={`編輯 ${cust.name}`}
-                                >
-                                <Edit3 className="h-4 w-4" />
-                                <span className="sr-only">編輯 ${cust.name}</span>
-                            </Button>
-                            {/* Delete button remains admin-only */}
-                            {user?.role === 'admin' && (
-                                <DeleteCustomerButton customerId={cust._id} customerName={cust.name} onCustomerDeleted={() => fetchCustomers()} />
-                            )}
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-muted-foreground hover:text-white hover:bg-[#c3223d]" 
-                                onClick={() => router.push(`/customers/${cust._id}/orders`)} 
-                                title={`查看 ${cust.name} 的訂單`}
-                                >
-                                <ListOrdered className="h-4 w-4" />
-                                <span className="sr-only">查看 ${cust.name} 的訂單</span>
-                            </Button>
-                        </div>
-                      </TableCell>
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>姓名</TableHead>
+                      <TableHead>客戶編號</TableHead>
+                      <TableHead>分類</TableHead>
+                      <TableHead>電子郵件</TableHead>
+                      <TableHead>電話</TableHead>
+                      <TableHead>地址</TableHead>
+                      <TableHead>備註</TableHead>
+                      <TableHead>加入日期</TableHead>
+                      <TableHead className="text-center">操作</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {customers.map((cust) => (
+                      <TableRow key={cust._id}>
+                        <TableCell 
+                          className="font-medium text-primary hover:text-primary/80 cursor-pointer transition-colors" 
+                          onClick={() => router.push(`/customers/${cust._id}/orders`)}
+                          title={`查看 ${cust.name} 的訂單`}
+                        >
+                          {cust.name}
+                        </TableCell>
+                        <TableCell>{(cust as any).customerCode || 'N/A'}</TableCell>
+                        <TableCell>
+                          {cust.categoryName ? (
+                            <Badge variant="outline" className="text-xs">
+                              {cust.categoryName}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">未分類</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{cust.email || 'N/A'}</TableCell>
+                        <TableCell>{cust.phone || 'N/A'}</TableCell>
+                        <TableCell className="max-w-xs truncate">{cust.address || 'N/A'}</TableCell>
+                        <TableCell className="max-w-xs truncate">{(cust as any).notes || 'N/A'}</TableCell>
+                        <TableCell>{cust.createdAt ? formatToYYYYMMDD(cust.createdAt) : 'N/A'}</TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center items-center space-x-1">
+                              <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-muted-foreground hover:text-white hover:bg-[#c3223d]" 
+                                  onClick={() => handleEditCustomer(cust)}
+                                  title={`編輯 ${cust.name}`}
+                                  >
+                                  <Edit3 className="h-4 w-4" />
+                                  <span className="sr-only">編輯 ${cust.name}</span>
+                              </Button>
+                              {user?.role === 'admin' && (
+                                  <DeleteCustomerButton customerId={cust._id} customerName={cust.name} onCustomerDeleted={() => fetchCustomers()} />
+                              )}
+                              <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-muted-foreground hover:text-white hover:bg-[#c3223d]" 
+                                  onClick={() => router.push(`/customers/${cust._id}/orders`)} 
+                                  title={`查看 ${cust.name} 的訂單`}
+                                  >
+                                  <ListOrdered className="h-4 w-4" />
+                                  <span className="sr-only">查看 ${cust.name} 的訂單</span>
+                              </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-6 gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">每頁顯示:</span>
+                    <Select
+                      value={itemsPerPage.toString()}
+                      onValueChange={handleItemsPerPageChange}
+                    >
+                      <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue placeholder={itemsPerPage} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ITEMS_PER_PAGE_OPTIONS.map(size => (
+                          <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    第 {currentPage} 頁，共 {totalPages} 頁
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1 || isLoading}
+                    >
+                      <ArrowLeft className="mr-1 h-4 w-4" /> 上一頁
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages || isLoading}
+                    >
+                      下一頁 <ArrowRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

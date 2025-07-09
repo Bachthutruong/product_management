@@ -8,6 +8,8 @@ export const CustomerSchema = z.object({
   address: z.string().nullable().optional(),
   categoryId: z.string().min(1, "客戶分類是必需的"),
   categoryName: z.string().optional(), // For display purposes
+  customerCode: z.string().nullable().optional(), // Customer code/ID
+  notes: z.string().nullable().optional(), // Additional notes
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
 });
@@ -22,6 +24,8 @@ export const CreateCustomerInputSchema = CustomerSchema.omit({ _id: true, create
     email: z.string().email("無效的電子郵件地址").optional().or(z.literal('')),
     phone: z.string().optional().or(z.literal('')),
     address: z.string().optional().or(z.literal('')),
+    customerCode: z.string().optional().or(z.literal('')),
+    notes: z.string().optional().or(z.literal('')),
     categoryId: z.string().min(1, "請選擇客戶分類"),
   });
 export type CreateCustomerInput = z.infer<typeof CreateCustomerInputSchema>;

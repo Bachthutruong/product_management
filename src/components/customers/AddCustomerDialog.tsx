@@ -44,6 +44,8 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
       email: '',
       phone: '',
       address: '',
+      customerCode: '',
+      notes: '',
       categoryId: '',
     },
   });
@@ -173,6 +175,19 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
             />
             <FormField
               control={form.control}
+              name="customerCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>客戶編號 (選填)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="A0001" {...field} disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="email"
               render={({ field }) => (
                 <FormItem>
@@ -205,6 +220,19 @@ export function AddCustomerDialog({ onCustomerAdded, triggerButton }: AddCustome
                   <FormLabel>地址 (選填)</FormLabel>
                   <FormControl>
                     <Textarea placeholder="台灣台北市信義區市府路1號" {...field} disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>備註 (選填)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="關於此客戶的額外資訊..." {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

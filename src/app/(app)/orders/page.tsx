@@ -8,6 +8,7 @@ import type { Order, OrderStatus } from '@/models/Order';
 import { OrderStatusSchema, AllOrderStatusOptions } from '@/models/Order';
 import { CreateOrderForm } from '@/components/orders/CreateOrderForm';
 import { EditOrderForm } from '@/components/orders/EditOrderForm';
+import { ImportOrdersDialog } from '@/components/orders/ImportOrdersDialog';
 import Link from 'next/link';
 
 import { Button } from "@/components/ui/button";
@@ -63,7 +64,8 @@ const getChineseStatus = (status: string): string => {
     'shipped': '已出貨', 
     'delivered': '已到貨',
     'completed': '完成',
-    'cancelled': '已取消'
+    'cancelled': '已取消',
+    'returned': '已退貨'
   };
   return statusMap[status] || status;
 };
@@ -286,7 +288,8 @@ function OrderDetailsDialog({ order }: { order: Order }) {
                     order.status === 'delivered' ? 'default' :
                       order.status === 'shipped' ? 'default' :
                         order.status === 'cancelled' ? 'destructive' :
-                          'secondary'
+                          order.status === 'returned' ? 'destructive' :
+                            'secondary'
                 }
                 className={
                   order.status === 'completed' ? 'bg-green-600 text-white border-green-700' :
@@ -294,7 +297,8 @@ function OrderDetailsDialog({ order }: { order: Order }) {
                       order.status === 'pending' ? 'bg-yellow-400 text-yellow-900 border-yellow-500' :
                         order.status === 'processing' ? 'bg-blue-400 text-blue-900 border-blue-500' :
                           order.status === 'shipped' ? 'bg-purple-500 text-white border-purple-600' :
-                            order.status === 'cancelled' ? 'bg-red-500 text-white border-red-600' : ''
+                            order.status === 'cancelled' ? 'bg-red-500 text-white border-red-600' :
+                              order.status === 'returned' ? 'bg-gray-500 text-white border-gray-600' : ''
                 }
               >
                 {getChineseStatus(order.status)}
@@ -710,6 +714,9 @@ export default function OrdersPage() {
         </h1>
         <div className="flex items-center gap-2">
           {user?.role === 'admin' && (
+            <ImportOrdersDialog onOrdersImported={handleOrderCreatedOrUpdated} />
+          )}
+          {user?.role === 'admin' && (
             <Button 
               variant="outline" 
               onClick={() => router.push('/admin/deleted-orders')}
@@ -915,7 +922,8 @@ export default function OrdersPage() {
                                   order.status === 'delivered' ? 'default' :
                                     order.status === 'shipped' ? 'default' :
                                       order.status === 'cancelled' ? 'destructive' :
-                                        'secondary'
+                                        order.status === 'returned' ? 'destructive' :
+                                          'secondary'
                               }
                               className={
                                 order.status === 'completed' ? 'bg-green-600 text-white border-green-700' :
@@ -923,7 +931,8 @@ export default function OrdersPage() {
                                     order.status === 'pending' ? 'bg-yellow-400 text-yellow-900 border-yellow-500' :
                                       order.status === 'processing' ? 'bg-blue-400 text-blue-900 border-blue-500' :
                                         order.status === 'shipped' ? 'bg-purple-500 text-white border-purple-600' :
-                                          order.status === 'cancelled' ? 'bg-red-500 text-white border-red-600' : ''
+                                          order.status === 'cancelled' ? 'bg-red-500 text-white border-red-600' :
+                                            order.status === 'returned' ? 'bg-gray-500 text-white border-gray-600' : ''
                               }
                             >
                               {getChineseStatus(order.status)}

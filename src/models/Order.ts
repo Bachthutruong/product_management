@@ -15,7 +15,7 @@ export const OrderLineItemSchema = z.object({
   productName: z.string(), 
   productSku: z.string().optional(), 
   quantity: z.coerce.number().int().min(1, "數量必須至少為 1"),
-  unitPrice: z.coerce.number().min(0), 
+  unitPrice: z.coerce.number(), // Allow negative prices for discounts/coupons
   cost: z.coerce.number().min(0).optional().default(0), 
   notes: z.string().optional().nullable(),
   batchesUsed: z.array(OrderBatchUsageSchema).optional().default([]),
@@ -25,7 +25,7 @@ export type OrderLineItem = z.infer<typeof OrderLineItemSchema>;
 export const DiscountTypeSchema = z.enum(['percentage', 'fixed']);
 export type DiscountType = z.infer<typeof DiscountTypeSchema>;
 
-export const OrderStatusSchema = z.enum(['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'completed']);
+export const OrderStatusSchema = z.enum(['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'completed', 'returned']);
 export type OrderStatus = z.infer<typeof OrderStatusSchema>;
 
 export const OrderSchema = z.object({

@@ -25,6 +25,11 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { formatToYYYYMMDDWithTime } from '@/lib/date-utils';
 import { formatCurrency } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowRight } from "lucide-react";
+
+const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+const DEFAULT_ITEMS_PER_PAGE = ITEMS_PER_PAGE_OPTIONS[0];
 
 export default function CustomerOrdersPage() {
   const { user, loading: authLoading } = useAuth();
@@ -35,6 +40,11 @@ export default function CustomerOrdersPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
 
   const fetchCustomerDetailsAndOrders = useCallback(async () => {
     if (!customerId) {
@@ -43,13 +53,13 @@ export default function CustomerOrdersPage() {
       return;
     }
     
-    console.log('[CustomerOrdersPage] Fetching data for customerId:', customerId);
+    console.log(`[CustomerOrdersPage] Fetching data for customerId: ${customerId}, page: ${currentPage}, limit: ${itemsPerPage}`);
     setIsLoading(true);
     
     try {
       const [fetchedCustomer, fetchedOrdersResult] = await Promise.all([
         getCustomerById(customerId),
-        getOrders({ customerId: customerId })
+        getOrders({ customerId: customerId, page: currentPage, limit: itemsPerPage })
       ]);
 
       console.log('[CustomerOrdersPage] Fetched customer:', fetchedCustomer);
@@ -60,14 +70,12 @@ export default function CustomerOrdersPage() {
       }
       setCustomer(fetchedCustomer);
       
-      // getOrders returns an object with orders array, not direct array
       if (fetchedOrdersResult && Array.isArray(fetchedOrdersResult.orders)) {
         console.log('[CustomerOrdersPage] Setting orders:', fetchedOrdersResult.orders.length, 'orders found');
         setOrders(fetchedOrdersResult.orders);
-      } else if (Array.isArray(fetchedOrdersResult)) {
-        // Fallback if it's a direct array (old API)
-        console.log('[CustomerOrdersPage] Setting orders (direct array):', fetchedOrdersResult.length, 'orders found');
-        setOrders(fetchedOrdersResult as Order[]);
+        setCurrentPage(fetchedOrdersResult.currentPage);
+        setTotalPages(fetchedOrdersResult.totalPages);
+        setTotalOrders(fetchedOrdersResult.totalCount);
       } else {
         console.error("Fetched orders result is not in expected format:", fetchedOrdersResult);
         setOrders([]);
@@ -82,13 +90,13 @@ export default function CustomerOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [customerId, toast]);
+  }, [customerId, toast, currentPage, itemsPerPage]);
 
   useEffect(() => {
     if (!authLoading) {
       fetchCustomerDetailsAndOrders();
     }
-  }, [authLoading, fetchCustomerDetailsAndOrders]);
+  }, [authLoading, currentPage, itemsPerPage]);
 
   if (authLoading || isLoading) {
     return (
@@ -111,6 +119,17 @@ export default function CustomerOrdersPage() {
     );
   }
 
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  const handleItemsPerPageChange = (newSize: string) => {
+    setItemsPerPage(parseInt(newSize, 10));
+    setCurrentPage(1); // Reset to first page when changing page size
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -131,7 +150,10 @@ export default function CustomerOrdersPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>訂單歷史</CardTitle>
-          <CardDescription>所有由 {customer.name} 下的訂單。</CardDescription>
+          <CardDescription>
+            所有由 {customer.name} 下的訂單。
+            {isLoading && totalOrders === 0 ? " 載入中..." : ` 共找到 ${totalOrders} 筆訂單。`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {orders.length === 0 ? (
@@ -190,6 +212,48 @@ export default function CustomerOrdersPage() {
           )}
         </CardContent>
       </Card>
+      
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">每頁顯示:</span>
+            <Select
+              value={itemsPerPage.toString()}
+              onValueChange={handleItemsPerPageChange}
+            >
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue placeholder={itemsPerPage} />
+              </SelectTrigger>
+              <SelectContent>
+                {ITEMS_PER_PAGE_OPTIONS.map(size => (
+                  <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <span className="text-sm text-muted-foreground">
+            第 {currentPage} 頁，共 {totalPages} 頁
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1 || isLoading}
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" /> 上一頁
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages || isLoading}
+            >
+              下一頁 <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

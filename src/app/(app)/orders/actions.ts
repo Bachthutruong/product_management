@@ -8,7 +8,7 @@ import { OrderSchema, type Order, type CreateOrderInput, CreateOrderInputSchema,
 import type { Product } from '@/models/Product';
 import { InventoryMovementSchema, type InventoryMovement } from '@/models/InventoryMovement';
 import type { AuthUser } from '@/models/User';
-import { getProductById, updateProductStockWithBatches } from '@/app/(app)/products/actions';
+import { getProductById, updateProductStockWithBatches, createProductDuringImport } from '@/app/(app)/products/actions';
 
 const DB_NAME = process.env.MONGODB_DB_NAME || 'stockpilot';
 const ORDERS_COLLECTION = 'orders';
@@ -917,5 +917,280 @@ export async function getDeletedOrders(filters: {
     console.error('Failed to fetch deleted orders:', error);
     return { orders: [], totalCount: 0, totalPages: 0, currentPage: 1 };
   }
+}
+
+/**
+ * Imports orders from structured data, typically from two separate files:
+ * one for order headers and one for order line items.
+ * @param ordersData Array of order header information.
+ * @param itemsData Array of order line item information.
+ * @returns An object with the import results.
+ */
+export async function importOrders(
+  ordersData: Array<{
+    'ma don hang'?: string;
+    'ngay tao don hang'?: string | number;
+    'ma khach hang'?: string;
+    'tong tien don hang'?: number;
+    'note don hang'?: string;
+  }>,
+  itemsData: Array<{
+    'ma don hang'?: string;
+    'ma san pham'?: string;
+    'so luong'?: number;
+    'don gia'?: number;
+    'thanh tien'?: number;
+  }>,
+  userId: string,
+  userName: string,
+): Promise<{ 
+  success: boolean;
+  imported: number;
+  failed: number;
+  errors: string[];
+}> {
+
+  const db = await getDb();
+  let imported = 0;
+  let failed = 0;
+  const errors: string[] = [];
+  
+  // 1. Pre-fetch and map existing data for efficiency
+  const customers = await db.collection('customers').find({}, { projection: { _id: 1, customerCode: 1, name: 1 } }).toArray();
+  const customerMap = new Map(customers.map(c => [c.customerCode, { id: c._id.toString(), name: c.name }]));
+  
+  const products = await db.collection('products').find({}, { projection: { _id: 1, sku: 1, name: 1, costPrice: 1 } }).toArray();
+  const productMap = new Map(products.map(p => [p.sku, { id: p._id.toString(), name: p.name, cost: p.costPrice || 0 }]));
+  
+  const existingOrders = await db.collection('orders').find({}, { projection: { orderNumber: 1 } }).toArray();
+  const existingOrderNumbers = new Set(existingOrders.map(o => o.orderNumber));
+
+  // 2. Group items by order number for easy lookup
+  const itemsByOrder = new Map<string, any[]>();
+  for (const item of itemsData) {
+    const orderNumber = item['ma don hang']?.trim();
+    if (orderNumber) {
+      if (!itemsByOrder.has(orderNumber)) {
+        itemsByOrder.set(orderNumber, []);
+      }
+      itemsByOrder.get(orderNumber)!.push(item);
+    }
+  }
+
+  // 3. Process each order from the main orders file
+  for (let i = 0; i < ordersData.length; i++) {
+    const orderRow = ordersData[i];
+    const rowNumber = i + 2;
+    const orderNumber = orderRow['ma don hang']?.trim();
+
+    // Skip return orders (identified by '退' prefix)
+    if (orderNumber && orderNumber.startsWith('退')) {
+        try {
+            const returnedTotal = Number(orderRow['tong tien don hang']) || 0;
+            const orderDateExcel = orderRow['ngay tao don hang'];
+            let orderDate;
+            if(typeof orderDateExcel === 'number' && orderDateExcel > 1) {
+                orderDate = new Date(Date.UTC(1899, 11, 30 + orderDateExcel));
+            } else if (typeof orderDateExcel === 'string') {
+                orderDate = new Date(orderDateExcel);
+            } else {
+                orderDate = new Date();
+            }
+
+            const customer = customerMap.get(orderRow['ma khach hang']?.trim());
+            if (!customer) {
+                throw new Error(`找不到客戶代碼 ${orderRow['ma khach hang']}`);
+            }
+
+            const returnOrder: Omit<Order, '_id'> = {
+                orderNumber: orderNumber,
+                customerId: customer.id,
+                customerName: customer.name,
+                items: [{
+                    productId: 'RETURN_PLACEHOLDER',
+                    productName: '退貨商品',
+                    quantity: 1,
+                    unitPrice: returnedTotal,
+                    cost: 0,
+                    batchesUsed: [],
+                }],
+                subtotal: returnedTotal,
+                totalAmount: returnedTotal,
+                status: 'returned',
+                orderDate: orderDate,
+                notes: orderRow['note don hang']?.trim() || '退貨訂單',
+                createdByUserId: userId,
+                createdByName: userName,
+                isDeleted: false,
+                // Add missing fields with default values
+                discountAmount: 0,
+                shippingFee: 0,
+                discountType: null,
+                discountValue: null,
+                costOfGoodsSold: 0,
+                profit: returnedTotal, // Profit on returns is typically negative
+            };
+            
+            // We don't need to validate with the full schema here, as some fields are intentionally simplified
+            await db.collection('orders').insertOne(returnOrder);
+            imported++;
+
+        } catch (error) {
+            errors.push(`第 ${rowNumber} 行 (${orderNumber}) 處理失敗: ${error instanceof Error ? error.message : '未知錯誤'}`);
+            failed++;
+        }
+        continue;
+    }
+
+    // Basic validation
+    if (!orderNumber) {
+      errors.push(`第 ${rowNumber} 行：訂單號碼不能為空`);
+      failed++;
+      continue;
+    }
+    if (existingOrderNumbers.has(orderNumber)) {
+        errors.push(`第 ${rowNumber} 行：訂單號碼 ${orderNumber} 已存在`);
+        failed++;
+        continue;
+    }
+    const customerCode = orderRow['ma khach hang']?.trim();
+    if (!customerCode) {
+        errors.push(`第 ${rowNumber} 行 (${orderNumber})：客戶代碼不能為空`);
+        failed++;
+        continue;
+    }
+    const customer = customerMap.get(customerCode);
+    if (!customer) {
+        errors.push(`第 ${rowNumber} 行 (${orderNumber})：找不到客戶代碼 ${customerCode}`);
+        failed++;
+        continue;
+    }
+    const orderItems = itemsByOrder.get(orderNumber);
+    if (!orderItems || orderItems.length === 0) {
+      errors.push(`第 ${rowNumber} 行 (${orderNumber})：在詳情檔案中找不到此訂單的商品`);
+      failed++;
+      continue;
+    }
+
+    try {
+      // Build order items
+      const processedItems: OrderLineItem[] = [];
+      let calculatedSubtotal = 0;
+
+      for (const itemRow of orderItems) {
+        const productSku = itemRow['ma san pham']?.trim();
+        if (!productSku) {
+          throw new Error(`ma san pham is missing in items file for order ${orderNumber}`);
+        }
+        
+        let product = productMap.get(productSku);
+
+        if (!product) {
+          const productName = itemRow['ten san pham']?.trim();
+          if (!productName) {
+            throw new Error(`ten san pham is missing for new product with SKU ${productSku}`);
+          }
+
+          const newProduct = await createProductDuringImport({
+              name: productName,
+              sku: productSku,
+              // Ensure the base price of the product is always non-negative
+              price: Math.max(0, Number(itemRow['don gia']) || 0),
+              stock: Number(itemRow['so luong']) || 0,
+          }, userId);
+
+          if (!newProduct) {
+              throw new Error(`Could not auto-create product with SKU ${productSku}`);
+          }
+          
+          const newProductForMap = {
+              id: newProduct._id,
+              name: newProduct.name,
+              cost: newProduct.cost || 0
+          };
+          productMap.set(productSku, newProductForMap);
+          product = newProductForMap;
+        }
+        
+        const quantity = Number(itemRow['so luong']);
+        const unitPrice = Number(itemRow['don gia']);
+        
+        if (isNaN(quantity) || quantity <= 0) throw new Error(`商品 ${product.name} 的數量無效`);
+        if (isNaN(unitPrice)) throw new Error(`商品 ${product.name} 的單價無效`);
+        
+        const lineItem: OrderLineItem = {
+          productId: product.id,
+          productName: product.name,
+          productSku: productSku,
+          quantity: quantity,
+          unitPrice: unitPrice,
+          cost: product.cost,
+          notes: null,
+          batchesUsed: [], // Assume no specific batch for imported orders
+        };
+        processedItems.push(lineItem);
+        calculatedSubtotal += quantity * unitPrice;
+      }
+
+      // Final order object
+      const finalTotal = Number(orderRow['tong tien don hang']) || calculatedSubtotal;
+      const discountAmount = Math.max(0, calculatedSubtotal - finalTotal);
+      
+      const orderDateExcel = orderRow['ngay tao don hang'];
+      let orderDate;
+      if(typeof orderDateExcel === 'number' && orderDateExcel > 1) {
+         // Excel date serial number (Windows)
+         orderDate = new Date(Date.UTC(1899, 11, 30 + orderDateExcel));
+      } else if (typeof orderDateExcel === 'string') {
+          orderDate = new Date(orderDateExcel);
+      } else {
+          orderDate = new Date(); // Fallback
+      }
+
+      const newOrder: Omit<Order, '_id'> = {
+        orderNumber: orderNumber,
+        customerId: customer.id,
+        customerName: customer.name,
+        items: processedItems,
+        subtotal: calculatedSubtotal,
+        totalAmount: finalTotal,
+        discountAmount: discountAmount,
+        discountType: discountAmount > 0 ? 'fixed' : null,
+        discountValue: discountAmount > 0 ? discountAmount : null,
+        shippingFee: 0,
+        status: 'completed', // Assume imported orders are completed
+        orderDate: orderDate,
+        notes: orderRow['note don hang']?.trim() || null,
+        createdByUserId: userId,
+        createdByName: userName,
+        isDeleted: false,
+      };
+
+      const validation = OrderSchema.omit({ _id: true, profit: true, costOfGoodsSold: true }).safeParse(newOrder);
+      if(!validation.success) {
+          const errorMessages = validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
+          throw new Error(`數據驗證失敗: ${errorMessages}`);
+      }
+
+      await db.collection('orders').insertOne(validation.data);
+      imported++;
+      existingOrderNumbers.add(orderNumber);
+
+    } catch (error) {
+      errors.push(`第 ${rowNumber} 行 (${orderNumber}) 處理失敗: ${error instanceof Error ? error.message : '未知錯誤'}`);
+      failed++;
+    }
+  }
+
+  if(imported > 0) {
+      revalidatePath('/orders');
+  }
+
+  return {
+    success: imported > 0 && failed === 0,
+    imported,
+    failed,
+    errors,
+  };
 }
 

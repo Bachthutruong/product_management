@@ -15,27 +15,46 @@ async function getDb() {
   return client.db(DB_NAME);
 }
 
-export async function getCustomers(searchTerm?: string): Promise<Customer[]> {
+export async function getCustomers(params: {
+  page?: number;
+  limit?: number;
+  searchTerm?: string;
+  categoryId?: string;
+} = {}): Promise<{ customers: Customer[], totalCount: number, totalPages: number }> {
+  const { page = 1, limit = 10, searchTerm, categoryId } = params;
   try {
     const db = await getDb();
     const query: any = {};
+
     if (searchTerm) {
+      const searchRegex = { $regex: searchTerm, $options: 'i' };
       query.$or = [
-        { name: { $regex: searchTerm, $options: 'i' } },
-        { email: { $regex: searchTerm, $options: 'i' } },
-        { phone: { $regex: searchTerm, $options: 'i' } },
+        { name: searchRegex },
+        { email: searchRegex },
+        { phone: searchRegex },
+        { customerCode: searchRegex },
+        { notes: searchRegex },
+        { address: searchRegex },
       ];
     }
+    if (categoryId && categoryId !== 'all') {
+        query.categoryId = categoryId;
+    }
+
+    const totalCount = await db.collection(CUSTOMERS_COLLECTION).countDocuments(query);
+    const totalPages = Math.ceil(totalCount / limit);
+
     const customersFromDb = await db.collection(CUSTOMERS_COLLECTION)
       .find(query)
-      .sort({ createdAt: -1 })
+      // .sort({ createdAt: -1 }) // Removed sorting to keep insertion order
+      .skip((page - 1) * limit)
+      .limit(limit)
       .toArray();
     
     const validCustomers: Customer[] = [];
     
     for (const customerDoc of customersFromDb) {
       try {
-        // Prepare the customer data
         const customerData = {
           ...customerDoc,
           _id: customerDoc._id.toString(),
@@ -43,69 +62,22 @@ export async function getCustomers(searchTerm?: string): Promise<Customer[]> {
           updatedAt: customerDoc.updatedAt ? new Date(customerDoc.updatedAt) : undefined,
         };
         
-        // Use safeParse to avoid throwing errors
         const parseResult = CustomerSchema.safeParse(customerData);
         
         if (parseResult.success) {
           validCustomers.push(parseResult.data as Customer);
         } else {
           console.warn(`Skipping invalid customer with ID ${customerDoc._id}:`, parseResult.error.errors);
-          
-          // Try to fix missing categoryId
-          if (!customerDoc.categoryId) {
-            try {
-              // Get the first available customer category as default
-              const defaultCategory = await db.collection('customer_categories')
-                .findOne({ isActive: true }, { sort: { createdAt: 1 } });
-              
-              if (defaultCategory) {
-                const defaultCategoryId = defaultCategory._id.toString();
-                const defaultCategoryName = defaultCategory.name;
-                
-                // Update the customer in database with default category
-                await db.collection(CUSTOMERS_COLLECTION).updateOne(
-                  { _id: customerDoc._id },
-                  { 
-                    $set: { 
-                      categoryId: defaultCategoryId,
-                      categoryName: defaultCategoryName,
-                      updatedAt: new Date() 
-                    } 
-                  }
-                );
-                
-                console.log(`Added default category "${defaultCategoryName}" (${defaultCategoryId}) to customer ID ${customerDoc._id}`);
-                
-                // Try parsing again with fixed data
-                const fixedCustomerData = {
-                  ...customerData,
-                  categoryId: defaultCategoryId,
-                  categoryName: defaultCategoryName,
-                };
-                
-                const fixedParseResult = CustomerSchema.safeParse(fixedCustomerData);
-                if (fixedParseResult.success) {
-                  validCustomers.push(fixedParseResult.data as Customer);
-                } else {
-                  console.error(`Still invalid after fixing categoryId for customer ID ${customerDoc._id}:`, fixedParseResult.error.errors);
-                }
-              } else {
-                console.error(`No default category found for customer ID ${customerDoc._id}`);
-              }
-            } catch (fixError) {
-              console.error(`Failed to fix categoryId for customer ID ${customerDoc._id}:`, fixError);
-            }
-          }
         }
       } catch (error) {
         console.error(`Error processing customer with ID ${customerDoc._id}:`, error);
       }
     }
     
-    return validCustomers;
+    return { customers: validCustomers, totalCount, totalPages };
   } catch (error) {
     console.error('Failed to fetch customers:', error);
-    return [];
+    return { customers: [], totalCount: 0, totalPages: 0 };
   }
 }
 
@@ -266,6 +238,171 @@ export async function updateCustomer(
   }
 }
 
+// Bulk import customers from CSV/Excel data
+export async function importCustomers(
+  customersData: Array<{
+    name: string;
+    customerCode?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    categoryName?: string;
+    notes?: string;
+  }>,
+  options: {
+    skipDuplicates: boolean;
+    updateExisting: boolean;
+  } = { skipDuplicates: true, updateExisting: false }
+): Promise<{ 
+  success: boolean; 
+  imported: number; 
+  failed: number; 
+  errors: string[];
+  duplicates: number;
+  updated: number;
+}> {
+  try {
+    const db = await getDb();
+    
+    // Helper function to process field values, treating "N/A" as null
+    const processFieldValue = (value?: string): string | null => {
+      if (!value) return null;
+      const trimmed = value.trim();
+      return (trimmed === '' || trimmed.toUpperCase() === 'N/A') ? null : trimmed;
+    };
+
+    // Get all customer categories for mapping
+    const categories = await db.collection('customer_categories').find({ isActive: true }).toArray();
+    const categoryMap = new Map<string, { id: string; name: string }>();
+    categories.forEach(cat => {
+      categoryMap.set(cat.name.toLowerCase(), { id: cat._id.toString(), name: cat.name });
+      if (cat.code) {
+        categoryMap.set(cat.code.toLowerCase(), { id: cat._id.toString(), name: cat.name });
+      }
+    });
+    
+    const defaultCategory = categories[0];
+    if (!defaultCategory) {
+      return { success: false, imported: 0, failed: customersData.length, errors: ['沒有找到可用的客戶分類。請先創建至少一個客戶分類。'], duplicates: 0, updated: 0 };
+    }
+    
+    let imported = 0, failed = 0, duplicates = 0, updated = 0;
+    const errors: string[] = [];
+    
+    // Get all existing customers to check for duplicates
+    const existingCustomers = await db.collection(CUSTOMERS_COLLECTION).find({}).toArray();
+    const existingCustomerMap = new Map(existingCustomers.map(c => [c.name.toLowerCase(), c]));
+
+    for (let i = 0; i < customersData.length; i++) {
+      const row = customersData[i];
+      const rowNumber = i + 2;
+
+      try {
+        if (!row.name || row.name.trim() === '') {
+          errors.push(`第 ${rowNumber} 行：客戶名稱不能為空`);
+          failed++;
+          continue;
+        }
+
+        const cleanRow = {
+          name: processFieldValue(row.name),
+          customerCode: processFieldValue(row.customerCode),
+          email: processFieldValue(row.email),
+          phone: processFieldValue(row.phone),
+          address: processFieldValue(row.address),
+          categoryName: processFieldValue(row.categoryName),
+          notes: processFieldValue(row.notes),
+        };
+
+        // Strict duplicate check: all fields must match
+        const findDuplicate = (existing: any) => {
+            return existing.name === cleanRow.name &&
+                   (existing.customerCode || null) === cleanRow.customerCode &&
+                   (existing.email || null) === cleanRow.email &&
+                   (existing.phone || null) === cleanRow.phone &&
+                   (existing.address || null) === cleanRow.address &&
+                   (existing.notes || null) === cleanRow.notes;
+        };
+
+        const existingCustomer = existingCustomers.find(findDuplicate);
+
+        // Determine category
+        let categoryId = defaultCategory._id.toString();
+        let categoryName = defaultCategory.name;
+        if (cleanRow.categoryName) {
+            const foundCategory = categoryMap.get(cleanRow.categoryName.toLowerCase());
+            if (foundCategory) {
+                categoryId = foundCategory.id;
+                categoryName = foundCategory.name;
+            }
+        }
+        
+        const customerPayload = {
+            name: cleanRow.name!,
+            customerCode: cleanRow.customerCode || undefined,
+            email: cleanRow.email || undefined,
+            phone: cleanRow.phone || undefined,
+            address: cleanRow.address || undefined,
+            notes: cleanRow.notes || undefined,
+            categoryId: categoryId,
+        };
+        // We don't pass categoryName to updateCustomer, it's derived there.
+
+        if (existingCustomer) {
+            if (options.updateExisting) {
+                const updateResult = await updateCustomer(existingCustomer._id.toString(), customerPayload);
+                if (updateResult.success) updated++;
+                else {
+                    failed++;
+                    errors.push(`第 ${rowNumber} 行：更新失敗 - ${updateResult.error}`);
+                }
+            } else {
+                duplicates++;
+                errors.push(`第 ${rowNumber} 行：客戶資料完全重複 (${row.name})`);
+            }
+            continue;
+        }
+
+        // Validate with schema before inserting new customer
+        const validation = CreateCustomerInputSchema.safeParse(customerPayload);
+        if (!validation.success) {
+            const errorMessages = validation.error.errors.map(e => e.message).join(', ');
+            errors.push(`第 ${rowNumber} 行：驗證失敗 - ${errorMessages}`);
+            failed++;
+            continue;
+        }
+        
+        const finalPayload = {
+            ...customerPayload,
+            categoryName: categoryName, // Add categoryName for insert
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        // Insert new customer
+        await db.collection(CUSTOMERS_COLLECTION).insertOne(finalPayload);
+        imported++;
+        
+      } catch (error) {
+        console.error(`Error importing customer at row ${rowNumber}:`, error);
+        errors.push(`第 ${rowNumber} 行：處理錯誤 - ${error instanceof Error ? error.message : '未知錯誤'}`);
+        failed++;
+      }
+    }
+    
+    if (imported > 0 || updated > 0) {
+      revalidatePath('/customers');
+      revalidatePath('/orders');
+    }
+    
+    return { success: (imported + updated) > 0, imported, failed, errors, duplicates, updated };
+    
+  } catch (error) {
+    console.error('Failed to import customers:', error);
+    return { success: false, imported: 0, failed: customersData.length, errors: ['導入過程中發生意外錯誤'], duplicates: 0, updated: 0 };
+  }
+}
+
 export async function getCustomerById(id: string): Promise<Customer | null> {
   if (!ObjectId.isValid(id)) {
     console.error('Invalid customer ID format for getCustomerById:', id);
@@ -292,53 +429,6 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
       return parseResult.data as Customer;
     } else {
       console.warn(`Invalid customer with ID ${id}:`, parseResult.error.errors);
-      
-      // Try to fix missing categoryId
-      if (!customerDoc.categoryId) {
-        try {
-          // Get the first available customer category as default
-          const defaultCategory = await db.collection('customer_categories')
-            .findOne({ isActive: true }, { sort: { createdAt: 1 } });
-          
-          if (defaultCategory) {
-            const defaultCategoryId = defaultCategory._id.toString();
-            const defaultCategoryName = defaultCategory.name;
-            
-            // Update the customer in database with default category
-            await db.collection(CUSTOMERS_COLLECTION).updateOne(
-              { _id: customerDoc._id },
-              { 
-                $set: { 
-                  categoryId: defaultCategoryId,
-                  categoryName: defaultCategoryName,
-                  updatedAt: new Date() 
-                } 
-              }
-            );
-            
-            console.log(`Added default category "${defaultCategoryName}" (${defaultCategoryId}) to customer ID ${id}`);
-            
-            // Try parsing again with fixed data
-            const fixedCustomerData = {
-              ...customerData,
-              categoryId: defaultCategoryId,
-              categoryName: defaultCategoryName,
-            };
-            
-            const fixedParseResult = CustomerSchema.safeParse(fixedCustomerData);
-            if (fixedParseResult.success) {
-              return fixedParseResult.data as Customer;
-            } else {
-              console.error(`Still invalid after fixing categoryId for customer ID ${id}:`, fixedParseResult.error.errors);
-            }
-          } else {
-            console.error(`No default category found for customer ID ${id}`);
-          }
-        } catch (fixError) {
-          console.error(`Failed to fix categoryId for customer ID ${id}:`, fixError);
-        }
-      }
-      
       return null;
     }
   } catch (error) {

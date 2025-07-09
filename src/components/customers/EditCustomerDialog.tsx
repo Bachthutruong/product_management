@@ -48,6 +48,8 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
       email: '',
       phone: '',
       address: '',
+      customerCode: '',
+      notes: '',
       categoryId: '',
     },
   });
@@ -82,10 +84,12 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
         email: customer.email || '',
         phone: customer.phone || '',
         address: customer.address || '',
+        customerCode: (customer as any).customerCode || '',
+        notes: (customer as any).notes || '',
         categoryId: customer.categoryId || '',
       });
     } else {
-      form.reset({ name: '', email: '', phone: '', address: '', categoryId: '' });
+      form.reset({ name: '', email: '', phone: '', address: '', customerCode: '', notes: '', categoryId: '' });
     }
   }, [customer, form, isOpen]); // Reset form when customer or isOpen changes
 
@@ -187,6 +191,19 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
             />
             <FormField
               control={form.control}
+              name="customerCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>客戶編號 (選填)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="A0001" {...field} disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="email"
               render={({ field }) => (
                 <FormItem>
@@ -219,6 +236,19 @@ export function EditCustomerDialog({ customer, isOpen, onOpenChange, onCustomerU
                   <FormLabel>地址 (選填)</FormLabel>
                   <FormControl>
                     <Textarea placeholder="台灣台北市信義區市府路1號" {...field} disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>備註 (選填)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="關於此客戶的額外資訊..." {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
